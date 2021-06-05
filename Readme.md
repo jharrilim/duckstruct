@@ -1,14 +1,6 @@
-# Grammar
+# Duckstruct
 
-```
-function = 'f'
-identifier = /(\w|\d)+/
-function-name = <identifier>
-method-invocation = '.'<identifier>
-return = 'return'
-```
-
-# Functions
+## Functions
 
 ```
 f bark(animal) {
@@ -21,13 +13,13 @@ Gather the following information on initial analysis:
 - argument list, assign algebraic types
 - gather method invocations on arguments, assign duck constraints
 
-## Motivation
+### Motivation
 
 - Assigning algebraic types moves the determinacy of the function call's signature to the caller
 
-## Example
+### Example
 
-### Step 1: Assign algebraic type
+#### Step 1: Assign algebraic type
 
 At this stage, we just want to say an animal is any type of `'a`.
 
@@ -47,7 +39,7 @@ f barkers(animal1: 'a, animal2: 'b) {
 }
 ```
 
-### Step 2: Assign duck constraints
+#### Step 2: Assign duck constraints
 
 If a method is called on an argument, the argument must be constrained to the method signature which is called on it.
 
@@ -69,7 +61,7 @@ f bark(animal: 'a where { bark() -> 'bark }) -> 'bark {
 }
 ```
 
-### Valid barking
+#### Valid barking
 
 ```
 class Dog {
