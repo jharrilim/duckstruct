@@ -1,0 +1,26 @@
+class Printer {
+  text = "";
+
+  write(s = this.text) {
+    console.log(s)
+  }
+}
+
+class Story {
+  private static story = "a story";
+  header = "This is {.story} all about how,";
+  body() => "my life got flipped, turned upside down";
+
+  read() {
+    let p = Printer {
+      text: header + " " + body(),
+    };
+    p.write()
+  }
+}
+
+f main() {
+  let p = Printer { };
+  p.write("Hello world");
+  Story { }.read();
+}
