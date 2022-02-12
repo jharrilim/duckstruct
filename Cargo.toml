@@ -6,6 +6,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+ctrlc = "3.2.1"
 logos = "0.12.0"
 project-root = "0.2.2"
 rowan = "0.12.6"

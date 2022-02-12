@@ -11,6 +11,12 @@ fn main() -> io::Result<()> {
 
     let mut input = String::new();
 
+    ctrlc::set_handler(move || {
+        println!("received Ctrl+C!");
+        std::process::exit(0)
+    })
+    .expect("Error setting Ctrl-C handler");
+
     loop {
         write!(stdout, "→ ")?;
         stdout.flush()?;

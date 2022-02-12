@@ -21,9 +21,14 @@ impl<'a> Parser<'a> {
     pub(crate) fn parse(mut self) -> Parse {
         self.start_node(Token::Root);
 
-        match self.peek() {
-            _ => {
-                self.bump();
+        loop {
+            match self.peek() {
+                None => {
+                    break
+                },
+                _ => {
+                    self.bump();
+                }
             }
         }
 
