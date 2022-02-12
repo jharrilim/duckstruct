@@ -1,9 +1,25 @@
 use crate::{
-    lexer::{token::Token, Lexer},
+    lexer::{token::SyntaxKind, Lexer, Op},
     syntax::{Duckstruct, SyntaxNode},
 };
 use rowan::{GreenNode, GreenNodeBuilder, Language};
 use std::iter::Peekable;
+
+pub(super) fn expr(p: &mut Parser) {
+    match p.peek() {
+        Some(SyntaxKind::Number) | Some(SyntaxKind::Identifier) => p.bump(),
+        _ => {}
+    }
+
+    let op = match p.peek() {
+        Some(SyntaxKind::Plus) => Op::Add,
+        Some(SyntaxKind::Minus) => Op::Sub,
+        Some(SyntaxKind::Asterisk) => Op::Mul,
+        Some(SyntaxKind::ForwardSlash) => Op::Div,
+        _ => return, // we’ll handle errors later.
+    };
+    p.bump();
+}
 
 pub struct Parser<'a> {
     lexer: Peekable<Lexer<'a>>,
@@ -19,7 +35,7 @@ impl<'a> Parser<'a> {
     }
 
     pub(crate) fn parse(mut self) -> Parse {
-        self.start_node(Token::Root);
+        self.start_node(SyntaxKind::Root);
 
         loop {
             match self.peek() {
@@ -39,7 +55,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn start_node(&mut self, kind: Token) {
+    fn start_node(&mut self, kind: SyntaxKind) {
         self.builder.start_node(Duckstruct::kind_to_raw(kind));
     }
 
@@ -47,7 +63,7 @@ impl<'a> Parser<'a> {
         self.builder.finish_node();
     }
 
-    fn peek(&mut self) -> Option<Token> {
+    fn peek(&mut self) -> Option<SyntaxKind> {
         self.lexer.peek().map(|(kind, _)| *kind)
     }
 
@@ -93,6 +109,16 @@ mod tests {
         assert_eq!(
             format!("{:#?}", SyntaxNode::new_root(parse.green_node)),
             "Root@0..0\n",
+        );
+    }
+
+    #[test]
+    fn parse_number() {
+        check(
+            "123",
+            expect![[r#"
+Root@0..3
+  Number@0..3 "123""#]],
         );
     }
 }

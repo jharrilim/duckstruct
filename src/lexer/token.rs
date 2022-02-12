@@ -2,9 +2,12 @@ use logos::Logos;
 use num_derive::{FromPrimitive, ToPrimitive};
 
 #[derive(Logos, Debug, PartialEq, Clone, Copy, FromPrimitive, ToPrimitive)]
-pub enum Token {
+pub enum SyntaxKind {
     #[token("f")]
     Function,
+
+    #[token("let")]
+    Let,
 
     #[token("class")]
     Class,
@@ -87,12 +90,12 @@ mod tests {
         "#;
         let mut lex = Lexer::new(code);
 
-        assert_eq!(lex.next(), Some((Token::Function, "f")));
-        assert_eq!(lex.next(), Some((Token::Identifier, "bark")));
-        assert_eq!(lex.next(), Some((Token::LeftParenthesis, "(")));
-        assert_eq!(lex.next(), Some((Token::RightParenthesis, ")")));
-        assert_eq!(lex.next(), Some((Token::LeftBrace, "{")));
-        assert_eq!(lex.next(), Some((Token::RightBrace, "}")));
+        assert_eq!(lex.next(), Some((SyntaxKind::Function, "f")));
+        assert_eq!(lex.next(), Some((SyntaxKind::Identifier, "bark")));
+        assert_eq!(lex.next(), Some((SyntaxKind::LeftParenthesis, "(")));
+        assert_eq!(lex.next(), Some((SyntaxKind::RightParenthesis, ")")));
+        assert_eq!(lex.next(), Some((SyntaxKind::LeftBrace, "{")));
+        assert_eq!(lex.next(), Some((SyntaxKind::RightBrace, "}")));
     }
 
     #[test]
@@ -100,15 +103,15 @@ mod tests {
         let root = get_project_root().unwrap();
         let input_path = Path::new("goal/input.ds");
         let f = read_to_string(root.join(input_path).as_path()).unwrap();
-        let mut lex = Token::lexer(&f);
+        let mut lex = SyntaxKind::lexer(&f);
 
-        assert_eq!(lex.next(), Some(Token::Class));
-        assert_eq!(lex.next(), Some(Token::Identifier));
-        assert_eq!(lex.next(), Some(Token::LeftBrace));
-        assert_eq!(lex.next(), Some(Token::Identifier));
-        assert_eq!(lex.next(), Some(Token::Equals));
-        assert_eq!(lex.next(), Some(Token::String));
+        assert_eq!(lex.next(), Some(SyntaxKind::Class));
+        assert_eq!(lex.next(), Some(SyntaxKind::Identifier));
+        assert_eq!(lex.next(), Some(SyntaxKind::LeftBrace));
+        assert_eq!(lex.next(), Some(SyntaxKind::Identifier));
+        assert_eq!(lex.next(), Some(SyntaxKind::Equals));
+        assert_eq!(lex.next(), Some(SyntaxKind::String));
 
-        assert_eq!(lex.next(), Some(Token::Semicolon));
+        assert_eq!(lex.next(), Some(SyntaxKind::Semicolon));
     }
 }
