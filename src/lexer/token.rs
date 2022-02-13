@@ -70,6 +70,7 @@ pub enum SyntaxKind {
     Error,
 
     Root,
+    BinaryOperation,
 }
 
 #[cfg(test)]
