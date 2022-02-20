@@ -8,14 +8,14 @@ pub fn repl() -> io::Result<()> {
   let mut input = String::new();
 
   loop {
-      write!(stdout, "→ ")?;
-      stdout.flush()?;
+    write!(stdout, "→ ")?;
+    stdout.flush()?;
 
-      stdin.read_line(&mut input)?;
+    stdin.read_line(&mut input)?;
 
-      let parse = parse(&input);
-      println!("{}", parse.debug_tree());
+    let parse = parse(&input);
+    println!("{}", parse.debug_tree());
 
-      input.clear();
+    input.clear();
   }
 }

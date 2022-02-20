@@ -20,13 +20,13 @@ fn expr_binding_power(p: &mut Parser, minimum_binding_power: u8) {
       p.start_node_at(checkpoint, SyntaxKind::PrefixExpression);
       expr_binding_power(p, right_binding_power);
       p.finish_node();
-    },
+    }
     Some(SyntaxKind::LeftParenthesis) => {
       p.bump();
       expr_binding_power(p, 0);
       assert_eq!(p.peek(), Some(SyntaxKind::RightParenthesis));
       p.bump();
-    },
+    }
     _ => {}
   }
 
@@ -75,8 +75,8 @@ pub(crate) enum PrefixOp {
 
 impl PrefixOp {
   fn binding_power(&self) -> ((), u8) {
-      match self {
-          Self::Neg => ((), 5),
-      }
+    match self {
+      Self::Neg => ((), 5),
+    }
   }
 }
