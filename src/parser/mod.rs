@@ -1,71 +1,79 @@
+mod event;
 pub mod expressions;
+mod sink;
+mod source;
 
 use crate::{
-  lexer::{token::SyntaxKind, Lexer},
-  syntax::{Duckstruct, SyntaxNode},
+  lexer::{token::SyntaxKind, Lexer, Lexeme},
+  syntax::SyntaxNode,
 };
-use rowan::{Checkpoint, GreenNode, GreenNodeBuilder, Language};
-use std::iter::Peekable;
+use rowan::GreenNode;
+use sink::Sink;
 
-use self::expressions::expr;
+use self::{event::Event, expressions::expr, source::Source};
 
-pub struct Parser<'a> {
-  lexer: Peekable<Lexer<'a>>,
-  builder: GreenNodeBuilder<'static>,
+struct Parser<'l, 'input> {
+  source: Source<'l, 'input>,
+  events: Vec<Event>,
 }
 
-impl<'a> Parser<'a> {
-  pub(crate) fn new(input: &'a str) -> Self {
+impl<'l, 'input> Parser<'l, 'input> {
+  fn new(lexemes: &'l [Lexeme<'input>]) -> Self {
     Self {
-      lexer: Lexer::new(input).peekable(),
-      builder: GreenNodeBuilder::new(),
+      source: Source::new(lexemes),
+      events: Vec::new(),
     }
   }
 
-  pub(crate) fn parse(mut self) -> Parse {
+  fn parse(mut self) -> Vec<Event> {
     self.start_node(SyntaxKind::Root);
-
     expr(&mut self);
-
     self.finish_node();
 
-    Parse {
-      green_node: self.builder.finish(),
-    }
+    self.events
   }
 
   // Sets the starting point in our AST
   fn start_node(&mut self, kind: SyntaxKind) {
-    self.builder.start_node(Duckstruct::kind_to_raw(kind));
+    self.events.push(Event::StartNode { kind });
   }
 
   // Create a new branch in our AST
-  fn start_node_at(&mut self, checkpoint: Checkpoint, kind: SyntaxKind) {
-    self
-      .builder
-      .start_node_at(checkpoint, Duckstruct::kind_to_raw(kind));
+  fn start_node_at(&mut self, checkpoint: usize, kind: SyntaxKind) {
+    self.events.push(Event::StartNodeAt { kind, checkpoint });
   }
 
   // Sets the ending point in our AST
   fn finish_node(&mut self) {
-    self.builder.finish_node();
+    self.events.push(Event::FinishNode);
   }
 
-  // Take a look at the next token without consuming it
-  // or adding it to the AST
+  // Take a look at the next non-whitespace token
+  // without consuming it or adding it to the AST
   fn peek(&mut self) -> Option<SyntaxKind> {
-    self.lexer.peek().map(|(kind, _)| *kind)
+    self.source.peek_kind()
   }
 
   // Consume the current token and add it to the AST
   fn bump(&mut self) {
-    let (kind, text) = self.lexer.next().unwrap();
+    let Lexeme { kind, text } = self.source.next_lexeme().unwrap();
 
-    self.builder.token(Duckstruct::kind_to_raw(kind), text);
+    self.events.push(Event::AddToken { kind: *kind, text: (*text).to_string() });
   }
 
-  fn checkpoint(&self) -> Checkpoint {
-    self.builder.checkpoint()
+  fn checkpoint(&self) -> usize {
+    self.events.len()
+  }
+}
+
+pub(crate) fn parse(input: &str) -> Parse {
+  let lexemes: Vec<_> = Lexer::new(input).collect();
+  let parser = Parser::new(&lexemes);
+  let events = parser.parse();
+  let sink = Sink::new(&lexemes, events);
+
+  Parse {
+    green_node: sink.finish(),
   }
 }
 
@@ -89,7 +97,7 @@ mod tests {
   use expect_test::{expect, Expect};
 
   fn check(input: &str, expected_tree: Expect) {
-    let parse = Parser::new(input).parse();
+    let parse = parse(input);
     expected_tree.assert_eq(&parse.debug_tree());
   }
 
@@ -109,15 +117,107 @@ mod tests {
   }
 
   #[test]
+  fn parse_variable_ref() {
+    check(
+      "aVariableName",
+      expect![[r#"
+              Root@0..13
+                Identifier@0..13 "aVariableName""#]],
+    );
+  }
+
+  #[test]
   fn parse_simple_binary_expression() {
     check(
       "1+2",
       expect![[r#"
               Root@0..3
-                Number@0..1 "1"
-                Plus@1..2 "+"
-                BinaryOperation@2..3
+                BinaryExpression@0..3
+                  Number@0..1 "1"
+                  Plus@1..2 "+"
                   Number@2..3 "2""#]],
     );
+  }
+
+  #[test]
+  fn parse_negation() {
+    check(
+      "-10",
+      expect![[r#"
+              Root@0..3
+                PrefixExpression@0..3
+                  Minus@0..1 "-"
+                  Number@1..3 "10""#]],
+    );
+  }
+
+  #[test]
+  fn parse_nested_parentheses() {
+    check(
+      "((((10))))",
+      expect![[r#"
+              Root@0..10
+                LeftParenthesis@0..1 "("
+                LeftParenthesis@1..2 "("
+                LeftParenthesis@2..3 "("
+                LeftParenthesis@3..4 "("
+                Number@4..6 "10"
+                RightParenthesis@6..7 ")"
+                RightParenthesis@7..8 ")"
+                RightParenthesis@8..9 ")"
+                RightParenthesis@9..10 ")""#]],
+    );
+  }
+
+  #[test]
+  fn parentheses_affect_precedence() {
+    check(
+      "5*(2+1)",
+      expect![[r#"
+              Root@0..7
+                BinaryExpression@0..7
+                  Number@0..1 "5"
+                  Asterisk@1..2 "*"
+                  LeftParenthesis@2..3 "("
+                  BinaryExpression@3..6
+                    Number@3..4 "2"
+                    Plus@4..5 "+"
+                    Number@5..6 "1"
+                  RightParenthesis@6..7 ")""#]],
+    );
+  }
+
+  #[test]
+  fn parse_number_preceded_by_whitespace() {
+      check(
+          "   9876",
+          expect![[r#"
+              Root@0..7
+                Whitespace@0..3 "   "
+                Number@3..7 "9876""#]],
+      );
+  }
+
+  #[test]
+  fn parse_number_followed_by_whitespace() {
+      check(
+          "999   ",
+          expect![[r#"
+              Root@0..6
+                Number@0..3 "999"
+                Whitespace@3..6 "   ""#]],
+      );
+  }
+
+  #[test]
+  fn parse_number_surrounded_by_whitespace() {
+      check(
+          " 123     ",
+          expect![[r#"
+              Root@0..9
+                Whitespace@0..1 " "
+                Number@1..4 "123"
+                Whitespace@4..9 "     ""#]],
+      );
   }
 }

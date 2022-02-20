@@ -60,59 +60,122 @@ pub enum SyntaxKind {
   #[token(":")]
   Colon,
 
-  #[regex(r"[a-zA-Z_][a-zA-Z\d_]+")]
+  #[regex(r"[a-zA-Z_][a-zA-Z\d_]*")]
   Identifier,
 
-  #[regex(r"[\s]+", logos::skip)]
+  #[regex(r"[\s]+")]
   Whitespace,
+
+  #[regex("//.*")]
+  Comment,
 
   #[error]
   Error,
 
+  BinaryExpression,
+  PrefixExpression,
+
   Root,
-  BinaryOperation,
 }
 
 #[cfg(test)]
 mod tests {
   use crate::lexer::Lexer;
+  use crate::lexer::token::SyntaxKind;
+  use crate::lexer::Lexeme;
 
-  use super::*;
-  use project_root::get_project_root;
-  use std::fs::read_to_string;
-  use std::path::Path;
-
-  #[test]
-  fn lexes_function_definition() {
-    let code = r#"
-            f bark() {
-
-            }
-        "#;
-    let mut lex = Lexer::new(code);
-
-    assert_eq!(lex.next(), Some((SyntaxKind::Function, "f")));
-    assert_eq!(lex.next(), Some((SyntaxKind::Identifier, "bark")));
-    assert_eq!(lex.next(), Some((SyntaxKind::LeftParenthesis, "(")));
-    assert_eq!(lex.next(), Some((SyntaxKind::RightParenthesis, ")")));
-    assert_eq!(lex.next(), Some((SyntaxKind::LeftBrace, "{")));
-    assert_eq!(lex.next(), Some((SyntaxKind::RightBrace, "}")));
+  fn check(input: &str, kind: SyntaxKind) {
+      let mut lexer = Lexer::new(input);
+      assert_eq!(lexer.next(), Some(Lexeme { kind, text: input }));
   }
 
   #[test]
-  fn lexes_goal_input() {
-    let root = get_project_root().unwrap();
-    let input_path = Path::new("goal/input.ds");
-    let f = read_to_string(root.join(input_path).as_path()).unwrap();
-    let mut lex = SyntaxKind::lexer(&f);
+  fn lex_spaces_and_newlines() {
+      check("  \n ", SyntaxKind::Whitespace);
+  }
 
-    assert_eq!(lex.next(), Some(SyntaxKind::Class));
-    assert_eq!(lex.next(), Some(SyntaxKind::Identifier));
-    assert_eq!(lex.next(), Some(SyntaxKind::LeftBrace));
-    assert_eq!(lex.next(), Some(SyntaxKind::Identifier));
-    assert_eq!(lex.next(), Some(SyntaxKind::Equals));
-    assert_eq!(lex.next(), Some(SyntaxKind::String));
+  #[test]
+  fn lex_f_keyword() {
+      check("f", SyntaxKind::Function);
+  }
 
-    assert_eq!(lex.next(), Some(SyntaxKind::Semicolon));
+  #[test]
+  fn lex_let_keyword() {
+      check("let", SyntaxKind::Let);
+  }
+
+  #[test]
+  fn lex_alphabetic_identifier() {
+      check("abcd", SyntaxKind::Identifier);
+  }
+
+  #[test]
+  fn lex_alphanumeric_identifier() {
+      check("ab123cde456", SyntaxKind::Identifier);
+  }
+
+  #[test]
+  fn lex_mixed_case_identifier() {
+      check("ABCdef", SyntaxKind::Identifier);
+  }
+
+  #[test]
+  fn lex_single_char_identifier() {
+      check("x", SyntaxKind::Identifier);
+  }
+
+  #[test]
+  fn lex_number() {
+      check("123456", SyntaxKind::Number);
+  }
+
+  #[test]
+  fn lex_plus() {
+      check("+", SyntaxKind::Plus);
+  }
+
+  #[test]
+  fn lex_minus() {
+      check("-", SyntaxKind::Minus);
+  }
+
+  #[test]
+  fn lex_star() {
+      check("*", SyntaxKind::Asterisk);
+  }
+
+  #[test]
+  fn lex_slash() {
+      check("/", SyntaxKind::ForwardSlash);
+  }
+
+  #[test]
+  fn lex_equals() {
+      check("=", SyntaxKind::Equals);
+  }
+
+  #[test]
+  fn lex_left_parenthesis() {
+      check("(", SyntaxKind::LeftParenthesis);
+  }
+
+  #[test]
+  fn lex_right_parenthesis() {
+      check(")", SyntaxKind::RightParenthesis);
+  }
+
+  #[test]
+  fn lex_left_brace() {
+      check("{", SyntaxKind::LeftBrace);
+  }
+
+  #[test]
+  fn lex_right_brace() {
+      check("}", SyntaxKind::RightBrace);
+  }
+
+  #[test]
+  fn lex_comment() {
+      check("// im a comment", SyntaxKind::Comment);
   }
 }

@@ -16,12 +16,19 @@ impl<'a> Lexer<'a> {
 }
 
 impl<'a> Iterator for Lexer<'a> {
-  type Item = (SyntaxKind, &'a str);
+  type Item = Lexeme<'a>;
 
   fn next(&mut self) -> Option<Self::Item> {
-    let kind = self.inner.next()?;
-    let text = self.inner.slice();
+      let kind = self.inner.next()?;
+      let text = self.inner.slice();
 
-    Some((kind, text))
+      Some(Self::Item { kind, text })
   }
 }
+
+#[derive(Debug, PartialEq)]
+pub(crate) struct Lexeme<'a> {
+  pub(crate) kind: SyntaxKind,
+  pub(crate) text: &'a str,
+}
+
