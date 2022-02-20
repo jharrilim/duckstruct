@@ -4,7 +4,7 @@ mod sink;
 mod source;
 
 use crate::{
-  lexer::{token::SyntaxKind, Lexer, Lexeme},
+  lexer::{token::SyntaxKind, Lexeme, Lexer},
   syntax::SyntaxNode,
 };
 use rowan::GreenNode;
@@ -58,7 +58,10 @@ impl<'l, 'input> Parser<'l, 'input> {
   fn bump(&mut self) {
     let Lexeme { kind, text } = self.source.next_lexeme().unwrap();
 
-    self.events.push(Event::AddToken { kind: *kind, text: (*text).to_string() });
+    self.events.push(Event::AddToken {
+      kind: *kind,
+      text: (*text).to_string(),
+    });
   }
 
   fn checkpoint(&self) -> usize {
@@ -189,35 +192,45 @@ mod tests {
 
   #[test]
   fn parse_number_preceded_by_whitespace() {
-      check(
-          "   9876",
-          expect![[r#"
+    check(
+      "   9876",
+      expect![[r#"
               Root@0..7
                 Whitespace@0..3 "   "
                 Number@3..7 "9876""#]],
-      );
+    );
   }
 
   #[test]
   fn parse_number_followed_by_whitespace() {
-      check(
-          "999   ",
-          expect![[r#"
+    check(
+      "999   ",
+      expect![[r#"
               Root@0..6
                 Number@0..3 "999"
                 Whitespace@3..6 "   ""#]],
-      );
+    );
   }
 
   #[test]
   fn parse_number_surrounded_by_whitespace() {
-      check(
-          " 123     ",
-          expect![[r#"
+    check(
+      " 123     ",
+      expect![[r#"
               Root@0..9
                 Whitespace@0..1 " "
                 Number@1..4 "123"
                 Whitespace@4..9 "     ""#]],
-      );
+    );
+  }
+
+  #[test]
+  fn parse_comment() {
+    check(
+      "// hello!",
+      expect![[r#"
+              Root@0..9
+                Comment@0..9 "// hello!""#]],
+    );
   }
 }

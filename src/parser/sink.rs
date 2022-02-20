@@ -1,4 +1,7 @@
-use crate::{lexer::{Lexeme, token::SyntaxKind}, syntax::Duckstruct};
+use crate::{
+  lexer::{token::SyntaxKind, Lexeme},
+  syntax::Duckstruct,
+};
 
 use super::event::Event;
 
@@ -38,21 +41,22 @@ impl<'l, 'input> Sink<'l, 'input> {
         Event::AddToken { kind, text } => self.token(kind, text),
         Event::FinishNode => self.builder.finish_node(),
       }
-      self.eat_whitespace();
+      self.eat_trivia();
     }
 
     self.builder.finish()
   }
 
   fn token(&mut self, kind: SyntaxKind, text: String) {
-    self.builder.token(Duckstruct::kind_to_raw(kind), text.as_str());
+    self
+      .builder
+      .token(Duckstruct::kind_to_raw(kind), text.as_str());
     self.cursor += 1;
   }
 
-
-  fn eat_whitespace(&mut self) {
+  fn eat_trivia(&mut self) {
     while let Some(lexeme) = self.lexemes.get(self.cursor) {
-      if lexeme.kind != SyntaxKind::Whitespace {
+      if !lexeme.kind.is_trivia() {
         break;
       }
 

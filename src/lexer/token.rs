@@ -78,104 +78,110 @@ pub enum SyntaxKind {
   Root,
 }
 
+impl SyntaxKind {
+  pub(crate) fn is_trivia(self) -> bool {
+    matches!(self, Self::Whitespace | Self::Comment)
+  }
+}
+
 #[cfg(test)]
 mod tests {
-  use crate::lexer::Lexer;
   use crate::lexer::token::SyntaxKind;
   use crate::lexer::Lexeme;
+  use crate::lexer::Lexer;
 
   fn check(input: &str, kind: SyntaxKind) {
-      let mut lexer = Lexer::new(input);
-      assert_eq!(lexer.next(), Some(Lexeme { kind, text: input }));
+    let mut lexer = Lexer::new(input);
+    assert_eq!(lexer.next(), Some(Lexeme { kind, text: input }));
   }
 
   #[test]
   fn lex_spaces_and_newlines() {
-      check("  \n ", SyntaxKind::Whitespace);
+    check("  \n ", SyntaxKind::Whitespace);
   }
 
   #[test]
   fn lex_f_keyword() {
-      check("f", SyntaxKind::Function);
+    check("f", SyntaxKind::Function);
   }
 
   #[test]
   fn lex_let_keyword() {
-      check("let", SyntaxKind::Let);
+    check("let", SyntaxKind::Let);
   }
 
   #[test]
   fn lex_alphabetic_identifier() {
-      check("abcd", SyntaxKind::Identifier);
+    check("abcd", SyntaxKind::Identifier);
   }
 
   #[test]
   fn lex_alphanumeric_identifier() {
-      check("ab123cde456", SyntaxKind::Identifier);
+    check("ab123cde456", SyntaxKind::Identifier);
   }
 
   #[test]
   fn lex_mixed_case_identifier() {
-      check("ABCdef", SyntaxKind::Identifier);
+    check("ABCdef", SyntaxKind::Identifier);
   }
 
   #[test]
   fn lex_single_char_identifier() {
-      check("x", SyntaxKind::Identifier);
+    check("x", SyntaxKind::Identifier);
   }
 
   #[test]
   fn lex_number() {
-      check("123456", SyntaxKind::Number);
+    check("123456", SyntaxKind::Number);
   }
 
   #[test]
   fn lex_plus() {
-      check("+", SyntaxKind::Plus);
+    check("+", SyntaxKind::Plus);
   }
 
   #[test]
   fn lex_minus() {
-      check("-", SyntaxKind::Minus);
+    check("-", SyntaxKind::Minus);
   }
 
   #[test]
   fn lex_star() {
-      check("*", SyntaxKind::Asterisk);
+    check("*", SyntaxKind::Asterisk);
   }
 
   #[test]
   fn lex_slash() {
-      check("/", SyntaxKind::ForwardSlash);
+    check("/", SyntaxKind::ForwardSlash);
   }
 
   #[test]
   fn lex_equals() {
-      check("=", SyntaxKind::Equals);
+    check("=", SyntaxKind::Equals);
   }
 
   #[test]
   fn lex_left_parenthesis() {
-      check("(", SyntaxKind::LeftParenthesis);
+    check("(", SyntaxKind::LeftParenthesis);
   }
 
   #[test]
   fn lex_right_parenthesis() {
-      check(")", SyntaxKind::RightParenthesis);
+    check(")", SyntaxKind::RightParenthesis);
   }
 
   #[test]
   fn lex_left_brace() {
-      check("{", SyntaxKind::LeftBrace);
+    check("{", SyntaxKind::LeftBrace);
   }
 
   #[test]
   fn lex_right_brace() {
-      check("}", SyntaxKind::RightBrace);
+    check("}", SyntaxKind::RightBrace);
   }
 
   #[test]
   fn lex_comment() {
-      check("// im a comment", SyntaxKind::Comment);
+    check("// im a comment", SyntaxKind::Comment);
   }
 }
