@@ -1,6 +1,8 @@
 use crate::lexer::token::SyntaxKind;
 use crate::parser::Parser;
 
+use super::operators::{InfixOp, PrefixOp};
+
 pub(super) fn expr(p: &mut Parser) {
   expr_binding_power(p, 0)
 }
@@ -60,33 +62,5 @@ fn expr_binding_power(p: &mut Parser, minimum_binding_power: u8) {
     let m = lhs.precede(p);
     expr_binding_power(p, right_binding_power);
     lhs = m.complete(p, SyntaxKind::BinaryExpression);
-  }
-}
-
-pub(crate) enum InfixOp {
-  Add,
-  Sub,
-  Mul,
-  Div,
-}
-
-impl InfixOp {
-  pub fn binding_power(&self) -> (u8, u8) {
-    match self {
-      Self::Add | Self::Sub => (1, 2),
-      Self::Mul | Self::Div => (3, 4),
-    }
-  }
-}
-
-pub(crate) enum PrefixOp {
-  Neg,
-}
-
-impl PrefixOp {
-  fn binding_power(&self) -> ((), u8) {
-    match self {
-      Self::Neg => ((), 5),
-    }
   }
 }
