@@ -56,6 +56,10 @@ impl<'l, 'input> Parser<'l, 'input> {
       text: (*text).to_string(),
     });
   }
+
+  fn at(&mut self, kind: SyntaxKind) -> bool {
+    self.peek() == Some(kind)
+  }
 }
 
 pub(crate) fn parse(input: &str) -> Parse {

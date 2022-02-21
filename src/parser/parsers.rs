@@ -5,7 +5,7 @@ use crate::parser::operators::PrefixOp;
 use crate::parser::Parser;
 
 pub(super) fn literal(p: &mut Parser) -> CompletedMarker {
-  assert_eq!(p.peek(), Some(SyntaxKind::Number));
+  assert!(p.at(SyntaxKind::Number));
 
   let m = p.start();
   p.bump();
@@ -13,7 +13,7 @@ pub(super) fn literal(p: &mut Parser) -> CompletedMarker {
 }
 
 pub(super) fn variable_ref(p: &mut Parser) -> CompletedMarker {
-  assert_eq!(p.peek(), Some(SyntaxKind::Identifier));
+  assert!(p.at(SyntaxKind::Identifier));
 
   let m = p.start();
   p.bump();
@@ -21,7 +21,7 @@ pub(super) fn variable_ref(p: &mut Parser) -> CompletedMarker {
 }
 
 pub(super) fn prefix_expr(p: &mut Parser) -> CompletedMarker {
-  assert_eq!(p.peek(), Some(SyntaxKind::Minus));
+  assert!(p.at(SyntaxKind::Minus));
 
   let m = p.start();
 
@@ -37,14 +37,14 @@ pub(super) fn prefix_expr(p: &mut Parser) -> CompletedMarker {
 }
 
 pub(super) fn paren_expr(p: &mut Parser) -> CompletedMarker {
-  assert_eq!(p.peek(), Some(SyntaxKind::LeftParenthesis));
+  assert!(p.at(SyntaxKind::LeftParenthesis));
 
   let m = p.start();
 
   p.bump();
   expr_binding_power(p, 0);
 
-  assert_eq!(p.peek(), Some(SyntaxKind::RightParenthesis));
+  assert!(p.at(SyntaxKind::RightParenthesis));
   p.bump();
 
   m.complete(p, SyntaxKind::ParenExpression)
