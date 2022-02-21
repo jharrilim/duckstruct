@@ -89,12 +89,12 @@ impl SyntaxKind {
 #[cfg(test)]
 mod tests {
   use crate::lexer::token::SyntaxKind;
-  use crate::lexer::Lexeme;
   use crate::lexer::Lexer;
+  use crate::lexer::Token;
 
   fn check(input: &str, kind: SyntaxKind) {
     let mut lexer = Lexer::new(input);
-    assert_eq!(lexer.next(), Some(Lexeme { kind, text: input }));
+    assert_eq!(lexer.next(), Some(Token { kind, text: input }));
   }
 
   #[test]
