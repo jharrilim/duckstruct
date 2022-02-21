@@ -1,9 +1,10 @@
 mod event;
 mod expressions;
 mod marker;
+mod operators;
+mod parsers;
 mod sink;
 mod source;
-mod operators;
 
 use crate::{
   lexer::{token::SyntaxKind, Lexer, Token},

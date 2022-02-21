@@ -19,7 +19,7 @@ pub(crate) enum PrefixOp {
 }
 
 impl PrefixOp {
-  fn binding_power(&self) -> ((), u8) {
+  pub fn binding_power(&self) -> ((), u8) {
     match self {
       Self::Neg => ((), 5),
     }
