@@ -49,12 +49,8 @@ impl<'l, 'input> Parser<'l, 'input> {
 
   // Consume the current token and add it to the AST
   fn bump(&mut self) {
-    let Token { kind, text } = self.source.next_token().unwrap();
-
-    self.events.push(Event::AddToken {
-      kind: *kind,
-      text: (*text).to_string(),
-    });
+    self.source.next_token().unwrap();
+    self.events.push(Event::AddToken);
   }
 
   fn at(&mut self, kind: SyntaxKind) -> bool {

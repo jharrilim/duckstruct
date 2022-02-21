@@ -58,7 +58,7 @@ impl<'l, 'input> Sink<'l, 'input> {
             self.builder.start_node(Duckstruct::kind_to_raw(kind));
           }
         }
-        Event::AddToken { kind, text } => self.token(kind, text),
+        Event::AddToken => self.token(),
         Event::FinishNode => self.builder.finish_node(),
         Event::Placeholder => {}
       }
@@ -68,10 +68,11 @@ impl<'l, 'input> Sink<'l, 'input> {
     self.builder.finish()
   }
 
-  fn token(&mut self, kind: SyntaxKind, text: String) {
+  fn token(&mut self) {
+    let Token { kind, text } = self.tokens[self.cursor];
     self
       .builder
-      .token(Duckstruct::kind_to_raw(kind), text.as_str());
+      .token(Duckstruct::kind_to_raw(kind), text);
     self.cursor += 1;
   }
 
@@ -81,7 +82,7 @@ impl<'l, 'input> Sink<'l, 'input> {
         break;
       }
 
-      self.token(token.kind, token.text.into());
+      self.token();
     }
   }
 }
