@@ -6,10 +6,6 @@ pub(super) enum Event {
     kind: SyntaxKind,
     forward_parent: Option<usize>,
   },
-  StartNodeAt {
-    kind: SyntaxKind,
-    checkpoint: usize,
-  },
   AddToken {
     kind: SyntaxKind,
     text: String,
