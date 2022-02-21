@@ -6,6 +6,7 @@ use crate::{
 use super::event::Event;
 
 use rowan::{GreenNode, GreenNodeBuilder, Language};
+use std::mem;
 
 pub(super) struct Sink<'l, 'input> {
   builder: GreenNodeBuilder<'static>,
@@ -25,21 +26,43 @@ impl<'l, 'input> Sink<'l, 'input> {
   }
 
   pub(super) fn finish(mut self) -> GreenNode {
-    let mut reordered_events = self.events.clone();
+    for idx in 0..self.events.len() {
+      match mem::replace(&mut self.events[idx], Event::Placeholder) {
+        Event::StartNode {
+          kind,
+          forward_parent,
+        } => {
+          let mut kinds = vec![kind];
 
-    for (idx, event) in self.events.iter().enumerate() {
-      if let Event::StartNodeAt { kind, checkpoint } = event {
-        reordered_events.remove(idx);
-        reordered_events.insert(*checkpoint, Event::StartNode { kind: *kind });
-      }
-    }
+          let mut idx = idx;
+          let mut forward_parent = forward_parent;
 
-    for event in reordered_events {
-      match event {
-        Event::StartNode { kind } => self.builder.start_node(Duckstruct::kind_to_raw(kind)),
+          // Walk through the forward parent of the forward parent, and the forward parent
+          // of that, and of that, etc. until we reach a StartNode event without a forward
+          // parent.
+          while let Some(fp) = forward_parent {
+              idx += fp;
+
+              forward_parent = if let Event::StartNode {
+                  kind,
+                  forward_parent,
+              } =
+                  mem::replace(&mut self.events[idx], Event::Placeholder)
+              {
+                  kinds.push(kind);
+                  forward_parent
+              } else {
+                  unreachable!()
+              };
+          }
+          for kind in kinds.into_iter().rev() {
+            self.builder.start_node(Duckstruct::kind_to_raw(kind));
+          }
+        }
         Event::StartNodeAt { .. } => unreachable!(),
         Event::AddToken { kind, text } => self.token(kind, text),
         Event::FinishNode => self.builder.finish_node(),
+        Event::Placeholder => {},
       }
       self.eat_trivia();
     }

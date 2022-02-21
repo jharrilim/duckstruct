@@ -1,5 +1,6 @@
 mod event;
-pub mod expressions;
+mod expressions;
+mod marker;
 mod sink;
 mod source;
 
@@ -10,7 +11,7 @@ use crate::{
 use rowan::GreenNode;
 use sink::Sink;
 
-use self::{event::Event, expressions::expr, source::Source};
+use self::{event::Event, expressions::expr, marker::Marker, source::Source};
 
 struct Parser<'l, 'input> {
   source: Source<'l, 'input>,
@@ -26,30 +27,20 @@ impl<'l, 'input> Parser<'l, 'input> {
   }
 
   fn parse(mut self) -> Vec<Event> {
-    self.start_node(SyntaxKind::Root);
+    let root_marker = self.start();
     expr(&mut self);
-    self.finish_node();
+    root_marker.complete(&mut self, SyntaxKind::Root);
 
     self.events
   }
 
-  // Sets the starting point in our AST
-  fn start_node(&mut self, kind: SyntaxKind) {
-    self.events.push(Event::StartNode { kind });
+  fn start(&mut self) -> Marker {
+    let pos = self.events.len();
+    self.events.push(Event::Placeholder);
+
+    Marker::new(pos)
   }
 
-  // Create a new branch in our AST
-  fn start_node_at(&mut self, checkpoint: usize, kind: SyntaxKind) {
-    self.events.push(Event::StartNodeAt { kind, checkpoint });
-  }
-
-  // Sets the ending point in our AST
-  fn finish_node(&mut self) {
-    self.events.push(Event::FinishNode);
-  }
-
-  // Take a look at the next non-whitespace token
-  // without consuming it or adding it to the AST
   fn peek(&mut self) -> Option<SyntaxKind> {
     self.source.peek_kind()
   }
@@ -62,10 +53,6 @@ impl<'l, 'input> Parser<'l, 'input> {
       kind: *kind,
       text: (*text).to_string(),
     });
-  }
-
-  fn checkpoint(&self) -> usize {
-    self.events.len()
   }
 }
 
@@ -114,7 +101,8 @@ mod tests {
     check(
       "123",
       expect![[r#"
-            Root@0..3
+          Root@0..3
+            Literal@0..3
               Number@0..3 "123""#]],
     );
   }
@@ -124,8 +112,9 @@ mod tests {
     check(
       "aVariableName",
       expect![[r#"
-              Root@0..13
-                Identifier@0..13 "aVariableName""#]],
+          Root@0..13
+            VariableRef@0..13
+              Identifier@0..13 "aVariableName""#]],
     );
   }
 
@@ -134,11 +123,13 @@ mod tests {
     check(
       "1+2",
       expect![[r#"
-              Root@0..3
-                BinaryExpression@0..3
-                  Number@0..1 "1"
-                  Plus@1..2 "+"
-                  Number@2..3 "2""#]],
+          Root@0..3
+            BinaryExpression@0..3
+              Literal@0..1
+                Number@0..1 "1"
+              Plus@1..2 "+"
+              Literal@2..3
+                Number@2..3 "2""#]],
     );
   }
 
@@ -147,10 +138,11 @@ mod tests {
     check(
       "-10",
       expect![[r#"
-              Root@0..3
-                PrefixExpression@0..3
-                  Minus@0..1 "-"
-                  Number@1..3 "10""#]],
+          Root@0..3
+            PrefixExpression@0..3
+              Minus@0..1 "-"
+              Literal@1..3
+                Number@1..3 "10""#]],
     );
   }
 
@@ -159,16 +151,21 @@ mod tests {
     check(
       "((((10))))",
       expect![[r#"
-              Root@0..10
-                LeftParenthesis@0..1 "("
+          Root@0..10
+            ParenExpression@0..10
+              LeftParenthesis@0..1 "("
+              ParenExpression@1..9
                 LeftParenthesis@1..2 "("
-                LeftParenthesis@2..3 "("
-                LeftParenthesis@3..4 "("
-                Number@4..6 "10"
-                RightParenthesis@6..7 ")"
-                RightParenthesis@7..8 ")"
+                ParenExpression@2..8
+                  LeftParenthesis@2..3 "("
+                  ParenExpression@3..7
+                    LeftParenthesis@3..4 "("
+                    Literal@4..6
+                      Number@4..6 "10"
+                    RightParenthesis@6..7 ")"
+                  RightParenthesis@7..8 ")"
                 RightParenthesis@8..9 ")"
-                RightParenthesis@9..10 ")""#]],
+              RightParenthesis@9..10 ")""#]],
     );
   }
 
@@ -177,16 +174,20 @@ mod tests {
     check(
       "5*(2+1)",
       expect![[r#"
-              Root@0..7
-                BinaryExpression@0..7
-                  Number@0..1 "5"
-                  Asterisk@1..2 "*"
-                  LeftParenthesis@2..3 "("
-                  BinaryExpression@3..6
+          Root@0..7
+            BinaryExpression@0..7
+              Literal@0..1
+                Number@0..1 "5"
+              Asterisk@1..2 "*"
+              ParenExpression@2..7
+                LeftParenthesis@2..3 "("
+                BinaryExpression@3..6
+                  Literal@3..4
                     Number@3..4 "2"
-                    Plus@4..5 "+"
+                  Plus@4..5 "+"
+                  Literal@5..6
                     Number@5..6 "1"
-                  RightParenthesis@6..7 ")""#]],
+                RightParenthesis@6..7 ")""#]],
     );
   }
 
@@ -195,9 +196,10 @@ mod tests {
     check(
       "   9876",
       expect![[r#"
-              Root@0..7
-                Whitespace@0..3 "   "
-                Number@3..7 "9876""#]],
+          Root@0..7
+            Whitespace@0..3 "   "
+            Literal@3..7
+              Number@3..7 "9876""#]],
     );
   }
 
@@ -206,9 +208,10 @@ mod tests {
     check(
       "999   ",
       expect![[r#"
-              Root@0..6
-                Number@0..3 "999"
-                Whitespace@3..6 "   ""#]],
+          Root@0..6
+            Literal@0..6
+              Number@0..3 "999"
+              Whitespace@3..6 "   ""#]],
     );
   }
 
@@ -217,10 +220,11 @@ mod tests {
     check(
       " 123     ",
       expect![[r#"
-              Root@0..9
-                Whitespace@0..1 " "
-                Number@1..4 "123"
-                Whitespace@4..9 "     ""#]],
+          Root@0..9
+            Whitespace@0..1 " "
+            Literal@1..9
+              Number@1..4 "123"
+              Whitespace@4..9 "     ""#]],
     );
   }
 

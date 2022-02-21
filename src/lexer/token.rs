@@ -74,7 +74,9 @@ pub enum SyntaxKind {
 
   BinaryExpression,
   PrefixExpression,
-
+  ParenExpression,
+  Literal,
+  VariableRef,
   Root,
 }
 
