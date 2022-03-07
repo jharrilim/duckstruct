@@ -1,7 +1,8 @@
 use logos::Logos;
 use num_derive::{FromPrimitive, ToPrimitive};
+use std::hash::Hash;
 
-#[derive(Logos, Debug, PartialEq, Clone, Copy, FromPrimitive, ToPrimitive)]
+#[derive(Logos, Debug, PartialEq, Clone, Copy, FromPrimitive, ToPrimitive, PartialOrd, Ord, Eq, Hash)]
 pub enum SyntaxKind {
   #[token("f")]
   Function,

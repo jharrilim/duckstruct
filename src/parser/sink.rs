@@ -1,5 +1,5 @@
 use crate::{
-  lexer::{token::SyntaxKind, Token},
+  lexer::Token,
   syntax::Duckstruct,
 };
 
