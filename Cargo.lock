@@ -67,11 +67,13 @@ dependencies = [
  "ctrlc",
  "drop_bomb",
  "expect-test",
- "logos",
+ "lexer",
  "num-derive",
  "num-traits",
  "project-root",
  "rowan",
+ "syntax",
+ "text-size",
 ]
 
 [[package]]
@@ -95,6 +97,15 @@ name = "hashbrown"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8c21d40587b92fa6a6c6e3c1bdbf87d75511db5672f9c93175574b3a00df1758"
+
+[[package]]
+name = "lexer"
+version = "0.1.0"
+dependencies = [
+ "logos",
+ "num-derive",
+ "num-traits",
+]
 
 [[package]]
 name = "libc"
@@ -232,6 +243,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-xid",
+]
+
+[[package]]
+name = "syntax"
+version = "0.1.0"
+dependencies = [
+ "lexer",
+ "num-derive",
+ "num-traits",
+ "rowan",
 ]
 
 [[package]]

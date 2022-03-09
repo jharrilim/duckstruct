@@ -2,14 +2,15 @@ mod event;
 mod expressions;
 mod marker;
 mod operators;
+mod parse_error;
 mod parsers;
 mod sink;
 mod source;
 
-use crate::{
-  lexer::{token::SyntaxKind, Lexer, Token},
-  syntax::SyntaxNode,
-};
+use lexer::{token::TokenKind, Lexer, Token};
+
+use syntax::{SyntaxKind, SyntaxNode};
+
 use rowan::GreenNode;
 use sink::Sink;
 
@@ -43,7 +44,7 @@ impl<'l, 'input> Parser<'l, 'input> {
     Marker::new(pos)
   }
 
-  fn peek(&mut self) -> Option<SyntaxKind> {
+  fn peek(&mut self) -> Option<TokenKind> {
     self.source.peek_kind()
   }
 
@@ -53,7 +54,7 @@ impl<'l, 'input> Parser<'l, 'input> {
     self.events.push(Event::AddToken);
   }
 
-  fn at(&mut self, kind: SyntaxKind) -> bool {
+  fn at(&mut self, kind: TokenKind) -> bool {
     self.peek() == Some(kind)
   }
 }
@@ -82,6 +83,8 @@ impl Parse {
     formatted[0..formatted.len() - 1].to_string()
   }
 }
+
+pub struct ParseError {}
 
 #[cfg(test)]
 mod tests {

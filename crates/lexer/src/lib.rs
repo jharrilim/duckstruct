@@ -1,16 +1,16 @@
 pub mod token;
 
 use logos::Logos;
-use token::SyntaxKind;
+use token::TokenKind;
 
-pub(crate) struct Lexer<'a> {
-  inner: logos::Lexer<'a, SyntaxKind>,
+pub struct Lexer<'a> {
+  inner: logos::Lexer<'a, TokenKind>,
 }
 
 impl<'a> Lexer<'a> {
-  pub(crate) fn new(input: &'a str) -> Self {
+  pub fn new(input: &'a str) -> Self {
     Self {
-      inner: SyntaxKind::lexer(input),
+      inner: TokenKind::lexer(input),
     }
   }
 }
@@ -27,7 +27,7 @@ impl<'a> Iterator for Lexer<'a> {
 }
 
 #[derive(Debug, PartialEq)]
-pub(crate) struct Token<'a> {
-  pub(crate) kind: SyntaxKind,
-  pub(crate) text: &'a str,
+pub struct Token<'a> {
+  pub kind: TokenKind,
+  pub text: &'a str,
 }

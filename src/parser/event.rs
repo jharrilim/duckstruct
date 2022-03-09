@@ -1,4 +1,4 @@
-use crate::lexer::token::SyntaxKind;
+use syntax::SyntaxKind;
 
 #[derive(Debug, Clone, PartialEq)]
 pub(super) enum Event {

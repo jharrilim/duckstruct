@@ -1,9 +1,6 @@
-use crate::{
-  lexer::Token,
-  syntax::Duckstruct,
-};
-
 use super::event::Event;
+use lexer::Token;
+use syntax::Duckstruct;
 
 use rowan::{GreenNode, GreenNodeBuilder, Language};
 use std::mem;
@@ -72,7 +69,7 @@ impl<'l, 'input> Sink<'l, 'input> {
     let Token { kind, text } = self.tokens[self.cursor];
     self
       .builder
-      .token(Duckstruct::kind_to_raw(kind), text);
+      .token(Duckstruct::kind_to_raw(kind.into()), text);
     self.cursor += 1;
   }
 
