@@ -118,18 +118,18 @@ mod tests {
       "aVariableName",
       expect![[r#"
           Root@0..13
-            VariableRef@0..13
+            VariableReference@0..13
               Identifier@0..13 "aVariableName""#]],
     );
   }
 
   #[test]
-  fn parse_simple_binary_expression() {
+  fn parse_simple_infix_expression() {
     check(
       "1+2",
       expect![[r#"
           Root@0..3
-            BinaryExpression@0..3
+            InfixExpression@0..3
               Literal@0..1
                 Number@0..1 "1"
               Plus@1..2 "+"
@@ -180,13 +180,13 @@ mod tests {
       "5*(2+1)",
       expect![[r#"
           Root@0..7
-            BinaryExpression@0..7
+            InfixExpression@0..7
               Literal@0..1
                 Number@0..1 "5"
               Asterisk@1..2 "*"
               ParenExpression@2..7
                 LeftParenthesis@2..3 "("
-                BinaryExpression@3..6
+                InfixExpression@3..6
                   Literal@3..4
                     Number@3..4 "2"
                   Plus@4..5 "+"
