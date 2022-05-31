@@ -242,4 +242,23 @@ mod tests {
                 Comment@0..9 "// hello!""#]],
     );
   }
+
+  #[test]
+  fn parse_let_statement() {
+    check(
+      "let x = 100;",
+      expect![[r#"
+          Root@0..11
+            LetExpression@0..11
+              Let@0..3 "let"
+              Whitespace@3..4 " "
+              Pattern@4..6
+                Identifier@4..5 "x"
+                Whitespace@5..6 " "
+              Equals@6..7 "="
+              Whitespace@7..8 " "
+              Literal@8..11
+                Number@8..11 "100""#]]
+    )
+  }
 }

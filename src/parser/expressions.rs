@@ -43,6 +43,7 @@ fn lhs(p: &mut Parser) -> Option<CompletedMarker> {
     Some(TokenKind::Identifier) => parsers::variable_ref(p),
     Some(TokenKind::Minus) => parsers::prefix_expr(p),
     Some(TokenKind::LeftParenthesis) => parsers::paren_expr(p),
+    Some(TokenKind::Let) => parsers::let_expr(p),
     _ => return None,
   };
   Some(completed_marker)

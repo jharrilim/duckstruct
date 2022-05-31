@@ -30,8 +30,9 @@ pub enum SyntaxKind {
     Literal,
     ParenExpression,
     PrefixExpression,
-    VariableDefinition,
+    LetExpression,
     VariableReference,
+    Pattern,
 }
 
 impl From<TokenKind> for SyntaxKind {

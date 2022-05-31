@@ -51,3 +51,35 @@ pub(super) fn paren_expr(p: &mut Parser) -> CompletedMarker {
 
   m.complete(p, SyntaxKind::ParenExpression)
 }
+
+pub(super) fn let_expr(p: &mut Parser) -> CompletedMarker {
+  assert!(p.at(TokenKind::Let));
+
+  let m = p.start();
+
+  p.bump();
+
+  pattern_expr(p);
+
+  assert!(p.at(TokenKind::Equals));
+  p.bump();
+
+  expr_binding_power(p, 0);
+
+  m.complete(p, SyntaxKind::LetExpression)
+}
+
+pub(super) fn pattern_expr(p: &mut Parser) -> CompletedMarker {
+  if let Some(token) = p.peek() {
+    let m = p.start();
+    match token {
+      TokenKind::Identifier => p.bump(),
+      TokenKind::LeftBrace => todo!("implement destructuring i guess"),
+      _ => {
+        panic!("todo: parse error here {}", token.to_string())
+      }
+    }
+    return m.complete(p, SyntaxKind::Pattern);
+  }
+  panic!("todo: parse error here")
+}
