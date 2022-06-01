@@ -271,7 +271,7 @@ mod tests {
               Let@0..3 "let"
               Whitespace@3..4 " "
               Assignment@4..13
-                Pattern@4..13
+                StructPattern@4..13
                   LeftBrace@4..5 "{"
                   Whitespace@5..6 " "
                   Identifier@6..7 "x"
@@ -298,7 +298,7 @@ mod tests {
               Let@0..3 "let"
               Whitespace@3..4 " "
               Assignment@4..18
-                Pattern@4..18
+                StructPattern@4..18
                   LeftBrace@4..5 "{"
                   Whitespace@5..6 " "
                   Identifier@6..7 "x"

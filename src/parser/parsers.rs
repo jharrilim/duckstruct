@@ -92,7 +92,7 @@ fn struct_pattern_expr(p: &mut Parser) -> CompletedMarker {
       }
       Some(TokenKind::RightBrace) => {
         p.bump();
-        break m.complete(p, SyntaxKind::Pattern);
+        break m.complete(p, SyntaxKind::StructPattern);
       }
       Some(TokenKind::LeftBracket) => {
         array_pattern_expr(p);
