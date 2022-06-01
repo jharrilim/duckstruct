@@ -317,4 +317,61 @@ mod tests {
                 Identifier@20..21 "z""#]]
     )
   }
+
+  #[test]
+  fn parse_array_destructuring() {
+    // might want to treat _ as a special ident at some point
+    check(
+      "let [_, y] = x;",
+      expect![[r#"
+          Root@0..14
+            LetExpression@0..14
+              Let@0..3 "let"
+              Whitespace@3..4 " "
+              Assignment@4..11
+                ArrayPattern@4..11
+                  LeftBracket@4..5 "["
+                  Identifier@5..6 "_"
+                  Comma@6..7 ","
+                  Whitespace@7..8 " "
+                  Identifier@8..9 "y"
+                  RightBracket@9..10 "]"
+                  Whitespace@10..11 " "
+              Equals@11..12 "="
+              Whitespace@12..13 " "
+              VariableReference@13..14
+                Identifier@13..14 "x""#]]
+    )
+  }
+
+  #[test]
+  fn parse_nested_patterns() {
+    check(
+      "let [{ x, }, z] = weel;",
+      expect![[r#"
+          Root@0..22
+            LetExpression@0..22
+              Let@0..3 "let"
+              Whitespace@3..4 " "
+              Assignment@4..16
+                ArrayPattern@4..16
+                  LeftBracket@4..5 "["
+                  StructPattern@5..11
+                    LeftBrace@5..6 "{"
+                    Whitespace@6..7 " "
+                    Identifier@7..8 "x"
+                    Comma@8..9 ","
+                    Whitespace@9..10 " "
+                    RightBrace@10..11 "}"
+                  Comma@11..12 ","
+                  Whitespace@12..13 " "
+                  Identifier@13..14 "z"
+                  RightBracket@14..15 "]"
+                  Whitespace@15..16 " "
+              Equals@16..17 "="
+              Whitespace@17..18 " "
+              VariableReference@18..22
+                Identifier@18..22 "weel""#]]
+    )
+  }
 }

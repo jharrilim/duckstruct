@@ -66,7 +66,10 @@ pub(super) fn let_expr(p: &mut Parser) -> CompletedMarker {
       TokenKind::Identifier => p.bump(),
       TokenKind::LeftBrace => {
         struct_pattern_expr(p);
-      }
+      },
+      TokenKind::LeftBracket => {
+        array_pattern_expr(p);
+      },
       _ => {
         panic!("todo: parse error here {}", token.to_string())
       }
@@ -111,12 +114,21 @@ fn array_pattern_expr(p: &mut Parser) -> CompletedMarker {
   debug_assert!(p.at(TokenKind::LeftBracket));
 
   let m = p.start();
+  p.bump();
 
   loop {
     match p.peek() {
-      Some(TokenKind::RightBracket) => break m.complete(p, SyntaxKind::ArrayPattern),
+      Some(TokenKind::RightBracket) => {
+        p.bump();
+        break m.complete(p, SyntaxKind::ArrayPattern);
+      },
+      Some(TokenKind::LeftBrace) => {
+        struct_pattern_expr(p);
+      },
+      Some(TokenKind::Identifier) => p.bump(),
+      Some(TokenKind::Comma) => p.bump(),
+      Some(token) => panic!("aint no way bro 💀 {}", token.to_string()),
       None => panic!("Missing ']'"),
-      _ => panic!("aint no way bro 💀"),
     }
   }
 }
