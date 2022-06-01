@@ -26,8 +26,17 @@ pub enum TokenKind {
   #[token(")")]
   RightParenthesis,
 
+  #[token("[")]
+  LeftBracket,
+
+  #[token("]")]
+  RightBracket,
+
   #[token(".")]
   Period,
+
+  #[token(",")]
+  Comma,
 
   #[regex(r"[0-9]+")]
   Number,
@@ -49,6 +58,9 @@ pub enum TokenKind {
 
   #[regex(r#""([^\\"]|\.)*""#)]
   String,
+
+  #[token(":")]
+  Colon,
 
   #[token(";")]
   Semicolon,
@@ -81,6 +93,8 @@ impl fmt::Display for TokenKind {
           Self::Let => "'let'",
           Self::Identifier => "identifier",
           Self::Period => "'.'",
+          Self::Comma => "','",
+          Self::Colon => "':'",
           Self::Semicolon => "';'",
           Self::Number => "number",
           Self::Plus => "'+'",
@@ -92,6 +106,8 @@ impl fmt::Display for TokenKind {
           Self::RightParenthesis => "')'",
           Self::LeftBrace => "'{'",
           Self::RightBrace => "'}'",
+          Self::LeftBracket => "'['",
+          Self::RightBracket => "']'",
           Self::String => "string",
           Self::Comment => "comment",
           Self::Error => "an unrecognized token",

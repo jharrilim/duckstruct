@@ -20,7 +20,11 @@ pub enum SyntaxKind {
     RightParenthesis,
     LeftBrace,
     RightBrace,
+    LeftBracket,
+    RightBracket,
     String,
+    Comma,
+    Colon,
     Semicolon,
     Period,
     Comment,
@@ -32,7 +36,10 @@ pub enum SyntaxKind {
     PrefixExpression,
     LetExpression,
     VariableReference,
+    Assignment, // idk if i'll really need this, but for now it marks the lhs of a = expression
     Pattern,
+    StructPattern,
+    ArrayPattern,
 }
 
 impl From<TokenKind> for SyntaxKind {
@@ -53,7 +60,11 @@ impl From<TokenKind> for SyntaxKind {
             TokenKind::RightParenthesis => Self::RightParenthesis,
             TokenKind::LeftBrace => Self::LeftBrace,
             TokenKind::RightBrace => Self::RightBrace,
+            TokenKind::LeftBracket => Self::LeftBracket,
+            TokenKind::RightBracket => Self::RightBracket,
             TokenKind::String => Self::String,
+            TokenKind::Comma => Self::Comma,
+            TokenKind::Colon => Self::Colon,
             TokenKind::Semicolon => Self::Semicolon,
             TokenKind::Period => Self::Period,
             TokenKind::Comment => Self::Comment,

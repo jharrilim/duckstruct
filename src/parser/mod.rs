@@ -84,7 +84,6 @@ impl Parse {
   }
 }
 
-pub struct ParseError {}
 
 #[cfg(test)]
 mod tests {
@@ -252,13 +251,70 @@ mod tests {
             LetExpression@0..11
               Let@0..3 "let"
               Whitespace@3..4 " "
-              Pattern@4..6
+              Assignment@4..6
                 Identifier@4..5 "x"
                 Whitespace@5..6 " "
               Equals@6..7 "="
               Whitespace@7..8 " "
               Literal@8..11
                 Number@8..11 "100""#]]
+    )
+  }
+
+  #[test]
+  fn parse_destructuring() {
+    check(
+      "let { x, y } = x;",
+      expect![[r#"
+          Root@0..16
+            LetExpression@0..16
+              Let@0..3 "let"
+              Whitespace@3..4 " "
+              Assignment@4..13
+                Pattern@4..13
+                  LeftBrace@4..5 "{"
+                  Whitespace@5..6 " "
+                  Identifier@6..7 "x"
+                  Comma@7..8 ","
+                  Whitespace@8..9 " "
+                  Identifier@9..10 "y"
+                  Whitespace@10..11 " "
+                  RightBrace@11..12 "}"
+                  Whitespace@12..13 " "
+              Equals@13..14 "="
+              Whitespace@14..15 " "
+              VariableReference@15..16
+                Identifier@15..16 "x""#]]
+    )
+  }
+
+  #[test]
+  fn parse_destructuring_field_alias() {
+    check(
+      "let { x: asd, y } = z;",
+      expect![[r#"
+          Root@0..21
+            LetExpression@0..21
+              Let@0..3 "let"
+              Whitespace@3..4 " "
+              Assignment@4..18
+                Pattern@4..18
+                  LeftBrace@4..5 "{"
+                  Whitespace@5..6 " "
+                  Identifier@6..7 "x"
+                  Colon@7..8 ":"
+                  Whitespace@8..9 " "
+                  Identifier@9..12 "asd"
+                  Comma@12..13 ","
+                  Whitespace@13..14 " "
+                  Identifier@14..15 "y"
+                  Whitespace@15..16 " "
+                  RightBrace@16..17 "}"
+                  Whitespace@17..18 " "
+              Equals@18..19 "="
+              Whitespace@19..20 " "
+              VariableReference@20..21
+                Identifier@20..21 "z""#]]
     )
   }
 }
