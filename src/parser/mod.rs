@@ -449,43 +449,53 @@ mod tests {
       r#"
       f upper(x) {
         let y = x * 5;
+        y + 100
       }
     "#,
       expect![[r#"
-        Root@0..55
-          Whitespace@0..7 "\n      "
-          NamedFunction@7..55
-            Function@7..8 "f"
-            Whitespace@8..9 " "
-            Identifier@9..14 "upper"
-            ArgumentList@14..18
-              LeftParenthesis@14..15 "("
-              Identifier@15..16 "x"
-              RightParenthesis@16..17 ")"
-              Whitespace@17..18 " "
-            FunctionBody@18..55
-              LeftBrace@18..19 "{"
-              Whitespace@19..28 "\n        "
-              LetExpression@28..41
-                Let@28..31 "let"
-                Whitespace@31..32 " "
-                Assignment@32..34
-                  Identifier@32..33 "y"
-                  Whitespace@33..34 " "
-                Equals@34..35 "="
-                Whitespace@35..36 " "
-                InfixExpression@36..41
-                  VariableReference@36..38
-                    Identifier@36..37 "x"
-                    Whitespace@37..38 " "
-                  Asterisk@38..39 "*"
-                  Whitespace@39..40 " "
-                  Literal@40..41
-                    Number@40..41 "5"
-              Semicolon@41..42 ";"
-              Whitespace@42..49 "\n      "
-              RightBrace@49..50 "}"
-              Whitespace@50..55 "\n    ""#]],
+          Root@0..71
+            Whitespace@0..7 "\n      "
+            NamedFunction@7..71
+              Function@7..8 "f"
+              Whitespace@8..9 " "
+              Identifier@9..14 "upper"
+              ArgumentList@14..18
+                LeftParenthesis@14..15 "("
+                Identifier@15..16 "x"
+                RightParenthesis@16..17 ")"
+                Whitespace@17..18 " "
+              FunctionBody@18..71
+                LeftBrace@18..19 "{"
+                Whitespace@19..28 "\n        "
+                LetExpression@28..41
+                  Let@28..31 "let"
+                  Whitespace@31..32 " "
+                  Assignment@32..34
+                    Identifier@32..33 "y"
+                    Whitespace@33..34 " "
+                  Equals@34..35 "="
+                  Whitespace@35..36 " "
+                  InfixExpression@36..41
+                    VariableReference@36..38
+                      Identifier@36..37 "x"
+                      Whitespace@37..38 " "
+                    Asterisk@38..39 "*"
+                    Whitespace@39..40 " "
+                    Literal@40..41
+                      Number@40..41 "5"
+                Semicolon@41..42 ";"
+                Whitespace@42..51 "\n        "
+                InfixExpression@51..65
+                  VariableReference@51..53
+                    Identifier@51..52 "y"
+                    Whitespace@52..53 " "
+                  Plus@53..54 "+"
+                  Whitespace@54..55 " "
+                  Literal@55..65
+                    Number@55..58 "100"
+                    Whitespace@58..65 "\n      "
+                RightBrace@65..66 "}"
+                Whitespace@66..71 "\n    ""#]],
     )
   }
 }
