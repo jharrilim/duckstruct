@@ -84,7 +84,6 @@ impl Parse {
   }
 }
 
-
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -247,7 +246,7 @@ mod tests {
     check(
       "let x = 100;",
       expect![[r#"
-          Root@0..11
+          Root@0..12
             LetExpression@0..11
               Let@0..3 "let"
               Whitespace@3..4 " "
@@ -257,7 +256,8 @@ mod tests {
               Equals@6..7 "="
               Whitespace@7..8 " "
               Literal@8..11
-                Number@8..11 "100""#]]
+                Number@8..11 "100"
+            Semicolon@11..12 ";""#]],
     )
   }
 
@@ -266,7 +266,7 @@ mod tests {
     check(
       "let { x, y } = x;",
       expect![[r#"
-          Root@0..16
+          Root@0..17
             LetExpression@0..16
               Let@0..3 "let"
               Whitespace@3..4 " "
@@ -284,7 +284,8 @@ mod tests {
               Equals@13..14 "="
               Whitespace@14..15 " "
               VariableReference@15..16
-                Identifier@15..16 "x""#]]
+                Identifier@15..16 "x"
+            Semicolon@16..17 ";""#]],
     )
   }
 
@@ -293,7 +294,7 @@ mod tests {
     check(
       "let { x: asd, y } = z;",
       expect![[r#"
-          Root@0..21
+          Root@0..22
             LetExpression@0..21
               Let@0..3 "let"
               Whitespace@3..4 " "
@@ -314,7 +315,8 @@ mod tests {
               Equals@18..19 "="
               Whitespace@19..20 " "
               VariableReference@20..21
-                Identifier@20..21 "z""#]]
+                Identifier@20..21 "z"
+            Semicolon@21..22 ";""#]],
     )
   }
 
@@ -324,7 +326,7 @@ mod tests {
     check(
       "let [_, y] = x;",
       expect![[r#"
-          Root@0..14
+          Root@0..15
             LetExpression@0..14
               Let@0..3 "let"
               Whitespace@3..4 " "
@@ -340,7 +342,8 @@ mod tests {
               Equals@11..12 "="
               Whitespace@12..13 " "
               VariableReference@13..14
-                Identifier@13..14 "x""#]]
+                Identifier@13..14 "x"
+            Semicolon@14..15 ";""#]],
     )
   }
 
@@ -349,7 +352,7 @@ mod tests {
     check(
       "let [{ x, }, z] = weel;",
       expect![[r#"
-          Root@0..22
+          Root@0..23
             LetExpression@0..22
               Let@0..3 "let"
               Whitespace@3..4 " "
@@ -371,7 +374,118 @@ mod tests {
               Equals@16..17 "="
               Whitespace@17..18 " "
               VariableReference@18..22
-                Identifier@18..22 "weel""#]]
+                Identifier@18..22 "weel"
+            Semicolon@22..23 ";""#]],
+    )
+  }
+
+  #[test]
+  fn parse_function_expression() {
+    check(
+      r#"
+      f double(x) = x * 2;
+    "#,
+      expect![[r#"
+        Root@0..32
+          Whitespace@0..7 "\n      "
+          NamedFunctionExpression@7..32
+            Function@7..8 "f"
+            Whitespace@8..9 " "
+            Identifier@9..15 "double"
+            ArgumentList@15..19
+              LeftParenthesis@15..16 "("
+              Identifier@16..17 "x"
+              RightParenthesis@17..18 ")"
+              Whitespace@18..19 " "
+            Equals@19..20 "="
+            Whitespace@20..21 " "
+            InfixExpression@21..26
+              VariableReference@21..23
+                Identifier@21..22 "x"
+                Whitespace@22..23 " "
+              Asterisk@23..24 "*"
+              Whitespace@24..25 " "
+              Literal@25..26
+                Number@25..26 "2"
+            Semicolon@26..27 ";"
+            Whitespace@27..32 "\n    ""#]],
+    )
+  }
+
+  #[test]
+  fn parse_anonymous_function_expression() {
+    check(
+      r#"
+      f(x) = x / 2;
+    "#,
+      expect![[r#"
+        Root@0..25
+          Whitespace@0..7 "\n      "
+          AnonymousFunctionExpression@7..25
+            Function@7..8 "f"
+            ArgumentList@8..12
+              LeftParenthesis@8..9 "("
+              Identifier@9..10 "x"
+              RightParenthesis@10..11 ")"
+              Whitespace@11..12 " "
+            Equals@12..13 "="
+            Whitespace@13..14 " "
+            InfixExpression@14..19
+              VariableReference@14..16
+                Identifier@14..15 "x"
+                Whitespace@15..16 " "
+              ForwardSlash@16..17 "/"
+              Whitespace@17..18 " "
+              Literal@18..19
+                Number@18..19 "2"
+            Semicolon@19..20 ";"
+            Whitespace@20..25 "\n    ""#]],
+    )
+  }
+
+  #[test]
+  fn parse_function() {
+    check(
+      r#"
+      f upper(x) {
+        let y = x * 5;
+      }
+    "#,
+      expect![[r#"
+        Root@0..55
+          Whitespace@0..7 "\n      "
+          NamedFunction@7..55
+            Function@7..8 "f"
+            Whitespace@8..9 " "
+            Identifier@9..14 "upper"
+            ArgumentList@14..18
+              LeftParenthesis@14..15 "("
+              Identifier@15..16 "x"
+              RightParenthesis@16..17 ")"
+              Whitespace@17..18 " "
+            FunctionBody@18..55
+              LeftBrace@18..19 "{"
+              Whitespace@19..28 "\n        "
+              LetExpression@28..41
+                Let@28..31 "let"
+                Whitespace@31..32 " "
+                Assignment@32..34
+                  Identifier@32..33 "y"
+                  Whitespace@33..34 " "
+                Equals@34..35 "="
+                Whitespace@35..36 " "
+                InfixExpression@36..41
+                  VariableReference@36..38
+                    Identifier@36..37 "x"
+                    Whitespace@37..38 " "
+                  Asterisk@38..39 "*"
+                  Whitespace@39..40 " "
+                  Literal@40..41
+                    Number@40..41 "5"
+              Semicolon@41..42 ";"
+              Whitespace@42..49 "\n      "
+              RightBrace@49..50 "}"
+              Whitespace@50..55 "\n    ""#]],
     )
   }
 }

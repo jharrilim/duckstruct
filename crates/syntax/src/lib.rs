@@ -6,7 +6,7 @@ use num_traits::{FromPrimitive, ToPrimitive};
 #[derive(Debug, Copy, Clone, PartialEq, FromPrimitive, ToPrimitive, Eq, PartialOrd, Ord, Hash)]
 pub enum SyntaxKind {
     Whitespace,
-    Function,
+    Function, // the keyword
     Class,
     Let,
     Identifier,
@@ -36,10 +36,16 @@ pub enum SyntaxKind {
     PrefixExpression,
     LetExpression,
     VariableReference,
-    Assignment, // idk if i'll really need this, but for now it marks the lhs of a = expression
+    Assignment, // idk if i'll really need this, but for now it marks the lhs of a let expression
     Pattern,
     StructPattern,
     ArrayPattern,
+    ArgumentList,
+    AnonymousFunction,
+    AnonymousFunctionExpression,
+    NamedFunction,
+    NamedFunctionExpression,
+    FunctionBody,
 }
 
 impl From<TokenKind> for SyntaxKind {

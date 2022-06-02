@@ -4,7 +4,10 @@ use lexer::token::TokenKind;
 use syntax::SyntaxKind;
 
 pub(super) fn expr(p: &mut Parser) {
-  expr_binding_power(p, 0)
+  expr_binding_power(p, 0);
+  if p.at(TokenKind::Semicolon) {
+    p.bump();
+  }
 }
 
 pub(super) fn expr_binding_power(p: &mut Parser, minimum_binding_power: u8) {
@@ -44,6 +47,7 @@ fn lhs(p: &mut Parser) -> Option<CompletedMarker> {
     Some(TokenKind::Minus) => parsers::prefix_expr(p),
     Some(TokenKind::LeftParenthesis) => parsers::paren_expr(p),
     Some(TokenKind::Let) => parsers::let_expr(p),
+    Some(TokenKind::Function) => parsers::function_definition(p),
     _ => return None,
   };
   Some(completed_marker)
