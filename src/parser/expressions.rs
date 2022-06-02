@@ -5,6 +5,9 @@ use syntax::SyntaxKind;
 
 pub(super) fn expr(p: &mut Parser) {
   expr_binding_power(p, 0);
+
+  // temp, this needs to be done after expr depending on context,
+  // ie. don't do it inside an invocation
   if p.at(TokenKind::Semicolon) {
     p.bump();
   }
