@@ -440,7 +440,7 @@ mod tests {
         f y(x) = x * 2;
       "#,
       expect![[r#"
-          Root@0..29
+          Root@0..51
             Whitespace@0..9 "\n        "
             LetExpression@9..19
               Let@9..12 "let"
@@ -452,7 +452,28 @@ mod tests {
               Literal@17..19
                 Number@17..19 "10"
             Semicolon@19..20 ";"
-            Whitespace@20..29 "\n        ""#]],
+            Whitespace@20..29 "\n        "
+            NamedFunctionExpression@29..51
+              Function@29..30 "f"
+              Whitespace@30..31 " "
+              Identifier@31..32 "y"
+              ArgumentList@32..36
+                LeftParenthesis@32..33 "("
+                Identifier@33..34 "x"
+                RightParenthesis@34..35 ")"
+                Whitespace@35..36 " "
+              Equals@36..37 "="
+              Whitespace@37..38 " "
+              InfixExpression@38..43
+                VariableReference@38..40
+                  Identifier@38..39 "x"
+                  Whitespace@39..40 " "
+                Asterisk@40..41 "*"
+                Whitespace@41..42 " "
+                Literal@42..43
+                  Number@42..43 "2"
+              Semicolon@43..44 ";"
+              Whitespace@44..51 "\n      ""#]],
     );
   }
 }

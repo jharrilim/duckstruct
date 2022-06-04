@@ -23,7 +23,14 @@ impl<'l, 'input> Parser<'l, 'input> {
 
   pub(crate) fn parse(mut self) -> Vec<Event> {
     let root_marker = self.start();
-    expr(&mut self);
+    loop {
+      match self.source.peek_kind() {
+        Some(_) => {
+          expr(&mut self);
+        }
+        None => break,
+      }
+    }
     root_marker.complete(&mut self, SyntaxKind::Root);
 
     self.events
