@@ -9,6 +9,7 @@ use super::{event::Event, expressions::expr, marker::Marker, source::Source};
 pub struct Parser<'l, 'input> {
   pub(crate) source: Source<'l, 'input>,
   pub(crate) events: Vec<Event>,
+  #[allow(unused)]
   pub(crate) errors: Vec<String>,
 }
 
@@ -23,13 +24,8 @@ impl<'l, 'input> Parser<'l, 'input> {
 
   pub(crate) fn parse(mut self) -> Vec<Event> {
     let root_marker = self.start();
-    loop {
-      match self.source.peek_kind() {
-        Some(_) => {
-          expr(&mut self);
-        }
-        None => break,
-      }
+    while self.source.peek_kind().is_some() {
+      expr(&mut self);
     }
     root_marker.complete(&mut self, SyntaxKind::Root);
 
