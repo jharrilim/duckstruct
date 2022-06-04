@@ -1,3 +1,7 @@
+use lexer::Lexer;
+use self::parser::{Parse, Parser};
+use sink::Sink;
+
 mod event;
 mod expressions;
 mod marker;
@@ -7,6 +11,17 @@ pub mod parser;
 mod parsers;
 mod sink;
 mod source;
+
+pub fn parse(input: &str) -> Parse {
+  let tokens: Vec<_> = Lexer::new(input).collect();
+  let parser = Parser::new(&tokens);
+  let events = parser.parse();
+  let sink = Sink::new(&tokens, events);
+
+  Parse {
+    root: sink.finish(),
+  }
+}
 
 #[cfg(test)]
 mod tests {

@@ -1,5 +1,5 @@
 use ctrlc;
-use parser::parser::parse;
+use parser::parse;
 use std::{
   io::{self, Write},
   sync::{
@@ -49,7 +49,7 @@ pub fn repl() -> io::Result<()> {
 
     stdin.read_line(&mut input)?;
 
-    if input.as_str().trim() == "exit" {
+    if input.trim() == "exit" {
       break Ok(());
     }
 

@@ -48,6 +48,12 @@ pub enum SyntaxKind {
     FunctionBody,
 }
 
+impl From<SyntaxKind> for rowan::SyntaxKind {
+  fn from(kind: SyntaxKind) -> Self {
+      Self(kind as u16)
+  }
+}
+
 impl From<TokenKind> for SyntaxKind {
     fn from(token_kind: TokenKind) -> Self {
         match token_kind {
