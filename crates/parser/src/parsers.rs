@@ -74,7 +74,7 @@ pub(super) fn let_expr(p: &mut Parser) -> CompletedMarker {
         array_pattern_expr(p);
       }
       _ => {
-        panic!("todo: parse error here {}", token.to_string())
+        panic!("todo: parse error here {}", token)
       }
     }
     m.complete(p, SyntaxKind::Assignment);
@@ -112,7 +112,7 @@ fn struct_pattern_expr(p: &mut Parser) -> CompletedMarker {
       Some(TokenKind::Colon) => p.bump(),
       Some(token) => panic!(
         "wth dude you cant just put whatever character you want here {}",
-        token.to_string()
+        token
       ),
       None => panic!("{}", "Missing '}'"), // gotta try to get comprehensive error reporting in here at some point
     }
@@ -137,7 +137,7 @@ fn array_pattern_expr(p: &mut Parser) -> CompletedMarker {
       }
       Some(TokenKind::Identifier) => p.bump(),
       Some(TokenKind::Comma) => p.bump(),
-      Some(token) => panic!("aint no way bro 💀 {}", token.to_string()),
+      Some(token) => panic!("aint no way bro 💀 {}", token),
       None => panic!("Missing ']'"),
     }
   }

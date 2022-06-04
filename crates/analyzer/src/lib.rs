@@ -1,4 +1,3 @@
-use parser;
 use syntax::SyntaxKind;
 
 pub fn analyze() {
