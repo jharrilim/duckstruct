@@ -63,21 +63,20 @@ pub(super) fn let_expr(p: &mut Parser) -> CompletedMarker {
 
   p.bump();
 
-  if let Some(token) = p.peek() {
-    let m = p.start();
-    match token {
-      TokenKind::Identifier => p.bump(),
-      TokenKind::LeftBrace => {
-        struct_pattern_expr(p);
-      }
-      TokenKind::LeftBracket => {
-        array_pattern_expr(p);
-      }
-      _ => {
-        panic!("todo: parse error here {}", token)
-      }
+  match p.peek() {
+    Some(TokenKind::Identifier) => p.bump(),
+    Some(TokenKind::LeftBrace) => {
+      struct_pattern_expr(p);
     }
-    m.complete(p, SyntaxKind::Assignment);
+    Some(TokenKind::LeftBracket) => {
+      array_pattern_expr(p);
+    }
+    None => {
+      panic!("why eof")
+    }
+    Some(token) => {
+      panic!("todo: parse error here, unexpected token {}", token)
+    }
   }
 
   debug_assert!(

@@ -36,7 +36,6 @@ pub enum SyntaxKind {
     PrefixExpression,
     LetExpression,
     VariableReference,
-    Assignment, // idk if i'll really need this, but for now it marks the lhs of a let expression
     Pattern,
     StructPattern,
     ArrayPattern,

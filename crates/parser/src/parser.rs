@@ -9,6 +9,7 @@ use super::{event::Event, expressions::expr, marker::Marker, source::Source};
 pub struct Parser<'l, 'input> {
   pub(crate) source: Source<'l, 'input>,
   pub(crate) events: Vec<Event>,
+  pub(crate) errors: Vec<String>,
 }
 
 impl<'l, 'input> Parser<'l, 'input> {
@@ -16,6 +17,7 @@ impl<'l, 'input> Parser<'l, 'input> {
     Self {
       source: Source::new(tokens),
       events: Vec::new(),
+      errors: Vec::new(),
     }
   }
 

@@ -7,6 +7,7 @@ pub fn analyze() {
     f y(x) = x * 2;
   "#;
   let p = parser::parse(input);
+  println!("{}", p.debug_tree());
   p.syntax().children().for_each(|c| {
     match c.kind() {
       SyntaxKind::LetExpression => {
