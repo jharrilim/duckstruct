@@ -26,10 +26,6 @@ impl Repl {
   pub(super) fn exit(&self) {
     self.exit.store(true, Ordering::Relaxed)
   }
-
-  fn run(&self) {
-
-  }
 }
 
 pub fn repl() -> io::Result<()> {
@@ -41,14 +37,13 @@ pub fn repl() -> io::Result<()> {
   let reepl = repl.clone();
   ctrlc::set_handler(move || {
     reepl.lock().unwrap().exit();
-    writeln!(io::stdout(), "bye").unwrap();
+    println!("bye");
   })
   .expect("Error setting Ctrl-C handler");
 
   writeln!(stdout, "Duckstruct AST Perusal Machine 3000 (v0.0.1)")?;
   writeln!(stdout, "Type exit to quit.")?;
   loop {
-
     write!(stdout, "→ ")?;
     stdout.flush()?;
 
