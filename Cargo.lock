@@ -3,6 +3,10 @@
 version = 3
 
 [[package]]
+name = "analyzer"
+version = "0.1.0"
+
+[[package]]
 name = "autocfg"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -64,12 +68,14 @@ checksum = "9bda8e21c04aca2ae33ffc2fd8c23134f3cac46db123ba97bd9d3f3b8a4a85e1"
 name = "duckstruct"
 version = "0.1.0"
 dependencies = [
+ "analyzer",
  "ctrlc",
  "drop_bomb",
  "expect-test",
  "lexer",
  "num-derive",
  "num-traits",
+ "parser",
  "project-root",
  "rowan",
  "syntax",
@@ -184,6 +190,20 @@ name = "once_cell"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "da32515d9f6e6e489d7bc9d84c71b060db7247dc035bbe44eac88cf87486d8d5"
+
+[[package]]
+name = "parser"
+version = "0.1.0"
+dependencies = [
+ "drop_bomb",
+ "lexer",
+ "num-derive",
+ "num-traits",
+ "project-root",
+ "rowan",
+ "syntax",
+ "text-size",
+]
 
 [[package]]
 name = "proc-macro2"

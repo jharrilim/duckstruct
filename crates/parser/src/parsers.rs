@@ -1,9 +1,9 @@
 use lexer::token::TokenKind;
 use syntax::SyntaxKind;
 
-use crate::parser::expressions::{expr, expr_binding_power};
-use crate::parser::marker::CompletedMarker;
-use crate::parser::operators::PrefixOp;
+use crate::expressions::{expr, expr_binding_power};
+use crate::marker::CompletedMarker;
+use crate::operators::PrefixOp;
 use crate::parser::Parser;
 
 use super::marker::Marker;

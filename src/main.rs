@@ -1,4 +1,3 @@
-pub mod parser;
 pub mod repl;
 
 use std::io;
