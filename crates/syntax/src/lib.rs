@@ -36,7 +36,6 @@ pub enum SyntaxKind {
     PrefixExpression,
     LetExpression,
     VariableReference,
-    Assignment, // idk if i'll really need this, but for now it marks the lhs of a let expression
     Pattern,
     StructPattern,
     ArrayPattern,
@@ -46,6 +45,12 @@ pub enum SyntaxKind {
     NamedFunction,
     NamedFunctionExpression,
     FunctionBody,
+}
+
+impl From<SyntaxKind> for rowan::SyntaxKind {
+  fn from(kind: SyntaxKind) -> Self {
+      Self(kind as u16)
+  }
 }
 
 impl From<TokenKind> for SyntaxKind {

@@ -63,21 +63,20 @@ pub(super) fn let_expr(p: &mut Parser) -> CompletedMarker {
 
   p.bump();
 
-  if let Some(token) = p.peek() {
-    let m = p.start();
-    match token {
-      TokenKind::Identifier => p.bump(),
-      TokenKind::LeftBrace => {
-        struct_pattern_expr(p);
-      }
-      TokenKind::LeftBracket => {
-        array_pattern_expr(p);
-      }
-      _ => {
-        panic!("todo: parse error here {}", token.to_string())
-      }
+  match p.peek() {
+    Some(TokenKind::Identifier) => p.bump(),
+    Some(TokenKind::LeftBrace) => {
+      struct_pattern_expr(p);
     }
-    m.complete(p, SyntaxKind::Assignment);
+    Some(TokenKind::LeftBracket) => {
+      array_pattern_expr(p);
+    }
+    None => {
+      panic!("why eof")
+    }
+    Some(token) => {
+      panic!("todo: parse error here, unexpected token {}", token)
+    }
   }
 
   debug_assert!(
@@ -112,7 +111,7 @@ fn struct_pattern_expr(p: &mut Parser) -> CompletedMarker {
       Some(TokenKind::Colon) => p.bump(),
       Some(token) => panic!(
         "wth dude you cant just put whatever character you want here {}",
-        token.to_string()
+        token
       ),
       None => panic!("{}", "Missing '}'"), // gotta try to get comprehensive error reporting in here at some point
     }
@@ -137,7 +136,7 @@ fn array_pattern_expr(p: &mut Parser) -> CompletedMarker {
       }
       Some(TokenKind::Identifier) => p.bump(),
       Some(TokenKind::Comma) => p.bump(),
-      Some(token) => panic!("aint no way bro 💀 {}", token.to_string()),
+      Some(token) => panic!("aint no way bro 💀 {}", token),
       None => panic!("Missing ']'"),
     }
   }

@@ -1,28 +1,32 @@
-use lexer::{token::TokenKind, Lexer, Token};
+use lexer::{token::TokenKind, Token};
 
 use syntax::{SyntaxKind, SyntaxNode};
 
 use rowan::GreenNode;
-use super::sink::Sink;
 
 use super::{event::Event, expressions::expr, marker::Marker, source::Source};
 
 pub struct Parser<'l, 'input> {
   pub(crate) source: Source<'l, 'input>,
   pub(crate) events: Vec<Event>,
+  #[allow(unused)]
+  pub(crate) errors: Vec<String>,
 }
 
 impl<'l, 'input> Parser<'l, 'input> {
-  pub fn new(tokens: &'l [Token<'input>]) -> Self {
+  pub(crate) fn new(tokens: &'l [Token<'input>]) -> Self {
     Self {
       source: Source::new(tokens),
       events: Vec::new(),
+      errors: Vec::new(),
     }
   }
 
-  fn parse(mut self) -> Vec<Event> {
+  pub(crate) fn parse(mut self) -> Vec<Event> {
     let root_marker = self.start();
-    expr(&mut self);
+    while self.source.peek_kind().is_some() {
+      expr(&mut self);
+    }
     root_marker.complete(&mut self, SyntaxKind::Root);
 
     self.events
@@ -50,27 +54,20 @@ impl<'l, 'input> Parser<'l, 'input> {
   }
 }
 
-pub fn parse(input: &str) -> Parse {
-  let tokens: Vec<_> = Lexer::new(input).collect();
-  let parser = Parser::new(&tokens);
-  let events = parser.parse();
-  let sink = Sink::new(&tokens, events);
-
-  Parse {
-    green_node: sink.finish(),
-  }
-}
-
 pub struct Parse {
-  green_node: GreenNode,
+  pub root: GreenNode,
 }
 
 impl Parse {
   pub fn debug_tree(&self) -> String {
-    let syntax_node = SyntaxNode::new_root(self.green_node.clone());
+    let syntax_node = SyntaxNode::new_root(self.root.clone());
     let formatted = format!("{:#?}", syntax_node);
 
     // We cut off the last byte because formatting the SyntaxNode adds on a newline at the end.
     formatted[0..formatted.len() - 1].to_string()
+  }
+
+  pub fn syntax(&self) -> SyntaxNode {
+    SyntaxNode::new_root(self.root.clone())
   }
 }

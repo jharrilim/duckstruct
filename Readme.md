@@ -116,3 +116,8 @@ we can optimize the output of the code such that:
 let dogBark = "woof"
 let catBark = 10101010
 ```
+
+---
+
+This should in theory be fairly similar to the [Hindley Milner Type System](https://en.wikipedia.org/wiki/Hindley%E2%80%93Milner_type_system),
+except instead of doing just type inference, we'll try to compute the values as well.

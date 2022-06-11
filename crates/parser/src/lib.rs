@@ -1,3 +1,7 @@
+use self::parser::{Parse, Parser};
+use lexer::Lexer;
+use sink::Sink;
+
 mod event;
 mod expressions;
 mod marker;
@@ -7,6 +11,17 @@ pub mod parser;
 mod parsers;
 mod sink;
 mod source;
+
+pub fn parse(input: &str) -> Parse {
+  let tokens: Vec<_> = Lexer::new(input).collect();
+  let parser = Parser::new(&tokens);
+  let events = parser.parse();
+  let sink = Sink::new(&tokens, events);
+
+  Parse {
+    root: sink.finish(),
+  }
+}
 
 #[cfg(test)]
 mod tests {
@@ -174,9 +189,8 @@ mod tests {
             LetExpression@0..11
               Let@0..3 "let"
               Whitespace@3..4 " "
-              Assignment@4..6
-                Identifier@4..5 "x"
-                Whitespace@5..6 " "
+              Identifier@4..5 "x"
+              Whitespace@5..6 " "
               Equals@6..7 "="
               Whitespace@7..8 " "
               Literal@8..11
@@ -194,17 +208,16 @@ mod tests {
             LetExpression@0..16
               Let@0..3 "let"
               Whitespace@3..4 " "
-              Assignment@4..13
-                StructPattern@4..13
-                  LeftBrace@4..5 "{"
-                  Whitespace@5..6 " "
-                  Identifier@6..7 "x"
-                  Comma@7..8 ","
-                  Whitespace@8..9 " "
-                  Identifier@9..10 "y"
-                  Whitespace@10..11 " "
-                  RightBrace@11..12 "}"
-                  Whitespace@12..13 " "
+              StructPattern@4..13
+                LeftBrace@4..5 "{"
+                Whitespace@5..6 " "
+                Identifier@6..7 "x"
+                Comma@7..8 ","
+                Whitespace@8..9 " "
+                Identifier@9..10 "y"
+                Whitespace@10..11 " "
+                RightBrace@11..12 "}"
+                Whitespace@12..13 " "
               Equals@13..14 "="
               Whitespace@14..15 " "
               VariableReference@15..16
@@ -222,20 +235,19 @@ mod tests {
             LetExpression@0..21
               Let@0..3 "let"
               Whitespace@3..4 " "
-              Assignment@4..18
-                StructPattern@4..18
-                  LeftBrace@4..5 "{"
-                  Whitespace@5..6 " "
-                  Identifier@6..7 "x"
-                  Colon@7..8 ":"
-                  Whitespace@8..9 " "
-                  Identifier@9..12 "asd"
-                  Comma@12..13 ","
-                  Whitespace@13..14 " "
-                  Identifier@14..15 "y"
-                  Whitespace@15..16 " "
-                  RightBrace@16..17 "}"
-                  Whitespace@17..18 " "
+              StructPattern@4..18
+                LeftBrace@4..5 "{"
+                Whitespace@5..6 " "
+                Identifier@6..7 "x"
+                Colon@7..8 ":"
+                Whitespace@8..9 " "
+                Identifier@9..12 "asd"
+                Comma@12..13 ","
+                Whitespace@13..14 " "
+                Identifier@14..15 "y"
+                Whitespace@15..16 " "
+                RightBrace@16..17 "}"
+                Whitespace@17..18 " "
               Equals@18..19 "="
               Whitespace@19..20 " "
               VariableReference@20..21
@@ -254,15 +266,14 @@ mod tests {
             LetExpression@0..14
               Let@0..3 "let"
               Whitespace@3..4 " "
-              Assignment@4..11
-                ArrayPattern@4..11
-                  LeftBracket@4..5 "["
-                  Identifier@5..6 "_"
-                  Comma@6..7 ","
-                  Whitespace@7..8 " "
-                  Identifier@8..9 "y"
-                  RightBracket@9..10 "]"
-                  Whitespace@10..11 " "
+              ArrayPattern@4..11
+                LeftBracket@4..5 "["
+                Identifier@5..6 "_"
+                Comma@6..7 ","
+                Whitespace@7..8 " "
+                Identifier@8..9 "y"
+                RightBracket@9..10 "]"
+                Whitespace@10..11 " "
               Equals@11..12 "="
               Whitespace@12..13 " "
               VariableReference@13..14
@@ -280,21 +291,20 @@ mod tests {
             LetExpression@0..22
               Let@0..3 "let"
               Whitespace@3..4 " "
-              Assignment@4..16
-                ArrayPattern@4..16
-                  LeftBracket@4..5 "["
-                  StructPattern@5..11
-                    LeftBrace@5..6 "{"
-                    Whitespace@6..7 " "
-                    Identifier@7..8 "x"
-                    Comma@8..9 ","
-                    Whitespace@9..10 " "
-                    RightBrace@10..11 "}"
-                  Comma@11..12 ","
-                  Whitespace@12..13 " "
-                  Identifier@13..14 "z"
-                  RightBracket@14..15 "]"
-                  Whitespace@15..16 " "
+              ArrayPattern@4..16
+                LeftBracket@4..5 "["
+                StructPattern@5..11
+                  LeftBrace@5..6 "{"
+                  Whitespace@6..7 " "
+                  Identifier@7..8 "x"
+                  Comma@8..9 ","
+                  Whitespace@9..10 " "
+                  RightBrace@10..11 "}"
+                Comma@11..12 ","
+                Whitespace@12..13 " "
+                Identifier@13..14 "z"
+                RightBracket@14..15 "]"
+                Whitespace@15..16 " "
               Equals@16..17 "="
               Whitespace@17..18 " "
               VariableReference@18..22
@@ -394,9 +404,8 @@ mod tests {
                 LetExpression@28..41
                   Let@28..31 "let"
                   Whitespace@31..32 " "
-                  Assignment@32..34
-                    Identifier@32..33 "y"
-                    Whitespace@33..34 " "
+                  Identifier@32..33 "y"
+                  Whitespace@33..34 " "
                   Equals@34..35 "="
                   Whitespace@35..36 " "
                   InfixExpression@36..41
@@ -421,5 +430,50 @@ mod tests {
                 RightBrace@65..66 "}"
                 Whitespace@66..71 "\n    ""#]],
     )
+  }
+
+  #[test]
+  fn parse_let_expression_followed_by_f_definition() {
+    check(
+      r#"
+        let x = 10;
+        f y(x) = x * 2;
+      "#,
+      expect![[r#"
+          Root@0..51
+            Whitespace@0..9 "\n        "
+            LetExpression@9..19
+              Let@9..12 "let"
+              Whitespace@12..13 " "
+              Identifier@13..14 "x"
+              Whitespace@14..15 " "
+              Equals@15..16 "="
+              Whitespace@16..17 " "
+              Literal@17..19
+                Number@17..19 "10"
+            Semicolon@19..20 ";"
+            Whitespace@20..29 "\n        "
+            NamedFunctionExpression@29..51
+              Function@29..30 "f"
+              Whitespace@30..31 " "
+              Identifier@31..32 "y"
+              ArgumentList@32..36
+                LeftParenthesis@32..33 "("
+                Identifier@33..34 "x"
+                RightParenthesis@34..35 ")"
+                Whitespace@35..36 " "
+              Equals@36..37 "="
+              Whitespace@37..38 " "
+              InfixExpression@38..43
+                VariableReference@38..40
+                  Identifier@38..39 "x"
+                  Whitespace@39..40 " "
+                Asterisk@40..41 "*"
+                Whitespace@41..42 " "
+                Literal@42..43
+                  Number@42..43 "2"
+              Semicolon@43..44 ";"
+              Whitespace@44..51 "\n      ""#]],
+    );
   }
 }

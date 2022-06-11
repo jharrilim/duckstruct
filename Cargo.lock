@@ -5,6 +5,10 @@ version = 3
 [[package]]
 name = "analyzer"
 version = "0.1.0"
+dependencies = [
+ "parser",
+ "syntax",
+]
 
 [[package]]
 name = "autocfg"
@@ -196,6 +200,7 @@ name = "parser"
 version = "0.1.0"
 dependencies = [
  "drop_bomb",
+ "expect-test",
  "lexer",
  "num-derive",
  "num-traits",
