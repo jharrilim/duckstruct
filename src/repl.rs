@@ -2,42 +2,19 @@ use ctrlc;
 use parser::parser::parse;
 use std::{
   io::{self, Write},
-  sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc, Mutex,
-  },
+  process::exit,
 };
 
-struct Repl {
-  exit: AtomicBool,
-}
-
-impl Repl {
-  pub(super) fn new() -> Repl {
-    Repl {
-      exit: AtomicBool::new(false),
-    }
-  }
-
-  fn should_exit(&self) -> bool {
-    self.exit.load(Ordering::Relaxed)
-  }
-
-  pub(super) fn exit(&self) {
-    self.exit.store(true, Ordering::Relaxed)
-  }
-}
 
 pub fn repl() -> io::Result<()> {
-  let repl = Arc::new(Mutex::new(Repl::new()));
   let stdin = io::stdin();
   let mut stdout = io::stdout();
 
   let mut input = String::new();
-  let reepl = repl.clone();
+
   ctrlc::set_handler(move || {
-    reepl.lock().unwrap().exit();
-    println!("bye");
+    println!("\nbye");
+    exit(0);
   })
   .expect("Error setting Ctrl-C handler");
 
@@ -50,10 +27,6 @@ pub fn repl() -> io::Result<()> {
     stdin.read_line(&mut input)?;
 
     if input.as_str().trim() == "exit" {
-      break Ok(());
-    }
-
-    if repl.lock().unwrap().should_exit() {
       break Ok(());
     }
 
