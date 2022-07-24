@@ -3,13 +3,22 @@ pub(crate) enum InfixOp {
   Sub,
   Mul,
   Div,
+  Lt,
+  Lte,
+  Gt,
+  Gte,
+  Eq,
+  Neq,
+  
 }
 
 impl InfixOp {
   pub fn binding_power(&self) -> (u8, u8) {
     match self {
-      Self::Add | Self::Sub => (1, 2),
-      Self::Mul | Self::Div => (3, 4),
+      Self::Eq | Self::Neq => (1, 2),
+      Self::Lt | Self::Lte | Self::Gt | Self::Gte => (3, 4),
+      Self::Add | Self::Sub => (5, 6),
+      Self::Mul | Self::Div => (7, 8),
     }
   }
 }

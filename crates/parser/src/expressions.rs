@@ -26,6 +26,14 @@ pub(super) fn expr_binding_power(p: &mut Parser, minimum_binding_power: u8) {
       Some(TokenKind::Minus) => InfixOp::Sub,
       Some(TokenKind::Asterisk) => InfixOp::Mul,
       Some(TokenKind::ForwardSlash) => InfixOp::Div,
+
+      Some(TokenKind::LessThan) => InfixOp::Lt,
+      Some(TokenKind::LessThanOrEqual) => InfixOp::Lte,
+      Some(TokenKind::GreaterThan) => InfixOp::Gt,
+      Some(TokenKind::GreaterThanOrEqual) => InfixOp::Gte,
+      Some(TokenKind::DoubleEquals) => InfixOp::Eq,
+      Some(TokenKind::NotEquals) => InfixOp::Neq,
+
       _ => return,
     };
 
@@ -51,6 +59,7 @@ fn lhs(p: &mut Parser) -> Option<CompletedMarker> {
     Some(TokenKind::LeftParenthesis) => parsers::paren_expr(p),
     Some(TokenKind::Let) => parsers::let_expr(p),
     Some(TokenKind::Function) => parsers::function_definition(p),
+    Some(TokenKind::If) => parsers::conditional_expr(p),
     _ => return None,
   };
   Some(completed_marker)

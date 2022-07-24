@@ -476,4 +476,104 @@ mod tests {
               Whitespace@44..51 "\n      ""#]],
     );
   }
+
+  #[test]
+  fn parse_if_condition() {
+    check(
+      r#"
+        if x > 0 {
+          x + 1
+        }
+      "#,
+      expect![[r#"
+          Root@0..52
+            Whitespace@0..9 "\n        "
+            ConditionalExpression@9..52
+              If@9..11 "if"
+              Whitespace@11..12 " "
+              ConditionalPredicate@12..18
+                InfixExpression@12..18
+                  VariableReference@12..14
+                    Identifier@12..13 "x"
+                    Whitespace@13..14 " "
+                  GreaterThan@14..15 ">"
+                  Whitespace@15..16 " "
+                  Literal@16..18
+                    Number@16..17 "0"
+                    Whitespace@17..18 " "
+              LeftBrace@18..19 "{"
+              Whitespace@19..30 "\n          "
+              IfCondition@30..44
+                InfixExpression@30..44
+                  VariableReference@30..32
+                    Identifier@30..31 "x"
+                    Whitespace@31..32 " "
+                  Plus@32..33 "+"
+                  Whitespace@33..34 " "
+                  Literal@34..44
+                    Number@34..35 "1"
+                    Whitespace@35..44 "\n        "
+              RightBrace@44..45 "}"
+              Whitespace@45..52 "\n      ""#]],
+    );
+  }
+
+  #[test]
+  fn parse_if_condition_with_else() {
+    check(
+      r#"
+        if x > 0 {
+          x + 1
+        } else {
+          x - 1
+        }
+      "#,
+      expect![[r#"
+          Root@0..85
+            Whitespace@0..9 "\n        "
+            ConditionalExpression@9..85
+              If@9..11 "if"
+              Whitespace@11..12 " "
+              ConditionalPredicate@12..18
+                InfixExpression@12..18
+                  VariableReference@12..14
+                    Identifier@12..13 "x"
+                    Whitespace@13..14 " "
+                  GreaterThan@14..15 ">"
+                  Whitespace@15..16 " "
+                  Literal@16..18
+                    Number@16..17 "0"
+                    Whitespace@17..18 " "
+              LeftBrace@18..19 "{"
+              Whitespace@19..30 "\n          "
+              IfCondition@30..44
+                InfixExpression@30..44
+                  VariableReference@30..32
+                    Identifier@30..31 "x"
+                    Whitespace@31..32 " "
+                  Plus@32..33 "+"
+                  Whitespace@33..34 " "
+                  Literal@34..44
+                    Number@34..35 "1"
+                    Whitespace@35..44 "\n        "
+              RightBrace@44..45 "}"
+              Whitespace@45..46 " "
+              Else@46..50 "else"
+              Whitespace@50..51 " "
+              LeftBrace@51..52 "{"
+              Whitespace@52..63 "\n          "
+              ElseCondition@63..77
+                InfixExpression@63..77
+                  VariableReference@63..65
+                    Identifier@63..64 "x"
+                    Whitespace@64..65 " "
+                  Minus@65..66 "-"
+                  Whitespace@66..67 " "
+                  Literal@67..77
+                    Number@67..68 "1"
+                    Whitespace@68..77 "\n        "
+              RightBrace@77..78 "}"
+              Whitespace@78..85 "\n      ""#]],
+    );
+  }
 }

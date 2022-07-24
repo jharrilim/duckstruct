@@ -14,6 +14,15 @@ pub enum TokenKind {
   #[token("class")]
   Class,
 
+  #[token("if")]
+  If,
+
+  #[token("else")]
+  Else,
+
+  #[token("while")]
+  While,
+
   #[token("{")]
   LeftBrace,
 
@@ -41,6 +50,8 @@ pub enum TokenKind {
   #[regex(r"[0-9]+")]
   Number,
 
+  // infix ops
+
   #[token("+")]
   Plus,
 
@@ -52,6 +63,35 @@ pub enum TokenKind {
 
   #[token("/")]
   ForwardSlash,
+
+  // equality
+
+  #[token("==")]
+  DoubleEquals,
+
+  #[token("!=")]
+  NotEquals,
+
+  #[token("<")]
+  LessThan,
+
+  #[token("<=")]
+  LessThanOrEqual,
+
+  #[token(">")]
+  GreaterThan,
+
+  #[token(">=")]
+  GreaterThanOrEqual,
+
+  #[token("&&")]
+  And,
+
+  #[token("||")]
+  Or,
+   
+  #[token("!")]
+  Bang,
 
   #[token("=")]
   Equals,
@@ -91,6 +131,9 @@ impl fmt::Display for TokenKind {
           Self::Function => "'f'",
           Self::Class => "'class'",
           Self::Let => "'let'",
+          Self::If => "'if'",
+          Self::Else => "'else'",
+          Self::While => "'while'",
           Self::Identifier => "identifier",
           Self::Period => "'.'",
           Self::Comma => "','",
@@ -101,6 +144,15 @@ impl fmt::Display for TokenKind {
           Self::Minus => "'-'",
           Self::Asterisk => "'*'",
           Self::ForwardSlash => "'/'",
+          Self::DoubleEquals => "'=='",
+          Self::NotEquals => "'!='",
+          Self::LessThan => "'<'",
+          Self::LessThanOrEqual => "'<='",
+          Self::GreaterThan => "'>'",
+          Self::GreaterThanOrEqual => "'>='",
+          Self::And => "'&&'",
+          Self::Or => "'||'",
+          Self::Bang => "'!'",
           Self::Equals => "'='",
           Self::LeftParenthesis => "'('",
           Self::RightParenthesis => "')'",
@@ -140,6 +192,21 @@ mod tests {
   #[test]
   fn lex_let_keyword() {
     check("let", TokenKind::Let);
+  }
+
+  #[test]
+  fn lex_if_keyword() {
+    check("if", TokenKind::If);
+  }
+
+  #[test]
+  fn lex_else_keyword() {
+    check("else", TokenKind::Else);
+  }
+
+  #[test]
+  fn lex_while_keyword() {
+    check("while", TokenKind::While);
   }
 
   #[test]
