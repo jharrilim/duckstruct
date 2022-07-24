@@ -9,16 +9,18 @@ pub(crate) enum InfixOp {
   Gte,
   Eq,
   Neq,
-  
+  And,
+  Or,
 }
 
 impl InfixOp {
   pub fn binding_power(&self) -> (u8, u8) {
     match self {
       Self::Eq | Self::Neq => (1, 2),
-      Self::Lt | Self::Lte | Self::Gt | Self::Gte => (3, 4),
-      Self::Add | Self::Sub => (5, 6),
-      Self::Mul | Self::Div => (7, 8),
+      Self::And | Self::Or => (3, 4),
+      Self::Lt | Self::Lte | Self::Gt | Self::Gte => (5, 6),
+      Self::Add | Self::Sub => (7, 8),
+      Self::Mul | Self::Div => (8, 89),
     }
   }
 }

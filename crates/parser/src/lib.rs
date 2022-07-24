@@ -576,4 +576,38 @@ mod tests {
               Whitespace@78..85 "\n      ""#]],
     );
   }
+
+  #[test]
+  fn parse_and_expression() {
+    check(
+      "x && y",
+      expect![[r#"
+          Root@0..6
+            InfixExpression@0..6
+              VariableReference@0..2
+                Identifier@0..1 "x"
+                Whitespace@1..2 " "
+              And@2..4 "&&"
+              Whitespace@4..5 " "
+              VariableReference@5..6
+                Identifier@5..6 "y""#]],
+    );
+  }
+
+  #[test]
+  fn parse_or_expression() {
+    check(
+      "x || y",
+      expect![[r#"
+          Root@0..6
+            InfixExpression@0..6
+              VariableReference@0..2
+                Identifier@0..1 "x"
+                Whitespace@1..2 " "
+              Or@2..4 "||"
+              Whitespace@4..5 " "
+              VariableReference@5..6
+                Identifier@5..6 "y""#]],
+    );
+  }
 }

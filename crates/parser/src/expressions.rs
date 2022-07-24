@@ -33,7 +33,8 @@ pub(super) fn expr_binding_power(p: &mut Parser, minimum_binding_power: u8) {
       Some(TokenKind::GreaterThanOrEqual) => InfixOp::Gte,
       Some(TokenKind::DoubleEquals) => InfixOp::Eq,
       Some(TokenKind::NotEquals) => InfixOp::Neq,
-
+      Some(TokenKind::And) => InfixOp::And,
+      Some(TokenKind::Or) => InfixOp::Or,
       _ => return,
     };
 
