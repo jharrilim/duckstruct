@@ -20,7 +20,7 @@ impl InfixOp {
       Self::And | Self::Or => (3, 4),
       Self::Lt | Self::Lte | Self::Gt | Self::Gte => (5, 6),
       Self::Add | Self::Sub => (7, 8),
-      Self::Mul | Self::Div => (8, 89),
+      Self::Mul | Self::Div => (9, 10),
     }
   }
 }
