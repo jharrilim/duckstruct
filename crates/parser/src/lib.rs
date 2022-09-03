@@ -610,4 +610,41 @@ mod tests {
                 Identifier@5..6 "y""#]],
     );
   }
+
+  #[test]
+  fn parse_conditional_assignment() {
+    check("let x = if true { 1 } else { 2 }", expect![[r#"
+        Root@0..32
+          LetExpression@0..32
+            Let@0..3 "let"
+            Whitespace@3..4 " "
+            Identifier@4..5 "x"
+            Whitespace@5..6 " "
+            Equals@6..7 "="
+            Whitespace@7..8 " "
+            ConditionalExpression@8..32
+              If@8..10 "if"
+              Whitespace@10..11 " "
+              ConditionalPredicate@11..16
+                VariableReference@11..16
+                  Identifier@11..15 "true"
+                  Whitespace@15..16 " "
+              LeftBrace@16..17 "{"
+              Whitespace@17..18 " "
+              IfCondition@18..20
+                Literal@18..20
+                  Number@18..19 "1"
+                  Whitespace@19..20 " "
+              RightBrace@20..21 "}"
+              Whitespace@21..22 " "
+              Else@22..26 "else"
+              Whitespace@26..27 " "
+              LeftBrace@27..28 "{"
+              Whitespace@28..29 " "
+              ElseCondition@29..31
+                Literal@29..31
+                  Number@29..30 "2"
+                  Whitespace@30..31 " "
+              RightBrace@31..32 "}""#]])
+  }
 }
