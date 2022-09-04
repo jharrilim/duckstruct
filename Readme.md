@@ -127,3 +127,6 @@ starting from the innermost expressions. This will give us a way to determine wh
 value is, which is particularly useful for code analysis, ie. IDE inlay hints. We can also use this
 graph to simplify how we compute the output. During evaluation traversal, we only need to traverse down
 to the highest computed value, and we can skip any nodes beneath that.
+
+It will be easy for side effects to pollute type inference. The compiler should provide a way to guard
+against this using a form of type-guard similar to that of TypeScript's.
