@@ -1,4 +1,5 @@
 use lexer::{token::TokenKind, Token};
+use rowan::TextRange;
 
 pub(super) struct Source<'l, 'input> {
   tokens: &'l [Token<'input>],
@@ -38,7 +39,16 @@ impl<'l, 'input> Source<'l, 'input> {
     self.peek_kind_raw().map_or(false, TokenKind::is_trivia)
   }
 
+  pub(crate) fn peek_token(&mut self) -> Option<&Token> {
+    self.eat_trivia();
+    self.peek_token_raw()
+  }
+
   fn peek_token_raw(&self) -> Option<&Token> {
     self.tokens.get(self.cursor)
+  }
+
+  pub(crate) fn last_token_range(&self) -> Option<TextRange> {
+    self.tokens.last().map(|Token { range, .. }| *range)
   }
 }
