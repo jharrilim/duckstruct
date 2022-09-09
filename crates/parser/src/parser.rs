@@ -4,7 +4,9 @@ use syntax::{SyntaxKind, SyntaxNode};
 
 use rowan::GreenNode;
 
-use super::{event::Event, expressions::expr, marker::Marker, source::Source};
+use crate::statements::stmt;
+
+use super::{event::Event, marker::Marker, source::Source};
 
 pub struct Parser<'l, 'input> {
   pub(crate) source: Source<'l, 'input>,
@@ -25,7 +27,7 @@ impl<'l, 'input> Parser<'l, 'input> {
   pub(crate) fn parse(mut self) -> Vec<Event> {
     let root_marker = self.start();
     while self.source.peek_kind().is_some() {
-      expr(&mut self);
+      stmt(&mut self);
     }
     root_marker.complete(&mut self, SyntaxKind::Root);
 

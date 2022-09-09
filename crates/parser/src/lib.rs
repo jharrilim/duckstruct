@@ -4,6 +4,7 @@ use sink::Sink;
 
 mod event;
 mod expressions;
+mod statements;
 mod marker;
 mod operators;
 mod parse_error;
@@ -320,27 +321,27 @@ mod tests {
       f double(x) = x * 2;
     "#,
       expect![[r#"
-        Root@0..32
-          Whitespace@0..7 "\n      "
-          NamedFunctionExpression@7..32
-            Function@7..8 "f"
-            Whitespace@8..9 " "
-            Identifier@9..15 "double"
-            ArgumentList@15..19
-              LeftParenthesis@15..16 "("
-              Identifier@16..17 "x"
-              RightParenthesis@17..18 ")"
-              Whitespace@18..19 " "
-            Equals@19..20 "="
-            Whitespace@20..21 " "
-            InfixExpression@21..26
-              VariableReference@21..23
-                Identifier@21..22 "x"
-                Whitespace@22..23 " "
-              Asterisk@23..24 "*"
-              Whitespace@24..25 " "
-              Literal@25..26
-                Number@25..26 "2"
+          Root@0..32
+            Whitespace@0..7 "\n      "
+            NamedFunctionExpression@7..26
+              Function@7..8 "f"
+              Whitespace@8..9 " "
+              Identifier@9..15 "double"
+              ArgumentList@15..19
+                LeftParenthesis@15..16 "("
+                Identifier@16..17 "x"
+                RightParenthesis@17..18 ")"
+                Whitespace@18..19 " "
+              Equals@19..20 "="
+              Whitespace@20..21 " "
+              InfixExpression@21..26
+                VariableReference@21..23
+                  Identifier@21..22 "x"
+                  Whitespace@22..23 " "
+                Asterisk@23..24 "*"
+                Whitespace@24..25 " "
+                Literal@25..26
+                  Number@25..26 "2"
             Semicolon@26..27 ";"
             Whitespace@27..32 "\n    ""#]],
     )
@@ -353,25 +354,25 @@ mod tests {
       f(x) = x / 2;
     "#,
       expect![[r#"
-        Root@0..25
-          Whitespace@0..7 "\n      "
-          AnonymousFunctionExpression@7..25
-            Function@7..8 "f"
-            ArgumentList@8..12
-              LeftParenthesis@8..9 "("
-              Identifier@9..10 "x"
-              RightParenthesis@10..11 ")"
-              Whitespace@11..12 " "
-            Equals@12..13 "="
-            Whitespace@13..14 " "
-            InfixExpression@14..19
-              VariableReference@14..16
-                Identifier@14..15 "x"
-                Whitespace@15..16 " "
-              ForwardSlash@16..17 "/"
-              Whitespace@17..18 " "
-              Literal@18..19
-                Number@18..19 "2"
+          Root@0..25
+            Whitespace@0..7 "\n      "
+            AnonymousFunctionExpression@7..19
+              Function@7..8 "f"
+              ArgumentList@8..12
+                LeftParenthesis@8..9 "("
+                Identifier@9..10 "x"
+                RightParenthesis@10..11 ")"
+                Whitespace@11..12 " "
+              Equals@12..13 "="
+              Whitespace@13..14 " "
+              InfixExpression@14..19
+                VariableReference@14..16
+                  Identifier@14..15 "x"
+                  Whitespace@15..16 " "
+                ForwardSlash@16..17 "/"
+                Whitespace@17..18 " "
+                Literal@18..19
+                  Number@18..19 "2"
             Semicolon@19..20 ";"
             Whitespace@20..25 "\n    ""#]],
     )
@@ -453,7 +454,7 @@ mod tests {
                 Number@17..19 "10"
             Semicolon@19..20 ";"
             Whitespace@20..29 "\n        "
-            NamedFunctionExpression@29..51
+            NamedFunctionExpression@29..43
               Function@29..30 "f"
               Whitespace@30..31 " "
               Identifier@31..32 "y"
@@ -472,8 +473,8 @@ mod tests {
                 Whitespace@41..42 " "
                 Literal@42..43
                   Number@42..43 "2"
-              Semicolon@43..44 ";"
-              Whitespace@44..51 "\n      ""#]],
+            Semicolon@43..44 ";"
+            Whitespace@44..51 "\n      ""#]],
     );
   }
 

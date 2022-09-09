@@ -3,22 +3,12 @@ use crate::parser::Parser;
 use lexer::token::TokenKind;
 use syntax::SyntaxKind;
 
-pub(super) fn expr(p: &mut Parser) {
-  expr_binding_power(p, 0);
-
-  // temp, this needs to be done after expr depending on context,
-  // ie. don't do it inside an invocation
-  if p.at(TokenKind::Semicolon) {
-    p.bump();
-  }
+pub(super) fn expr(p: &mut Parser) -> Option<CompletedMarker> {
+  expr_binding_power(p, 0)
 }
 
-pub(super) fn expr_binding_power(p: &mut Parser, minimum_binding_power: u8) {
-  let mut lhs = if let Some(lhs) = lhs(p) {
-    lhs
-  } else {
-    return;
-  };
+pub(super) fn expr_binding_power(p: &mut Parser, minimum_binding_power: u8) -> Option<CompletedMarker> {
+  let mut lhs = lhs(p)?;
 
   loop {
     let op = match p.peek() {
@@ -35,13 +25,13 @@ pub(super) fn expr_binding_power(p: &mut Parser, minimum_binding_power: u8) {
       Some(TokenKind::NotEquals) => InfixOp::Neq,
       Some(TokenKind::And) => InfixOp::And,
       Some(TokenKind::Or) => InfixOp::Or,
-      _ => return,
+      _ => break,
     };
 
     let (left_binding_power, right_binding_power) = op.binding_power();
 
     if left_binding_power < minimum_binding_power {
-      return;
+      break;
     }
 
     p.bump();
@@ -50,6 +40,7 @@ pub(super) fn expr_binding_power(p: &mut Parser, minimum_binding_power: u8) {
     expr_binding_power(p, right_binding_power);
     lhs = m.complete(p, SyntaxKind::InfixExpression);
   }
+  Some(lhs)
 }
 
 fn lhs(p: &mut Parser) -> Option<CompletedMarker> {
@@ -58,7 +49,7 @@ fn lhs(p: &mut Parser) -> Option<CompletedMarker> {
     Some(TokenKind::Identifier) => parsers::variable_ref(p),
     Some(TokenKind::Minus) => parsers::prefix_expr(p),
     Some(TokenKind::LeftParenthesis) => parsers::paren_expr(p),
-    Some(TokenKind::Let) => parsers::let_expr(p),
+    Some(TokenKind::Let) => parsers::let_stmt(p),
     Some(TokenKind::Function) => parsers::function_definition(p),
     Some(TokenKind::If) => parsers::conditional_expr(p),
     _ => return None,

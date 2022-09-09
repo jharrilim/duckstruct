@@ -2,11 +2,10 @@ use lexer::token::TokenKind;
 use syntax::SyntaxKind;
 
 use crate::expressions::{expr, expr_binding_power};
-use crate::marker::CompletedMarker;
+use crate::marker::{CompletedMarker, Marker};
 use crate::operators::PrefixOp;
 use crate::parser::Parser;
-
-use super::marker::Marker;
+use crate::statements;
 
 // be nice if these returned a parse result instead
 
@@ -56,7 +55,7 @@ pub(super) fn paren_expr(p: &mut Parser) -> CompletedMarker {
   m.complete(p, SyntaxKind::ParenExpression)
 }
 
-pub(super) fn let_expr(p: &mut Parser) -> CompletedMarker {
+pub(super) fn let_stmt(p: &mut Parser) -> CompletedMarker {
   assert!(p.at(TokenKind::Let));
 
   let m = p.start();
@@ -86,12 +85,12 @@ pub(super) fn let_expr(p: &mut Parser) -> CompletedMarker {
   );
   p.bump();
 
-  expr_binding_power(p, 0);
+  expr(p);
 
   m.complete(p, SyntaxKind::LetExpression)
 }
 
-fn struct_pattern_expr(p: &mut Parser) -> CompletedMarker {
+pub(crate) fn struct_pattern_expr(p: &mut Parser) -> CompletedMarker {
   let m = p.start();
   p.bump();
   loop {
@@ -119,7 +118,7 @@ fn struct_pattern_expr(p: &mut Parser) -> CompletedMarker {
 }
 
 /// array_pattern = [ ident|struct_pattern|array_pattern ,* ]
-fn array_pattern_expr(p: &mut Parser) -> CompletedMarker {
+pub(crate) fn array_pattern_expr(p: &mut Parser) -> CompletedMarker {
   debug_assert!(p.at(TokenKind::LeftBracket));
 
   let m = p.start();
@@ -141,6 +140,8 @@ fn array_pattern_expr(p: &mut Parser) -> CompletedMarker {
     }
   }
 }
+
+
 
 pub(super) fn function_definition(p: &mut Parser) -> CompletedMarker {
   debug_assert!(p.at(TokenKind::Function));
@@ -219,7 +220,7 @@ fn argument_list(p: &mut Parser) -> CompletedMarker {
   }
 }
 
-fn function_body(p: &mut Parser) -> CompletedMarker {
+fn function_body(p: &mut Parser) -> Option<CompletedMarker> {
   debug_assert!(p.at(TokenKind::LeftBrace));
   let m = p.start();
   p.bump();
@@ -229,9 +230,11 @@ fn function_body(p: &mut Parser) -> CompletedMarker {
       None => panic!("{}", "missing }"),
       Some(TokenKind::RightBrace) => {
         p.bump();
-        break m.complete(p, SyntaxKind::FunctionBody);
+        return Some(m.complete(p, SyntaxKind::FunctionBody));
       }
-      _ => expr(p),
+      _ => {
+        statements::stmt(p);
+      }
     }
   }
 }
