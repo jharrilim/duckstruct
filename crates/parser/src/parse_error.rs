@@ -2,7 +2,7 @@ use lexer::token::TokenKind;
 use std::fmt;
 use text_size::TextRange;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub(crate) struct ParseError {
   pub(super) expected: Vec<TokenKind>,
   pub(super) found: Option<TokenKind>,

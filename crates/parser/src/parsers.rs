@@ -119,8 +119,7 @@ pub(crate) fn struct_pattern_expr(p: &mut Parser) -> CompletedMarker {
 
 /// array_pattern = [ ident|struct_pattern|array_pattern ,* ]
 pub(crate) fn array_pattern_expr(p: &mut Parser) -> CompletedMarker {
-  debug_assert!(p.at(TokenKind::LeftBracket));
-
+  p.expect(TokenKind::LeftBracket);
   let m = p.start();
   p.bump();
 
@@ -144,7 +143,7 @@ pub(crate) fn array_pattern_expr(p: &mut Parser) -> CompletedMarker {
 
 
 pub(super) fn function_definition(p: &mut Parser) -> CompletedMarker {
-  debug_assert!(p.at(TokenKind::Function));
+  p.expect(TokenKind::Function);
   let m = p.start();
   p.bump();
 
@@ -156,7 +155,7 @@ pub(super) fn function_definition(p: &mut Parser) -> CompletedMarker {
 }
 
 fn named_f(p: &mut Parser, m: Marker) -> CompletedMarker {
-  debug_assert!(p.at(TokenKind::Identifier));
+  p.expect(TokenKind::Identifier);
   p.bump();
   argument_list(p);
   match p.peek() {
@@ -190,7 +189,7 @@ fn anonymous_f(p: &mut Parser, m: Marker) -> CompletedMarker {
 }
 
 fn argument_list(p: &mut Parser) -> CompletedMarker {
-  debug_assert!(p.at(TokenKind::LeftParenthesis));
+  p.expect(TokenKind::LeftParenthesis);
   let m = p.start();
   p.bump();
   let mut last_token: Option<TokenKind> = None;
@@ -221,7 +220,7 @@ fn argument_list(p: &mut Parser) -> CompletedMarker {
 }
 
 fn function_body(p: &mut Parser) -> Option<CompletedMarker> {
-  debug_assert!(p.at(TokenKind::LeftBrace));
+  p.expect(TokenKind::LeftBrace);
   let m = p.start();
   p.bump();
 
@@ -240,7 +239,7 @@ fn function_body(p: &mut Parser) -> Option<CompletedMarker> {
 }
 
 pub(crate) fn conditional_expr(p: &mut Parser) -> CompletedMarker {
-  debug_assert!(p.at(TokenKind::If));
+  p.expect(TokenKind::If);
   let conditional_expr_marker = p.start();
   p.bump();
   {
@@ -254,7 +253,7 @@ pub(crate) fn conditional_expr(p: &mut Parser) -> CompletedMarker {
       let m = p.start();
       expr(p);
       m.complete(p, SyntaxKind::IfCondition);
-      debug_assert!(p.at(TokenKind::RightBrace));
+      p.expect(TokenKind::RightBrace);
       p.bump();
     }
     Some(t) => panic!("expected {{, found {}", t),
@@ -271,7 +270,7 @@ pub(crate) fn conditional_expr(p: &mut Parser) -> CompletedMarker {
         expr(p);
         m.complete(p, SyntaxKind::ElseCondition);
 
-        debug_assert!(p.at(TokenKind::RightBrace));
+        p.expect(TokenKind::RightBrace);
         p.bump();
       } else {
         let m = p.start();

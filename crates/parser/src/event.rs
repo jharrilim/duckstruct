@@ -1,5 +1,7 @@
 use syntax::SyntaxKind;
 
+use crate::parse_error::ParseError;
+
 #[derive(Debug, Clone, PartialEq)]
 pub(super) enum Event {
   StartNode {
@@ -9,4 +11,5 @@ pub(super) enum Event {
   AddToken,
   FinishNode,
   Placeholder,
+  Error(ParseError),
 }

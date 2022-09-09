@@ -1,3 +1,5 @@
+use crate::parse_error::ParseError;
+
 use super::event::Event;
 use lexer::Token;
 use syntax::Duckstruct;
@@ -10,6 +12,7 @@ pub(super) struct Sink<'l, 'input> {
   tokens: &'l [Token<'input>],
   cursor: usize,
   events: Vec<Event>,
+  errors: Vec<ParseError>,
 }
 
 impl<'l, 'input> Sink<'l, 'input> {
@@ -19,6 +22,7 @@ impl<'l, 'input> Sink<'l, 'input> {
       tokens,
       cursor: 0,
       events,
+      errors: Vec::new(),
     }
   }
 
@@ -57,6 +61,7 @@ impl<'l, 'input> Sink<'l, 'input> {
         }
         Event::AddToken => self.token(),
         Event::FinishNode => self.builder.finish_node(),
+        Event::Error(error) => self.errors.push(error),
         Event::Placeholder => {}
       }
       self.eat_trivia();
@@ -66,7 +71,7 @@ impl<'l, 'input> Sink<'l, 'input> {
   }
 
   fn token(&mut self) {
-    let Token { kind, text } = self.tokens[self.cursor];
+    let Token { kind, text, .. } = self.tokens[self.cursor];
     self
       .builder
       .token(Duckstruct::kind_to_raw(kind.into()), text);
