@@ -9,7 +9,6 @@ edition = "2018"
 lexer = { path = "./crates/lexer" }
 syntax = { path = "./crates/syntax" }
 parser = { path = "./crates/parser" }
-analyzer = { path = "./crates/analyzer" }
 ctrlc =  { version = "3.2.1", features = ["termination"] }
 drop_bomb = "0.1.5"
 project-root = "0.2.2"

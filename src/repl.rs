@@ -5,7 +5,6 @@ use std::{
   process::exit,
 };
 
-
 pub fn repl() -> io::Result<()> {
   let stdin = io::stdin();
   let mut stdout = io::stdout();

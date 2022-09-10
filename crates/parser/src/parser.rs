@@ -4,7 +4,7 @@ use syntax::{SyntaxKind, SyntaxNode};
 
 use rowan::GreenNode;
 
-use crate::{parse_error::ParseError, statements::stmt};
+use crate::{parse_error::{ParseError, Expectations}, statements::stmt};
 
 use super::{event::Event, marker::Marker, source::Source};
 
@@ -59,21 +59,32 @@ impl<'l, 'input> Parser<'l, 'input> {
       (None, self.source.last_token_range().unwrap())
     };
 
-    self.events.push(Event::Error(ParseError {
-      expected: std::mem::take(&mut self.expected_kinds),
-      found,
-      range,
-    }));
+    if self.expected_kinds.len() > 0 {
+      self.events.push(Event::Error(ParseError {
+        expected: Expectations::Tokens(std::mem::take(&mut self.expected_kinds)),
+        found,
+        range,
+      }));
+    } else {
+      self.events.push(Event::Error(ParseError {
+        expected: Expectations::Expression,
+        found,
+        range,
+      }));
+    }
 
-    if !self.at_set(&RECOVERY_SET) && !self.at_end() {
+    if !self.at_recovery_set() && !self.at_end() {
       let m = self.start();
       self.bump();
       m.complete(self, SyntaxKind::Error);
     }
   }
 
-  fn at_set(&mut self, set: &[TokenKind]) -> bool {
-    self.peek().map_or(false, |k| set.contains(&k))
+  // Similar to error but allows passing in expected tokens. Useful within
+  // match when you land on something other than one of the expected branches.
+  pub(crate) fn error_expected_one_of(&mut self, expected: &[TokenKind]) {
+    self.expected_kinds.extend_from_slice(expected);
+    self.error();
   }
 
   pub(crate) fn peek(&mut self) -> Option<TokenKind> {
@@ -88,16 +99,22 @@ impl<'l, 'input> Parser<'l, 'input> {
   }
 
   pub(crate) fn at(&mut self, kind: TokenKind) -> bool {
+    self.expected_kinds.push(kind);
     self.peek() == Some(kind)
   }
 
   pub(crate) fn at_end(&mut self) -> bool {
     self.peek().is_none()
   }
+
+  fn at_recovery_set(&mut self) -> bool {
+    self.peek().map_or(false, |k| RECOVERY_SET.contains(&k))
+  }
 }
 
 pub struct Parse {
   pub root: GreenNode,
+  pub errors: Vec<ParseError>,
 }
 
 impl Parse {

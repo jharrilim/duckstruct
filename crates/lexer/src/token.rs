@@ -1,9 +1,11 @@
 use logos::Logos;
 use num_derive::{FromPrimitive, ToPrimitive};
-use std::hash::Hash;
 use std::fmt;
+use std::hash::Hash;
 
-#[derive(Logos, Debug, PartialEq, Clone, Copy, FromPrimitive, ToPrimitive, PartialOrd, Ord, Eq, Hash)]
+#[derive(
+  Logos, Debug, PartialEq, Clone, Copy, FromPrimitive, ToPrimitive, PartialOrd, Ord, Eq, Hash,
+)]
 pub enum TokenKind {
   #[token("f")]
   Function,
@@ -51,7 +53,6 @@ pub enum TokenKind {
   Number,
 
   // infix ops
-
   #[token("+")]
   Plus,
 
@@ -65,7 +66,6 @@ pub enum TokenKind {
   ForwardSlash,
 
   // equality
-
   #[token("==")]
   DoubleEquals,
 
@@ -89,7 +89,7 @@ pub enum TokenKind {
 
   #[token("||")]
   Or,
-   
+
   #[token("!")]
   Bang,
 
@@ -120,63 +120,63 @@ pub enum TokenKind {
 
 impl TokenKind {
   pub fn is_trivia(self) -> bool {
-      matches!(self, Self::Whitespace | Self::Comment)
+    matches!(self, Self::Whitespace | Self::Comment)
   }
 }
 
 impl fmt::Display for TokenKind {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-      f.write_str(match self {
-          Self::Whitespace => "whitespace",
-          Self::Function => "'f'",
-          Self::Class => "'class'",
-          Self::Let => "'let'",
-          Self::If => "'if'",
-          Self::Else => "'else'",
-          Self::While => "'while'",
-          Self::Identifier => "identifier",
-          Self::Period => "'.'",
-          Self::Comma => "','",
-          Self::Colon => "':'",
-          Self::Semicolon => "';'",
-          Self::Number => "number",
-          Self::Plus => "'+'",
-          Self::Minus => "'-'",
-          Self::Asterisk => "'*'",
-          Self::ForwardSlash => "'/'",
-          Self::DoubleEquals => "'=='",
-          Self::NotEquals => "'!='",
-          Self::LessThan => "'<'",
-          Self::LessThanOrEqual => "'<='",
-          Self::GreaterThan => "'>'",
-          Self::GreaterThanOrEqual => "'>='",
-          Self::And => "'&&'",
-          Self::Or => "'||'",
-          Self::Bang => "'!'",
-          Self::Equals => "'='",
-          Self::LeftParenthesis => "'('",
-          Self::RightParenthesis => "')'",
-          Self::LeftBrace => "'{'",
-          Self::RightBrace => "'}'",
-          Self::LeftBracket => "'['",
-          Self::RightBracket => "']'",
-          Self::String => "string",
-          Self::Comment => "comment",
-          Self::Error => "an unrecognized token",
-      })
+    f.write_str(match self {
+      Self::Whitespace => "whitespace",
+      Self::Function => "'f'",
+      Self::Class => "'class'",
+      Self::Let => "'let'",
+      Self::If => "'if'",
+      Self::Else => "'else'",
+      Self::While => "'while'",
+      Self::Identifier => "identifier",
+      Self::Period => "'.'",
+      Self::Comma => "','",
+      Self::Colon => "':'",
+      Self::Semicolon => "';'",
+      Self::Number => "number",
+      Self::Plus => "'+'",
+      Self::Minus => "'-'",
+      Self::Asterisk => "'*'",
+      Self::ForwardSlash => "'/'",
+      Self::DoubleEquals => "'=='",
+      Self::NotEquals => "'!='",
+      Self::LessThan => "'<'",
+      Self::LessThanOrEqual => "'<='",
+      Self::GreaterThan => "'>'",
+      Self::GreaterThanOrEqual => "'>='",
+      Self::And => "'&&'",
+      Self::Or => "'||'",
+      Self::Bang => "'!'",
+      Self::Equals => "'='",
+      Self::LeftParenthesis => "'('",
+      Self::RightParenthesis => "')'",
+      Self::LeftBrace => "'{'",
+      Self::RightBrace => "'}'",
+      Self::LeftBracket => "'['",
+      Self::RightBracket => "']'",
+      Self::String => "string",
+      Self::Comment => "comment",
+      Self::Error => "an unrecognized token",
+    })
   }
 }
-
 
 #[cfg(test)]
 mod tests {
   use super::TokenKind;
   use crate::Lexer;
-  use crate::Token;
 
   fn check(input: &str, kind: TokenKind) {
     let mut lexer = Lexer::new(input);
-    assert_eq!(lexer.next(), Some(Token { kind, text: input }));
+    let token = lexer.next().unwrap();
+    assert_eq!(token.kind, kind);
+    assert_eq!(token.text, input);
   }
 
   #[test]

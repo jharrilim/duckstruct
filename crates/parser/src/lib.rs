@@ -4,7 +4,6 @@ use sink::Sink;
 
 mod event;
 mod expressions;
-mod statements;
 mod marker;
 mod operators;
 mod parse_error;
@@ -12,6 +11,7 @@ pub mod parser;
 mod parsers;
 mod sink;
 mod source;
+mod statements;
 
 pub fn parse(input: &str) -> Parse {
   let tokens: Vec<_> = Lexer::new(input).collect();
@@ -19,9 +19,7 @@ pub fn parse(input: &str) -> Parse {
   let events = parser.parse();
   let sink = Sink::new(&tokens, events);
 
-  Parse {
-    root: sink.finish(),
-  }
+  sink.finish()
 }
 
 #[cfg(test)]
@@ -187,7 +185,7 @@ mod tests {
       "let x = 100;",
       expect![[r#"
           Root@0..12
-            LetExpression@0..11
+            LetStatement@0..11
               Let@0..3 "let"
               Whitespace@3..4 " "
               Identifier@4..5 "x"
@@ -206,7 +204,7 @@ mod tests {
       "let { x, y } = x;",
       expect![[r#"
           Root@0..17
-            LetExpression@0..16
+            LetStatement@0..16
               Let@0..3 "let"
               Whitespace@3..4 " "
               StructPattern@4..13
@@ -233,7 +231,7 @@ mod tests {
       "let { x: asd, y } = z;",
       expect![[r#"
           Root@0..22
-            LetExpression@0..21
+            LetStatement@0..21
               Let@0..3 "let"
               Whitespace@3..4 " "
               StructPattern@4..18
@@ -264,7 +262,7 @@ mod tests {
       "let [_, y] = x;",
       expect![[r#"
           Root@0..15
-            LetExpression@0..14
+            LetStatement@0..14
               Let@0..3 "let"
               Whitespace@3..4 " "
               ArrayPattern@4..11
@@ -289,7 +287,7 @@ mod tests {
       "let [{ x, }, z] = weel;",
       expect![[r#"
           Root@0..23
-            LetExpression@0..22
+            LetStatement@0..22
               Let@0..3 "let"
               Whitespace@3..4 " "
               ArrayPattern@4..16
@@ -402,7 +400,7 @@ mod tests {
               FunctionBody@18..71
                 LeftBrace@18..19 "{"
                 Whitespace@19..28 "\n        "
-                LetExpression@28..41
+                LetStatement@28..41
                   Let@28..31 "let"
                   Whitespace@31..32 " "
                   Identifier@32..33 "y"
@@ -443,7 +441,7 @@ mod tests {
       expect![[r#"
           Root@0..51
             Whitespace@0..9 "\n        "
-            LetExpression@9..19
+            LetStatement@9..19
               Let@9..12 "let"
               Whitespace@12..13 " "
               Identifier@13..14 "x"
@@ -614,38 +612,49 @@ mod tests {
 
   #[test]
   fn parse_conditional_assignment() {
-    check("let x = if true { 1 } else { 2 }", expect![[r#"
-        Root@0..32
-          LetExpression@0..32
-            Let@0..3 "let"
-            Whitespace@3..4 " "
-            Identifier@4..5 "x"
-            Whitespace@5..6 " "
-            Equals@6..7 "="
-            Whitespace@7..8 " "
-            ConditionalExpression@8..32
-              If@8..10 "if"
-              Whitespace@10..11 " "
-              ConditionalPredicate@11..16
-                VariableReference@11..16
-                  Identifier@11..15 "true"
-                  Whitespace@15..16 " "
-              LeftBrace@16..17 "{"
-              Whitespace@17..18 " "
-              IfCondition@18..20
-                Literal@18..20
-                  Number@18..19 "1"
-                  Whitespace@19..20 " "
-              RightBrace@20..21 "}"
-              Whitespace@21..22 " "
-              Else@22..26 "else"
-              Whitespace@26..27 " "
-              LeftBrace@27..28 "{"
-              Whitespace@28..29 " "
-              ElseCondition@29..31
-                Literal@29..31
-                  Number@29..30 "2"
-                  Whitespace@30..31 " "
-              RightBrace@31..32 "}""#]])
+    check(
+      "let x = if true { 1 } else { 2 }",
+      expect![[r#"
+          Root@0..32
+            LetStatement@0..32
+              Let@0..3 "let"
+              Whitespace@3..4 " "
+              Identifier@4..5 "x"
+              Whitespace@5..6 " "
+              Equals@6..7 "="
+              Whitespace@7..8 " "
+              ConditionalExpression@8..32
+                If@8..10 "if"
+                Whitespace@10..11 " "
+                ConditionalPredicate@11..16
+                  VariableReference@11..16
+                    Identifier@11..15 "true"
+                    Whitespace@15..16 " "
+                LeftBrace@16..17 "{"
+                Whitespace@17..18 " "
+                IfCondition@18..20
+                  Literal@18..20
+                    Number@18..19 "1"
+                    Whitespace@19..20 " "
+                RightBrace@20..21 "}"
+                Whitespace@21..22 " "
+                Else@22..26 "else"
+                Whitespace@26..27 " "
+                LeftBrace@27..28 "{"
+                Whitespace@28..29 " "
+                ElseCondition@29..31
+                  Literal@29..31
+                    Number@29..30 "2"
+                    Whitespace@30..31 " "
+                RightBrace@31..32 "}""#]],
+    )
+  }
+
+  #[test]
+  fn err_let_stmt() {
+    let code = "let x =\nlet y = 1";
+    let parsed = parse(code);
+    assert_eq!(parsed.errors.len(), 1);
+    println!("{}", parsed.debug_tree());
   }
 }

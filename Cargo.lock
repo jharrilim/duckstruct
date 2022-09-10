@@ -3,14 +3,6 @@
 version = 3
 
 [[package]]
-name = "analyzer"
-version = "0.1.0"
-dependencies = [
- "parser",
- "syntax",
-]
-
-[[package]]
 name = "autocfg"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -72,7 +64,6 @@ checksum = "9bda8e21c04aca2ae33ffc2fd8c23134f3cac46db123ba97bd9d3f3b8a4a85e1"
 name = "duckstruct"
 version = "0.1.0"
 dependencies = [
- "analyzer",
  "ctrlc",
  "drop_bomb",
  "expect-test",
@@ -115,6 +106,7 @@ dependencies = [
  "logos",
  "num-derive",
  "num-traits",
+ "text-size",
 ]
 
 [[package]]

@@ -7,7 +7,10 @@ pub(super) fn expr(p: &mut Parser) -> Option<CompletedMarker> {
   expr_binding_power(p, 0)
 }
 
-pub(super) fn expr_binding_power(p: &mut Parser, minimum_binding_power: u8) -> Option<CompletedMarker> {
+pub(super) fn expr_binding_power(
+  p: &mut Parser,
+  minimum_binding_power: u8,
+) -> Option<CompletedMarker> {
   let mut lhs = lhs(p)?;
 
   loop {
@@ -49,8 +52,6 @@ fn lhs(p: &mut Parser) -> Option<CompletedMarker> {
     Some(TokenKind::Identifier) => parsers::variable_ref(p),
     Some(TokenKind::Minus) => parsers::prefix_expr(p),
     Some(TokenKind::LeftParenthesis) => parsers::paren_expr(p),
-    Some(TokenKind::Let) => parsers::let_stmt(p),
-    Some(TokenKind::Function) => parsers::function_definition(p),
     Some(TokenKind::If) => parsers::conditional_expr(p),
     _ => return None,
   };

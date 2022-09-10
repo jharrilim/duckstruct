@@ -3,7 +3,7 @@ pub mod token;
 use std::ops::Range;
 
 use logos::Logos;
-use text_size::{TextSize, TextRange};
+use text_size::{TextRange, TextSize};
 use token::TokenKind;
 
 pub struct Lexer<'a> {

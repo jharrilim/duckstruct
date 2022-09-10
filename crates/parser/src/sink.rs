@@ -1,10 +1,10 @@
-use crate::parse_error::ParseError;
+use crate::{parse_error::ParseError, parser::Parse};
 
 use super::event::Event;
 use lexer::Token;
 use syntax::Duckstruct;
 
-use rowan::{GreenNode, GreenNodeBuilder, Language};
+use rowan::{GreenNodeBuilder, Language};
 use std::mem;
 
 pub(super) struct Sink<'l, 'input> {
@@ -26,7 +26,7 @@ impl<'l, 'input> Sink<'l, 'input> {
     }
   }
 
-  pub(super) fn finish(mut self) -> GreenNode {
+  pub(super) fn finish(mut self) -> Parse {
     for idx in 0..self.events.len() {
       match mem::replace(&mut self.events[idx], Event::Placeholder) {
         Event::StartNode {
@@ -67,7 +67,11 @@ impl<'l, 'input> Sink<'l, 'input> {
       self.eat_trivia();
     }
 
-    self.builder.finish()
+    let root = self.builder.finish();
+    Parse {
+      root,
+      errors: self.errors,
+    }
   }
 
   fn token(&mut self) {

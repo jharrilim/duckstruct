@@ -10,7 +10,7 @@ use crate::statements;
 // be nice if these returned a parse result instead
 
 pub(super) fn literal(p: &mut Parser) -> CompletedMarker {
-  assert!(p.at(TokenKind::Number));
+  p.expect(TokenKind::Number);
 
   let m = p.start();
   p.bump();
@@ -18,7 +18,7 @@ pub(super) fn literal(p: &mut Parser) -> CompletedMarker {
 }
 
 pub(super) fn variable_ref(p: &mut Parser) -> CompletedMarker {
-  assert!(p.at(TokenKind::Identifier));
+  p.expect(TokenKind::Identifier);
 
   let m = p.start();
   p.bump();
@@ -26,7 +26,7 @@ pub(super) fn variable_ref(p: &mut Parser) -> CompletedMarker {
 }
 
 pub(super) fn prefix_expr(p: &mut Parser) -> CompletedMarker {
-  assert!(p.at(TokenKind::Minus));
+  p.expect(TokenKind::Minus);
 
   let m = p.start();
 
@@ -42,21 +42,21 @@ pub(super) fn prefix_expr(p: &mut Parser) -> CompletedMarker {
 }
 
 pub(super) fn paren_expr(p: &mut Parser) -> CompletedMarker {
-  assert!(p.at(TokenKind::LeftParenthesis));
+  p.expect(TokenKind::LeftParenthesis);
 
   let m = p.start();
 
   p.bump();
   expr_binding_power(p, 0);
 
-  assert!(p.at(TokenKind::RightParenthesis));
+  p.expect(TokenKind::RightParenthesis);
   p.bump();
 
   m.complete(p, SyntaxKind::ParenExpression)
 }
 
 pub(super) fn let_stmt(p: &mut Parser) -> CompletedMarker {
-  assert!(p.at(TokenKind::Let));
+  p.expect(TokenKind::Let);
 
   let m = p.start();
 
@@ -70,24 +70,24 @@ pub(super) fn let_stmt(p: &mut Parser) -> CompletedMarker {
     Some(TokenKind::LeftBracket) => {
       array_pattern_expr(p);
     }
-    None => {
-      panic!("why eof")
-    }
-    Some(token) => {
-      panic!("todo: parse error here, unexpected token {}", token)
+    None | Some(_) => {
+      p.error_expected_one_of(&[
+        TokenKind::Identifier,
+        TokenKind::LeftBrace,
+        TokenKind::LeftBracket,
+      ]);
     }
   }
 
-  debug_assert!(
-    p.at(TokenKind::Equals),
-    "token: {}",
-    p.peek().map_or_else(|| "".to_string(), |t| t.to_string())
-  );
+  p.expect(TokenKind::Equals);
   p.bump();
 
-  expr(p);
+  match expr(p) {
+    None => p.error(),
+    _ => {},
+  }
 
-  m.complete(p, SyntaxKind::LetExpression)
+  m.complete(p, SyntaxKind::LetStatement)
 }
 
 pub(crate) fn struct_pattern_expr(p: &mut Parser) -> CompletedMarker {
@@ -139,8 +139,6 @@ pub(crate) fn array_pattern_expr(p: &mut Parser) -> CompletedMarker {
     }
   }
 }
-
-
 
 pub(super) fn function_definition(p: &mut Parser) -> CompletedMarker {
   p.expect(TokenKind::Function);
@@ -259,26 +257,23 @@ pub(crate) fn conditional_expr(p: &mut Parser) -> CompletedMarker {
     Some(t) => panic!("expected {{, found {}", t),
     None => panic!("unexpected end of file"),
   }
-  match p.peek() {
-    Some(TokenKind::Else) => {
+  if p.peek() == Some(TokenKind::Else) {
+    p.bump();
+
+    if p.peek() == Some(TokenKind::LeftBrace) {
       p.bump();
 
-      if p.peek() == Some(TokenKind::LeftBrace) {
-        p.bump();
+      let m = p.start();
+      expr(p);
+      m.complete(p, SyntaxKind::ElseCondition);
 
-        let m = p.start();
-        expr(p);
-        m.complete(p, SyntaxKind::ElseCondition);
-
-        p.expect(TokenKind::RightBrace);
-        p.bump();
-      } else {
-        let m = p.start();
-        expr(p);
-        m.complete(p, SyntaxKind::ElseCondition);
-      }
+      p.expect(TokenKind::RightBrace);
+      p.bump();
+    } else {
+      let m = p.start();
+      expr(p);
+      m.complete(p, SyntaxKind::ElseCondition);
     }
-    _ => (),
   }
   conditional_expr_marker.complete(p, SyntaxKind::ConditionalExpression)
 }

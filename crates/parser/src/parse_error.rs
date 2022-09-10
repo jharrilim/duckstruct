@@ -3,40 +3,57 @@ use std::fmt;
 use text_size::TextRange;
 
 #[derive(Debug, PartialEq, Clone)]
-pub(crate) struct ParseError {
-  pub(super) expected: Vec<TokenKind>,
+pub enum Expectations {
+  Expression,
+  Tokens(Vec<TokenKind>),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct ParseError {
+  pub(super) expected: Expectations,
   pub(super) found: Option<TokenKind>,
   pub(super) range: TextRange,
 }
 
 impl fmt::Display for ParseError {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(
-      f,
-      "error at {}..{}: expected ",
-      u32::from(self.range.start()),
-      u32::from(self.range.end()),
-    )?;
+    match &self.expected {
+      Expectations::Expression => write!(
+        f,
+        "error at {}..{}: expected expression, but found {}",
+        u32::from(self.range.start()),
+        u32::from(self.range.end()),
+        self.found.unwrap()
+      ),
+      Expectations::Tokens(tokens) => {
+        write!(
+          f,
+          "error at {}..{}: expected ",
+          u32::from(self.range.start()),
+          u32::from(self.range.end()),
+        )?;
 
-    let num_expected = self.expected.len();
-    let is_first = |idx| idx == 0;
-    let is_last = |idx| idx == num_expected - 1;
+        let num_expected = tokens.len();
+        let is_first = |idx| idx == 0;
+        let is_last = |idx| idx == num_expected - 1;
 
-    for (idx, expected_kind) in self.expected.iter().enumerate() {
-      if is_first(idx) {
-        write!(f, "{}", expected_kind)?;
-      } else if is_last(idx) {
-        write!(f, " or {}", expected_kind)?;
-      } else {
-        write!(f, ", {}", expected_kind)?;
+        for (idx, expected_kind) in tokens.iter().enumerate() {
+          if is_first(idx) {
+            write!(f, "{}", expected_kind)?;
+          } else if is_last(idx) {
+            write!(f, " or {}", expected_kind)?;
+          } else {
+            write!(f, ", {}", expected_kind)?;
+          }
+        }
+
+        if let Some(found) = self.found {
+          write!(f, ", but found {}", found)?;
+        }
+
+        Ok(())
       }
     }
-
-    if let Some(found) = self.found {
-      write!(f, ", but found {}", found)?;
-    }
-
-    Ok(())
   }
 }
 
@@ -47,7 +64,7 @@ mod tests {
 
   fn check(expected: Vec<TokenKind>, found: Option<TokenKind>, range: StdRange<u32>, output: &str) {
     let error = ParseError {
-      expected,
+      expected: Expectations::Tokens(expected),
       found,
       range: {
         let start = range.start.into();
