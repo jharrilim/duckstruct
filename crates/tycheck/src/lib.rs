@@ -32,7 +32,6 @@ impl TyCheck {
 
   pub fn infer(&mut self) -> &FxHashMap<String, Ty> {
     for (stmt_ident, statement) in self.hir_db.defs_iter() {
-      println!("stmt_ident: {}", stmt_ident);
       let ty = self.infer_stmt(Either::Left(statement));
       self.ty_db.insert(stmt_ident.clone(), ty);
     }
