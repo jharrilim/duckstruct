@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 hir = { path = "../hir" }
 la-arena = "0.2.1"
+rustc-hash = "1.1.0"

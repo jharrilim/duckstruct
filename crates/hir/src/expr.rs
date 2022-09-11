@@ -1,6 +1,6 @@
 use la_arena::Idx;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expr {
   Binary {
     op: BinaryOp,
@@ -23,7 +23,7 @@ pub enum Expr {
   Missing,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum BinaryOp {
   Add,
   Sub,
@@ -31,7 +31,7 @@ pub enum BinaryOp {
   Div,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum UnaryOp {
   Neg,
 }

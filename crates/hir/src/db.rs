@@ -3,16 +3,41 @@ use crate::{
   stmt::Stmt,
 };
 use la_arena::{Arena, Idx};
+use rustc_hash::FxHashMap;
 use syntax::SyntaxKind;
 
 #[derive(Debug, Default)]
 pub struct Database {
   exprs: Arena<Expr>,
+  defs: FxHashMap<String, Stmt>,
 }
 
 impl Database {
-  pub fn get(&self, idx: &Idx<Expr>) -> &Expr {
+  pub fn get_expr(&self, idx: &Idx<Expr>) -> &Expr {
     &self.exprs[*idx]
+  }
+
+  pub fn get_def_by_name(&self, name: &str) -> Option<&Stmt> {
+    self.defs.get(name)
+  }
+
+  pub fn defs_iter(&self) -> Vec<(&String, &Stmt)> {
+    let mut defs: Vec<(&String, &Stmt)> = self.defs.iter().map(|(k, v)| (k, v)).collect();
+    defs.reverse(); // This doesn't seem tenable but it works for now
+    defs
+  }
+
+  pub fn lower(&mut self, ast: ast::Root) {
+    #[allow(clippy::needless_collect)] // Suggestion doesn't work due to https://doc.rust-lang.org/error-index.html#E0501
+    let stmts: Vec<Stmt> = ast
+      .stmts()
+      .filter_map(|stmt| self.lower_stmt(stmt))
+      .collect();
+    for stmt in stmts.into_iter() {
+      if let Stmt::VariableDef { ref name, value: _ } = stmt {
+        self.defs.insert(name.clone(), stmt);
+      }
+    }
   }
 
   pub(crate) fn lower_stmt(&mut self, ast: ast::Stmt) -> Option<Stmt> {

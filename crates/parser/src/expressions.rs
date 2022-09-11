@@ -50,6 +50,8 @@ fn lhs(p: &mut Parser) -> Option<CompletedMarker> {
   let completed_marker = match p.peek() {
     Some(TokenKind::Number) => parsers::number_literal(p),
     Some(TokenKind::String) => parsers::string_literal(p),
+    Some(TokenKind::LeftBrace) => todo!("object literal"),
+    Some(TokenKind::LeftBracket) => todo!("array literal"),
     Some(TokenKind::Identifier) => parsers::variable_ref(p),
     Some(TokenKind::Minus) => parsers::prefix_expr(p),
     Some(TokenKind::LeftParenthesis) => parsers::paren_expr(p),

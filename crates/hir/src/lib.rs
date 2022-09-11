@@ -1,6 +1,6 @@
 pub use db::Database;
-use expr::Expr;
-use stmt::Stmt;
+pub use expr::Expr;
+pub use stmt::Stmt;
 
 mod db;
 pub mod expr;
@@ -8,11 +8,11 @@ pub mod stmt;
 
 pub type DatabaseIdx = la_arena::Idx<Expr>;
 
-pub fn lower(ast: ast::Root) -> (Database, Vec<Stmt>) {
+pub fn lower(ast: ast::Root) -> Database {
   let mut db = Database::default();
-  let stmts = ast.stmts().filter_map(|stmt| db.lower_stmt(stmt)).collect();
+  db.lower(ast);
 
-  (db, stmts)
+  db
 }
 
 #[cfg(test)]

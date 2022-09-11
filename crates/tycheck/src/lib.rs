@@ -1,4 +1,5 @@
 use hir::{expr::Expr, stmt::Stmt, DatabaseIdx};
+use rustc_hash::FxHashMap;
 
 #[derive(Debug)]
 pub enum Either<A, B> {
@@ -13,45 +14,54 @@ pub enum Ty {
   Boolean(Option<bool>),
   Array(Option<Vec<Ty>>),
   Generic,
+  Error,
 }
 
 pub struct TyCheck {
   hir_db: hir::Database,
-  statements: Vec<Stmt>,
+  ty_db: FxHashMap<String, Ty>,
 }
 
 impl TyCheck {
-  pub fn new(hir_db: hir::Database, statements: Vec<Stmt>) -> Self {
-    Self { hir_db, statements }
-  }
-
-  pub fn check(&self) -> Vec<Ty> {
-    let mut tys = Vec::<Ty>::new();
-    for statement in self.statements.iter() {
-      tys.push(self.check_statement(Either::Left(statement)));
+  pub fn new(hir_db: hir::Database) -> Self {
+    Self {
+      hir_db,
+      ty_db: FxHashMap::default(),
     }
-    tys
   }
 
-  pub fn check_statement(&self, stmt: Either<&Stmt, &DatabaseIdx>) -> Ty {
+  pub fn infer(&mut self) -> &FxHashMap<String, Ty> {
+    for (stmt_ident, statement) in self.hir_db.defs_iter() {
+      println!("stmt_ident: {}", stmt_ident);
+      let ty = self.infer_stmt(Either::Left(statement));
+      self.ty_db.insert(stmt_ident.clone(), ty);
+    }
+    &self.ty_db
+  }
+
+  pub fn infer_stmt(&self, stmt: Either<&Stmt, &DatabaseIdx>) -> Ty {
     let expr = match stmt {
       Either::Left(stmt) => match stmt {
         Stmt::VariableDef { name: _, value } => value,
         Stmt::Expr(expr) => expr,
       },
-      Either::Right(idx) => self.hir_db.get(idx),
+      Either::Right(idx) => self.hir_db.get_expr(idx),
     };
-    self.check_expression(expr)
+    self.infer_expr(expr)
   }
 
-  pub fn check_expression(&self, expr: &Expr) -> Ty {
+  pub fn infer_expr(&self, expr: &Expr) -> Ty {
     match expr {
-      Expr::VariableRef { var: _ } => Ty::Generic,
+      Expr::VariableRef { var } => {
+        let ty = self.ty_db.get(var).unwrap_or(&Ty::Error);
+        ty.clone()
+      }
       Expr::Number { n } => Ty::Number(Some(*n)),
       Expr::String { s } => Ty::String(Some(s.clone())),
       Expr::Binary { op, lhs, rhs } => {
-        let lhs = self.check_expression(self.hir_db.get(lhs));
-        let rhs = self.check_expression(self.hir_db.get(rhs));
+        let lhs = self.infer_expr(self.hir_db.get_expr(lhs));
+        let rhs = self.infer_expr(self.hir_db.get_expr(rhs));
+
         match op {
           hir::expr::BinaryOp::Add => match (lhs, rhs) {
             (Ty::Number(Some(lhs)), Ty::Number(Some(rhs))) => Ty::Number(Some(lhs + rhs)),
@@ -67,19 +77,26 @@ impl TyCheck {
             _ => Ty::Generic,
           },
           hir::expr::BinaryOp::Sub => match (lhs, rhs) {
+            (Ty::Number(Some(lhs)), Ty::Number(Some(rhs))) => Ty::Number(Some(lhs - rhs)),
+            (Ty::Number(Some(_)), Ty::Number(None) | Ty::Generic) => Ty::Number(None),
             (Ty::Number(_), Ty::Number(_)) => Ty::Number(None),
             _ => Ty::Generic,
           },
           hir::expr::BinaryOp::Mul => match (lhs, rhs) {
+            (Ty::Number(Some(lhs)), Ty::Number(Some(rhs))) => Ty::Number(Some(lhs * rhs)),
+            (Ty::Number(Some(_)), Ty::Number(None) | Ty::Generic) => Ty::Number(None),
             (Ty::Number(_), Ty::Number(_)) => Ty::Number(None),
             _ => Ty::Generic,
           },
           hir::expr::BinaryOp::Div => match (lhs, rhs) {
+            (Ty::Number(Some(lhs)), Ty::Number(Some(rhs))) => Ty::Number(Some(lhs / rhs)),
+            (Ty::Number(Some(_)), Ty::Number(None) | Ty::Generic) => Ty::Number(None),
             (Ty::Number(_), Ty::Number(_)) => Ty::Number(None),
             _ => Ty::Generic,
           },
         }
       }
+      Expr::Missing => Ty::Error,
       _ => Ty::Generic,
     }
   }

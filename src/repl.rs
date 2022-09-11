@@ -33,10 +33,9 @@ pub fn repl() -> io::Result<()> {
     let parse = parse(&input);
     let root = ast::Root::cast(parse.syntax()).unwrap();
 
-    let (hir_db, stmts) = hir::lower(root);
-    let tycheck = TyCheck::new(hir_db, stmts);
-    let tys = tycheck.check();
-    println!("{:#?}", tys);
+    let hir_db = hir::lower(root);
+    let mut tycheck = TyCheck::new(hir_db);
+    println!("{:#?}", tycheck.infer());
 
     input.clear();
   }
