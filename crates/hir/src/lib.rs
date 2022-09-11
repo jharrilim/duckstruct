@@ -1,9 +1,12 @@
-use db::Database;
+pub use db::Database;
+use expr::Expr;
 use stmt::Stmt;
 
 mod db;
 pub mod expr;
 pub mod stmt;
+
+pub type DatabaseIdx = la_arena::Idx<Expr>;
 
 pub fn lower(ast: ast::Root) -> (Database, Vec<Stmt>) {
   let mut db = Database::default();

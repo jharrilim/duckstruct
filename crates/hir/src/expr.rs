@@ -7,8 +7,11 @@ pub enum Expr {
     lhs: Idx<Self>,
     rhs: Idx<Self>,
   },
-  Literal {
-    n: u64,
+  Number {
+    n: f64,
+  },
+  String {
+    s: String,
   },
   Unary {
     op: UnaryOp,

@@ -4,6 +4,7 @@ use std::{
   io::{self, Write},
   process::exit,
 };
+use tycheck::TyCheck;
 
 pub fn repl() -> io::Result<()> {
   let stdin = io::stdin();
@@ -32,14 +33,10 @@ pub fn repl() -> io::Result<()> {
     let parse = parse(&input);
     let root = ast::Root::cast(parse.syntax()).unwrap();
 
-    dbg!(root
-      .stmts()
-      .filter_map(|stmt| if let ast::stmt::Stmt::VariableDef(var_def) = stmt {
-        Some(var_def.value())
-      } else {
-        None
-      })
-      .collect::<Vec<_>>());
+    let (hir_db, stmts) = hir::lower(root);
+    let tycheck = TyCheck::new(hir_db, stmts);
+    let tys = tycheck.check();
+    println!("{:#?}", tys);
 
     input.clear();
   }

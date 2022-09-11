@@ -3,7 +3,8 @@ use syntax::{SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 #[derive(Debug)]
 pub enum Expr {
   BinaryExpr(BinaryExpr),
-  Literal(Literal),
+  NumberLit(Number),
+  StringLit(Str),
   ParenExpr(ParenExpr),
   UnaryExpr(UnaryExpr),
   VariableRef(VariableRef),
@@ -13,7 +14,8 @@ impl Expr {
   pub fn cast(node: SyntaxNode) -> Option<Self> {
     let result = match node.kind() {
       SyntaxKind::InfixExpression => Self::BinaryExpr(BinaryExpr(node)),
-      SyntaxKind::Literal => Self::Literal(Literal(node)),
+      SyntaxKind::Number => Self::NumberLit(Number(node)),
+      SyntaxKind::String => Self::StringLit(Str(node)),
       SyntaxKind::ParenExpression => Self::ParenExpr(ParenExpr(node)),
       SyntaxKind::PrefixExpression => Self::UnaryExpr(UnaryExpr(node)),
       SyntaxKind::VariableReference => Self::VariableRef(VariableRef(node)),
@@ -50,10 +52,27 @@ impl BinaryExpr {
 }
 
 #[derive(Debug)]
-pub struct Literal(SyntaxNode);
-impl Literal {
-  pub fn parse(&self) -> u64 {
+pub struct Number(SyntaxNode);
+impl Number {
+  pub fn parse(&self) -> f64 {
     self.0.first_token().unwrap().text().parse().unwrap()
+  }
+}
+
+#[derive(Debug)]
+pub struct Str(SyntaxNode);
+impl Str {
+  pub fn parse(&self) -> String {
+    self
+      .0
+      .first_token()
+      .unwrap()
+      .text()
+      .strip_prefix('"')
+      .unwrap()
+      .strip_suffix('"')
+      .unwrap()
+      .to_string()
   }
 }
 

@@ -9,12 +9,20 @@ use crate::statements;
 
 // be nice if these returned a parse result instead
 
-pub(super) fn literal(p: &mut Parser) -> CompletedMarker {
+pub(super) fn number_literal(p: &mut Parser) -> CompletedMarker {
   p.expect(TokenKind::Number);
 
   let m = p.start();
   p.bump();
-  m.complete(p, SyntaxKind::Literal)
+  m.complete(p, SyntaxKind::Number)
+}
+
+pub(super) fn string_literal(p: &mut Parser) -> CompletedMarker {
+  p.expect(TokenKind::String);
+
+  let m = p.start();
+  p.bump();
+  m.complete(p, SyntaxKind::String)
 }
 
 pub(super) fn variable_ref(p: &mut Parser) -> CompletedMarker {

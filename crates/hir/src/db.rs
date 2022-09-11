@@ -2,7 +2,7 @@ use crate::{
   expr::{BinaryOp, Expr, UnaryOp},
   stmt::Stmt,
 };
-use la_arena::Arena;
+use la_arena::{Arena, Idx};
 use syntax::SyntaxKind;
 
 #[derive(Debug, Default)]
@@ -11,6 +11,10 @@ pub struct Database {
 }
 
 impl Database {
+  pub fn get(&self, idx: &Idx<Expr>) -> &Expr {
+    &self.exprs[*idx]
+  }
+
   pub(crate) fn lower_stmt(&mut self, ast: ast::Stmt) -> Option<Stmt> {
     let result = match ast {
       ast::Stmt::VariableDef(ast) => Stmt::VariableDef {
@@ -27,7 +31,8 @@ impl Database {
     if let Some(ast) = ast {
       match ast {
         ast::Expr::BinaryExpr(ast) => self.lower_binary(ast),
-        ast::Expr::Literal(ast) => Expr::Literal { n: ast.parse() },
+        ast::Expr::NumberLit(ast) => Expr::Number { n: ast.parse() },
+        ast::Expr::StringLit(ast) => Expr::String { s: ast.parse() },
         ast::Expr::ParenExpr(ast) => self.lower_expr(ast.expr()),
         ast::Expr::UnaryExpr(ast) => self.lower_unary(ast),
         ast::Expr::VariableRef(ast) => Expr::VariableRef { var: ast.name() },

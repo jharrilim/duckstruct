@@ -43,7 +43,6 @@ pub enum SyntaxKind {
   Error,
   Root,
   InfixExpression,
-  Literal,
   ParenExpression,
   PrefixExpression,
   LetStatement,

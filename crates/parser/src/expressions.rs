@@ -48,7 +48,8 @@ pub(super) fn expr_binding_power(
 
 fn lhs(p: &mut Parser) -> Option<CompletedMarker> {
   let completed_marker = match p.peek() {
-    Some(TokenKind::Number) => parsers::literal(p),
+    Some(TokenKind::Number) => parsers::number_literal(p),
+    Some(TokenKind::String) => parsers::string_literal(p),
     Some(TokenKind::Identifier) => parsers::variable_ref(p),
     Some(TokenKind::Minus) => parsers::prefix_expr(p),
     Some(TokenKind::LeftParenthesis) => parsers::paren_expr(p),

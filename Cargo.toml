@@ -7,9 +7,11 @@ edition = "2018"
 
 [dependencies]
 ast = { path = "./crates/ast" }
+hir = { path = "./crates/hir" }
 lexer = { path = "./crates/lexer" }
-syntax = { path = "./crates/syntax" }
 parser = { path = "./crates/parser" }
+syntax = { path = "./crates/syntax" }
+tycheck = { path = "./crates/tycheck" }
 ctrlc =  { version = "3.2.1", features = ["termination"] }
 drop_bomb = "0.1.5"
 project-root = "0.2.2"
