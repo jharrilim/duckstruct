@@ -1,5 +1,5 @@
-use syntax::{SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 use crate::expr::Expr;
+use syntax::{SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 
 #[derive(Debug)]
 pub enum Stmt {

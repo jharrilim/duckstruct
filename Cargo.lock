@@ -108,6 +108,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8c21d40587b92fa6a6c6e3c1bdbf87d75511db5672f9c93175574b3a00df1758"
 
 [[package]]
+name = "hir"
+version = "0.1.0"
+dependencies = [
+ "ast",
+ "la-arena",
+ "rustc-hash",
+ "syntax",
+]
+
+[[package]]
+name = "la-arena"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d43db9f547ba2787bdeac81ef97ccc80784f385b3b39b4d50344270629a2bee3"
+
+[[package]]
 name = "lexer"
 version = "0.1.0"
 dependencies = [

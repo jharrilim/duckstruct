@@ -82,9 +82,8 @@ pub(super) fn let_stmt(p: &mut Parser) -> CompletedMarker {
   p.expect(TokenKind::Equals);
   p.bump();
 
-  match expr(p) {
-    None => p.error(),
-    _ => {},
+  if expr(p).is_none() {
+    p.error();
   }
 
   m.complete(p, SyntaxKind::LetStatement)

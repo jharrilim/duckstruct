@@ -53,7 +53,7 @@ impl BinaryExpr {
 pub struct Literal(SyntaxNode);
 impl Literal {
   pub fn parse(&self) -> u64 {
-      self.0.first_token().unwrap().text().parse().unwrap()
+    self.0.first_token().unwrap().text().parse().unwrap()
   }
 }
 
@@ -61,7 +61,7 @@ impl Literal {
 pub struct ParenExpr(SyntaxNode);
 impl ParenExpr {
   pub fn expr(&self) -> Option<Expr> {
-      self.0.children().find_map(Expr::cast)
+    self.0.children().find_map(Expr::cast)
   }
 }
 
@@ -69,14 +69,15 @@ impl ParenExpr {
 pub struct UnaryExpr(SyntaxNode);
 impl UnaryExpr {
   pub fn expr(&self) -> Option<Expr> {
-      self.0.children().find_map(Expr::cast)
+    self.0.children().find_map(Expr::cast)
   }
 
   pub fn op(&self) -> Option<SyntaxToken> {
-      self.0
-          .children_with_tokens()
-          .filter_map(SyntaxElement::into_token)
-          .find(|token| token.kind() == SyntaxKind::Minus)
+    self
+      .0
+      .children_with_tokens()
+      .filter_map(SyntaxElement::into_token)
+      .find(|token| token.kind() == SyntaxKind::Minus)
   }
 }
 
@@ -84,6 +85,6 @@ impl UnaryExpr {
 pub struct VariableRef(SyntaxNode);
 impl VariableRef {
   pub fn name(&self) -> String {
-      self.0.first_token().unwrap().text().to_string()
+    self.0.first_token().unwrap().text().to_string()
   }
 }

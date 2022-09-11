@@ -30,7 +30,16 @@ pub fn repl() -> io::Result<()> {
     }
 
     let parse = parse(&input);
-    println!("{}", parse.debug_tree());
+    let root = ast::Root::cast(parse.syntax()).unwrap();
+
+    dbg!(root
+      .stmts()
+      .filter_map(|stmt| if let ast::stmt::Stmt::VariableDef(var_def) = stmt {
+        Some(var_def.value())
+      } else {
+        None
+      })
+      .collect::<Vec<_>>());
 
     input.clear();
   }

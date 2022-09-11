@@ -4,7 +4,10 @@ use syntax::{SyntaxKind, SyntaxNode};
 
 use rowan::GreenNode;
 
-use crate::{parse_error::{ParseError, Expectations}, statements::stmt};
+use crate::{
+  parse_error::{Expectations, ParseError},
+  statements::stmt,
+};
 
 use super::{event::Event, marker::Marker, source::Source};
 
@@ -59,7 +62,7 @@ impl<'l, 'input> Parser<'l, 'input> {
       (None, self.source.last_token_range().unwrap())
     };
 
-    if self.expected_kinds.len() > 0 {
+    if !self.expected_kinds.is_empty() {
       self.events.push(Event::Error(ParseError {
         expected: Expectations::Tokens(std::mem::take(&mut self.expected_kinds)),
         found,

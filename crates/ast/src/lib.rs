@@ -1,10 +1,14 @@
+/// Our AST is essentially a typed version of the CST that the parser produces.
+/// It isn't quite abstract per-se since the underlying CST nodes are still
+/// accessible internally.
 // lib.rs
 pub mod expr;
 pub mod stmt;
 
-use expr::Expr;
-use stmt::Stmt;
-use syntax::{SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
+pub use expr::Expr;
+pub use stmt::Stmt;
+
+use syntax::{SyntaxKind, SyntaxNode};
 
 #[derive(Debug)]
 pub struct Root(SyntaxNode);
