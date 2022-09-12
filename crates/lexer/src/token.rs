@@ -10,6 +10,9 @@ pub enum TokenKind {
   #[token("f")]
   Function,
 
+  #[regex(r"true|false")]
+  Boolean,
+
   #[token("let")]
   Let,
 
@@ -129,6 +132,7 @@ impl fmt::Display for TokenKind {
     f.write_str(match self {
       Self::Whitespace => "whitespace",
       Self::Function => "'f'",
+      Self::Boolean => "boolean",
       Self::Class => "'class'",
       Self::Let => "'let'",
       Self::If => "'if'",

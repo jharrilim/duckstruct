@@ -7,6 +7,7 @@ use rowan::Language;
 pub enum SyntaxKind {
   Whitespace,
   Function, // the keyword
+  Boolean, // true or false
   Class,
   Let,
   If,
@@ -72,6 +73,7 @@ impl From<TokenKind> for SyntaxKind {
   fn from(token_kind: TokenKind) -> Self {
     match token_kind {
       TokenKind::Whitespace => Self::Whitespace,
+      TokenKind::Boolean => Self::Boolean,
       TokenKind::Function => Self::Function,
       TokenKind::Class => Self::Class,
       TokenKind::Let => Self::Let,

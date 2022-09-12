@@ -25,6 +25,14 @@ pub(super) fn string_literal(p: &mut Parser) -> CompletedMarker {
   m.complete(p, SyntaxKind::String)
 }
 
+pub(super) fn boolean_literal(p: &mut Parser) -> CompletedMarker {
+  p.expect(TokenKind::Boolean);
+
+  let m = p.start();
+  p.bump();
+  m.complete(p, SyntaxKind::Boolean)
+}
+
 pub(super) fn variable_ref(p: &mut Parser) -> CompletedMarker {
   p.expect(TokenKind::Identifier);
 

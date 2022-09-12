@@ -43,7 +43,7 @@ mod tests {
       "123",
       expect![[r#"
           Root@0..3
-            Literal@0..3
+            Number@0..3
               Number@0..3 "123""#]],
     );
   }
@@ -66,10 +66,10 @@ mod tests {
       expect![[r#"
           Root@0..3
             InfixExpression@0..3
-              Literal@0..1
+              Number@0..1
                 Number@0..1 "1"
               Plus@1..2 "+"
-              Literal@2..3
+              Number@2..3
                 Number@2..3 "2""#]],
     );
   }
@@ -82,7 +82,7 @@ mod tests {
           Root@0..3
             PrefixExpression@0..3
               Minus@0..1 "-"
-              Literal@1..3
+              Number@1..3
                 Number@1..3 "10""#]],
     );
   }
@@ -101,7 +101,7 @@ mod tests {
                   LeftParenthesis@2..3 "("
                   ParenExpression@3..7
                     LeftParenthesis@3..4 "("
-                    Literal@4..6
+                    Number@4..6
                       Number@4..6 "10"
                     RightParenthesis@6..7 ")"
                   RightParenthesis@7..8 ")"
@@ -117,16 +117,16 @@ mod tests {
       expect![[r#"
           Root@0..7
             InfixExpression@0..7
-              Literal@0..1
+              Number@0..1
                 Number@0..1 "5"
               Asterisk@1..2 "*"
               ParenExpression@2..7
                 LeftParenthesis@2..3 "("
                 InfixExpression@3..6
-                  Literal@3..4
+                  Number@3..4
                     Number@3..4 "2"
                   Plus@4..5 "+"
-                  Literal@5..6
+                  Number@5..6
                     Number@5..6 "1"
                 RightParenthesis@6..7 ")""#]],
     );
@@ -139,7 +139,7 @@ mod tests {
       expect![[r#"
           Root@0..7
             Whitespace@0..3 "   "
-            Literal@3..7
+            Number@3..7
               Number@3..7 "9876""#]],
     );
   }
@@ -150,7 +150,7 @@ mod tests {
       "999   ",
       expect![[r#"
           Root@0..6
-            Literal@0..6
+            Number@0..6
               Number@0..3 "999"
               Whitespace@3..6 "   ""#]],
     );
@@ -163,7 +163,7 @@ mod tests {
       expect![[r#"
           Root@0..9
             Whitespace@0..1 " "
-            Literal@1..9
+            Number@1..9
               Number@1..4 "123"
               Whitespace@4..9 "     ""#]],
     );
@@ -192,7 +192,7 @@ mod tests {
               Whitespace@5..6 " "
               Equals@6..7 "="
               Whitespace@7..8 " "
-              Literal@8..11
+              Number@8..11
                 Number@8..11 "100"
             Semicolon@11..12 ";""#]],
     )
@@ -338,7 +338,7 @@ mod tests {
                   Whitespace@22..23 " "
                 Asterisk@23..24 "*"
                 Whitespace@24..25 " "
-                Literal@25..26
+                Number@25..26
                   Number@25..26 "2"
             Semicolon@26..27 ";"
             Whitespace@27..32 "\n    ""#]],
@@ -369,7 +369,7 @@ mod tests {
                   Whitespace@15..16 " "
                 ForwardSlash@16..17 "/"
                 Whitespace@17..18 " "
-                Literal@18..19
+                Number@18..19
                   Number@18..19 "2"
             Semicolon@19..20 ";"
             Whitespace@20..25 "\n    ""#]],
@@ -413,7 +413,7 @@ mod tests {
                       Whitespace@37..38 " "
                     Asterisk@38..39 "*"
                     Whitespace@39..40 " "
-                    Literal@40..41
+                    Number@40..41
                       Number@40..41 "5"
                 Semicolon@41..42 ";"
                 Whitespace@42..51 "\n        "
@@ -423,7 +423,7 @@ mod tests {
                     Whitespace@52..53 " "
                   Plus@53..54 "+"
                   Whitespace@54..55 " "
-                  Literal@55..65
+                  Number@55..65
                     Number@55..58 "100"
                     Whitespace@58..65 "\n      "
                 RightBrace@65..66 "}"
@@ -448,7 +448,7 @@ mod tests {
               Whitespace@14..15 " "
               Equals@15..16 "="
               Whitespace@16..17 " "
-              Literal@17..19
+              Number@17..19
                 Number@17..19 "10"
             Semicolon@19..20 ";"
             Whitespace@20..29 "\n        "
@@ -469,7 +469,7 @@ mod tests {
                   Whitespace@39..40 " "
                 Asterisk@40..41 "*"
                 Whitespace@41..42 " "
-                Literal@42..43
+                Number@42..43
                   Number@42..43 "2"
             Semicolon@43..44 ";"
             Whitespace@44..51 "\n      ""#]],
@@ -497,7 +497,7 @@ mod tests {
                     Whitespace@13..14 " "
                   GreaterThan@14..15 ">"
                   Whitespace@15..16 " "
-                  Literal@16..18
+                  Number@16..18
                     Number@16..17 "0"
                     Whitespace@17..18 " "
               LeftBrace@18..19 "{"
@@ -509,7 +509,7 @@ mod tests {
                     Whitespace@31..32 " "
                   Plus@32..33 "+"
                   Whitespace@33..34 " "
-                  Literal@34..44
+                  Number@34..44
                     Number@34..35 "1"
                     Whitespace@35..44 "\n        "
               RightBrace@44..45 "}"
@@ -540,7 +540,7 @@ mod tests {
                     Whitespace@13..14 " "
                   GreaterThan@14..15 ">"
                   Whitespace@15..16 " "
-                  Literal@16..18
+                  Number@16..18
                     Number@16..17 "0"
                     Whitespace@17..18 " "
               LeftBrace@18..19 "{"
@@ -552,7 +552,7 @@ mod tests {
                     Whitespace@31..32 " "
                   Plus@32..33 "+"
                   Whitespace@33..34 " "
-                  Literal@34..44
+                  Number@34..44
                     Number@34..35 "1"
                     Whitespace@35..44 "\n        "
               RightBrace@44..45 "}"
@@ -568,7 +568,7 @@ mod tests {
                     Whitespace@64..65 " "
                   Minus@65..66 "-"
                   Whitespace@66..67 " "
-                  Literal@67..77
+                  Number@67..77
                     Number@67..68 "1"
                     Whitespace@68..77 "\n        "
               RightBrace@77..78 "}"
@@ -612,6 +612,7 @@ mod tests {
 
   #[test]
   fn parse_conditional_assignment() {
+    // TODO: Add booleans
     check(
       "let x = if true { 1 } else { 2 }",
       expect![[r#"
@@ -627,13 +628,13 @@ mod tests {
                 If@8..10 "if"
                 Whitespace@10..11 " "
                 ConditionalPredicate@11..16
-                  VariableReference@11..16
-                    Identifier@11..15 "true"
+                  Boolean@11..16
+                    Boolean@11..15 "true"
                     Whitespace@15..16 " "
                 LeftBrace@16..17 "{"
                 Whitespace@17..18 " "
                 IfCondition@18..20
-                  Literal@18..20
+                  Number@18..20
                     Number@18..19 "1"
                     Whitespace@19..20 " "
                 RightBrace@20..21 "}"
@@ -643,7 +644,7 @@ mod tests {
                 LeftBrace@27..28 "{"
                 Whitespace@28..29 " "
                 ElseCondition@29..31
-                  Literal@29..31
+                  Number@29..31
                     Number@29..30 "2"
                     Whitespace@30..31 " "
                 RightBrace@31..32 "}""#]],
@@ -655,6 +656,5 @@ mod tests {
     let code = "let x =\nlet y = 1";
     let parsed = parse(code);
     assert_eq!(parsed.errors.len(), 1);
-    println!("{}", parsed.debug_tree());
   }
 }
