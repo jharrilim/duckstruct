@@ -7,6 +7,8 @@ use syntax::Duckstruct;
 use rowan::{GreenNodeBuilder, Language};
 use std::mem;
 
+/// This is best described through
+/// https://github.com/rust-lang/rust-analyzer/blob/master/docs/dev/architecture.md#cratesparser
 pub(super) struct Sink<'l, 'input> {
   builder: GreenNodeBuilder<'static>,
   tokens: &'l [Token<'input>],

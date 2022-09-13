@@ -2,6 +2,8 @@ use crate::{event::Event, parser::Parser};
 use drop_bomb::DropBomb;
 use syntax::SyntaxKind;
 
+/// Markers are essentially checkpoints in the parser. They are used to create
+/// syntax nodes. They essentially determine where a node starts and ends.
 pub(super) struct Marker {
   pos: usize,
   bomb: DropBomb,

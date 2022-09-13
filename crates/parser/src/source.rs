@@ -1,6 +1,9 @@
 use lexer::{token::TokenKind, Token};
 use rowan::TextRange;
 
+/// Source is a wrapper around a slice of tokens that provides a peekable
+/// interface. It also conveniently handles whitespace so the parser doesn't
+/// need to.
 pub(super) struct Source<'l, 'input> {
   tokens: &'l [Token<'input>],
   cursor: usize,

@@ -119,14 +119,23 @@ let catBark = 10101010
 
 ## Thoughts
 
-This should in theory be fairly similar to the [Hindley Milner Type System](https://en.wikipedia.org/wiki/Hindley%E2%80%93Milner_type_system),
-except instead of doing just type inference, we'll try to compute the values as well.
+- This should in theory be fairly similar to the
+[Hindley Milner Type System](https://en.wikipedia.org/wiki/Hindley%E2%80%93Milner_type_system),
+except instead of doing just type inference, we'll try to compute the values as
+well.
 
-During type checking, we can build a graph which maps a computed value to each expression,
-starting from the innermost expressions. This will give us a way to determine what each intermediate
-value is, which is particularly useful for code analysis, ie. IDE inlay hints. We can also use this
-graph to simplify how we compute the output. During evaluation traversal, we only need to traverse down
+- During type checking, we can build a graph which maps a computed value to each
+expression, starting from the innermost expressions. This will give us a way to
+determine what each intermediate value is, which is particularly useful for code
+analysis, ie. IDE inlay hints. We can also use this graph to simplify how we
+compute the output. During evaluation traversal, we only need to traverse down
 to the highest computed value, and we can skip any nodes beneath that.
 
-It will be easy for side effects to pollute type inference. The compiler should provide a way to guard
-against this using a form of type-guard similar to that of TypeScript's.
+- It will be easy for side effects to pollute type inference. The compiler
+should provide a way to guard against this using a form of type-guard similar to
+that of TypeScript's.
+
+- In C++, programmers [constexpr](https://en.cppreference.com/w/cpp/language/constexpr)
+all-the-things (ideally). We are essentially doing the same thing but for a
+language without static types, and we're applying it ourselves in the compiler
+instead of having developers write `constexpr`.
