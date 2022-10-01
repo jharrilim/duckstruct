@@ -1,5 +1,7 @@
 use syntax::{SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 
+use crate::Stmt;
+
 #[derive(Debug)]
 pub enum Expr {
   BinaryExpr(BinaryExpr),
@@ -8,6 +10,7 @@ pub enum Expr {
   ParenExpr(ParenExpr),
   UnaryExpr(UnaryExpr),
   VariableRef(VariableRef),
+  Block(BlockExpr),
 }
 
 impl Expr {
@@ -19,6 +22,7 @@ impl Expr {
       SyntaxKind::ParenExpression => Self::ParenExpr(ParenExpr(node)),
       SyntaxKind::PrefixExpression => Self::UnaryExpr(UnaryExpr(node)),
       SyntaxKind::VariableReference => Self::VariableRef(VariableRef(node)),
+      SyntaxKind::BlockExpression => Self::Block(BlockExpr(node)),
       _ => return None,
     };
 
@@ -105,5 +109,17 @@ pub struct VariableRef(SyntaxNode);
 impl VariableRef {
   pub fn name(&self) -> String {
     self.0.first_token().unwrap().text().to_string()
+  }
+}
+
+#[derive(Debug)]
+pub struct BlockExpr(SyntaxNode);
+impl BlockExpr {
+  pub fn statements(&self) -> Vec<Stmt> {
+    self
+      .0
+      .children()
+      .filter_map(|node| Stmt::cast(node))
+      .collect()
   }
 }

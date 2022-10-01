@@ -170,7 +170,7 @@ fn named_f(p: &mut Parser, m: Marker) -> CompletedMarker {
       m.complete(p, SyntaxKind::NamedFunctionExpression)
     }
     Some(TokenKind::LeftBrace) => {
-      function_body(p);
+      block_expr(p);
       m.complete(p, SyntaxKind::NamedFunction)
     }
     _ => panic!("nooo"),
@@ -186,7 +186,7 @@ fn anonymous_f(p: &mut Parser, m: Marker) -> CompletedMarker {
       m.complete(p, SyntaxKind::AnonymousFunctionExpression)
     }
     Some(TokenKind::LeftBrace) => {
-      function_body(p);
+      block_expr(p);
       m.complete(p, SyntaxKind::AnonymousFunction)
     }
     _ => panic!("nooo"),
@@ -224,7 +224,7 @@ fn argument_list(p: &mut Parser) -> CompletedMarker {
   }
 }
 
-fn function_body(p: &mut Parser) -> Option<CompletedMarker> {
+pub(crate) fn block_expr(p: &mut Parser) -> CompletedMarker {
   p.expect(TokenKind::LeftBrace);
   let m = p.start();
   p.bump();
@@ -234,7 +234,7 @@ fn function_body(p: &mut Parser) -> Option<CompletedMarker> {
       None => panic!("{}", "missing }"),
       Some(TokenKind::RightBrace) => {
         p.bump();
-        return Some(m.complete(p, SyntaxKind::FunctionBody));
+        return m.complete(p, SyntaxKind::BlockExpression);
       }
       _ => {
         statements::stmt(p);
@@ -284,3 +284,4 @@ pub(crate) fn conditional_expr(p: &mut Parser) -> CompletedMarker {
   }
   conditional_expr_marker.complete(p, SyntaxKind::ConditionalExpression)
 }
+

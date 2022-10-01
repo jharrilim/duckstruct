@@ -59,7 +59,7 @@ pub enum SyntaxKind {
   AnonymousFunctionExpression,
   NamedFunction,
   NamedFunctionExpression,
-  FunctionBody,
+  BlockExpression,
 }
 
 impl From<SyntaxKind> for rowan::SyntaxKind {

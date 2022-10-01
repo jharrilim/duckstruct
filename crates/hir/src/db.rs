@@ -28,14 +28,21 @@ impl Database {
   }
 
   pub fn lower(&mut self, ast: ast::Root) {
-    #[allow(clippy::needless_collect)] // Suggestion doesn't work due to https://doc.rust-lang.org/error-index.html#E0501
+    #[allow(clippy::needless_collect)]
+    // Suggestion doesn't work due to https://doc.rust-lang.org/error-index.html#E0501
     let stmts: Vec<Stmt> = ast
       .stmts()
       .filter_map(|stmt| self.lower_stmt(stmt))
       .collect();
     for stmt in stmts.into_iter() {
-      if let Stmt::VariableDef { ref name, value: _ } = stmt {
-        self.defs.insert(name.clone(), stmt);
+      match stmt {
+        Stmt::VariableDef { name, value } => {
+          self.defs.insert(name.clone(), Stmt::VariableDef { name, value });
+        },
+        Stmt::FunctionDef { name, params, body } => {
+          self.defs.insert(name.clone(), Stmt::FunctionDef { name, params, body });
+        },
+        Stmt::Expr(_) => {},
       }
     }
   }
@@ -46,8 +53,18 @@ impl Database {
         name: ast.name()?.text().to_string(),
         value: self.lower_expr(ast.value()),
       },
+      ast::Stmt::FunctionDef(ast) => Stmt::FunctionDef {
+        name: ast.name()?.text().to_string(),
+        params: ast
+          .params()
+          .into_iter()
+          .map(|param| param.text().to_string())
+          .collect(),
+        body: self.lower_expr(Some(ast.body())),
+      },
       ast::Stmt::Expr(ast) => Stmt::Expr(self.lower_expr(Some(ast))),
     };
+    println!("{:?}", result);
 
     Some(result)
   }
@@ -61,6 +78,16 @@ impl Database {
         ast::Expr::ParenExpr(ast) => self.lower_expr(ast.expr()),
         ast::Expr::UnaryExpr(ast) => self.lower_unary(ast),
         ast::Expr::VariableRef(ast) => Expr::VariableRef { var: ast.name() },
+        ast::Expr::Block(ast) => {
+          let b = Expr::Block {
+            stmts: ast
+              .statements()
+              .into_iter()
+              .filter_map(|stmt| self.lower_stmt(stmt))
+              .collect(),
+          };
+          b
+        }
       }
     } else {
       Expr::Missing
@@ -94,6 +121,19 @@ impl Database {
     Expr::Unary {
       op,
       expr: self.exprs.alloc(expr),
+    }
+  }
+}
+
+#[derive(Debug)]
+pub(crate) struct FunctionContext {
+  pub locals: FxHashMap<String, Expr>,
+}
+
+impl Default for FunctionContext {
+  fn default() -> Self {
+    Self {
+      locals: FxHashMap::default(),
     }
   }
 }

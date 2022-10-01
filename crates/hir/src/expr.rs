@@ -1,5 +1,7 @@
 use la_arena::Idx;
 
+use crate::Stmt;
+
 #[derive(Debug, Clone)]
 pub enum Expr {
   Binary {
@@ -19,6 +21,9 @@ pub enum Expr {
   },
   VariableRef {
     var: String,
+  },
+  Block {
+    stmts: Vec<Stmt>,
   },
   Missing,
 }
