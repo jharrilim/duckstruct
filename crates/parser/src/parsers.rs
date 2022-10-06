@@ -63,7 +63,10 @@ pub(super) fn paren_expr(p: &mut Parser) -> CompletedMarker {
   let m = p.start();
 
   p.bump();
-  expr_binding_power(p, 0);
+
+  let op = PrefixOp::LParen;
+  let((), right_binding_power) = op.binding_power();
+  expr_binding_power(p, right_binding_power);
 
   p.expect(TokenKind::RightParenthesis);
   p.bump();
@@ -178,7 +181,7 @@ fn named_f(p: &mut Parser, m: Marker) -> CompletedMarker {
       m.complete(p, SyntaxKind::NamedFunctionExpression)
     }
     Some(TokenKind::LeftBrace) => {
-      function_body(p);
+      block_expr(p);
       m.complete(p, SyntaxKind::NamedFunction)
     }
     _ => panic!("nooo"),
@@ -194,18 +197,18 @@ fn anonymous_f(p: &mut Parser, m: Marker) -> CompletedMarker {
       m.complete(p, SyntaxKind::AnonymousFunctionExpression)
     }
     Some(TokenKind::LeftBrace) => {
-      function_body(p);
+      block_expr(p);
       m.complete(p, SyntaxKind::AnonymousFunction)
     }
     _ => panic!("nooo"),
   }
 }
 
-fn argument_list(p: &mut Parser) -> CompletedMarker {
+pub(crate) fn argument_list(p: &mut Parser) -> CompletedMarker {
   p.expect(TokenKind::LeftParenthesis);
   let m = p.start();
   p.bump();
-  let mut last_token: Option<TokenKind> = None;
+  let mut on_expr = false;
 
   loop {
     match p.peek() {
@@ -214,25 +217,28 @@ fn argument_list(p: &mut Parser) -> CompletedMarker {
         break m.complete(p, SyntaxKind::ArgumentList);
       }
       Some(TokenKind::Identifier) => {
-        if last_token == Some(TokenKind::Identifier) {
+        if on_expr {
           panic!("u forgor comma 💀")
         }
-        last_token = Some(TokenKind::Identifier);
+        on_expr = true;
         p.bump();
       }
       Some(TokenKind::Comma) => {
-        if last_token == Some(TokenKind::Comma) {
+        if !on_expr {
           panic!(",,,,,sorry cant do that")
         }
-        last_token = Some(TokenKind::Comma);
+        on_expr = false;
         p.bump();
       }
-      _ => panic!("...?!"),
+      _ => {
+        expr(p);
+        on_expr = true;
+      },
     }
   }
 }
 
-fn function_body(p: &mut Parser) -> Option<CompletedMarker> {
+pub(crate) fn block_expr(p: &mut Parser) -> CompletedMarker {
   p.expect(TokenKind::LeftBrace);
   let m = p.start();
   p.bump();
@@ -242,7 +248,7 @@ fn function_body(p: &mut Parser) -> Option<CompletedMarker> {
       None => panic!("{}", "missing }"),
       Some(TokenKind::RightBrace) => {
         p.bump();
-        return Some(m.complete(p, SyntaxKind::FunctionBody));
+        return m.complete(p, SyntaxKind::BlockExpression);
       }
       _ => {
         statements::stmt(p);

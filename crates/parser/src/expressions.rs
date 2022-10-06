@@ -28,6 +28,7 @@ pub(super) fn expr_binding_power(
       Some(TokenKind::NotEquals) => InfixOp::Neq,
       Some(TokenKind::And) => InfixOp::And,
       Some(TokenKind::Or) => InfixOp::Or,
+      Some(TokenKind::LeftParenthesis) => InfixOp::LParen,
       _ => break,
     };
 
@@ -37,11 +38,20 @@ pub(super) fn expr_binding_power(
       break;
     }
 
-    p.bump();
-
-    let m = lhs.precede(p);
-    expr_binding_power(p, right_binding_power);
-    lhs = m.complete(p, SyntaxKind::InfixExpression);
+    
+    match op {
+      InfixOp::LParen => {
+        let m = lhs.precede(p);
+        parsers::argument_list(p);
+        lhs = m.complete(p, SyntaxKind::FunctionCallExpression);
+      }
+      _ => {
+        p.bump();
+        let m = lhs.precede(p);
+        expr_binding_power(p, right_binding_power);
+        lhs = m.complete(p, SyntaxKind::InfixExpression);
+      }
+    }
   }
   Some(lhs)
 }
@@ -51,12 +61,13 @@ fn lhs(p: &mut Parser) -> Option<CompletedMarker> {
     Some(TokenKind::Number) => parsers::number_literal(p),
     Some(TokenKind::Boolean) => parsers::boolean_literal(p),
     Some(TokenKind::String) => parsers::string_literal(p),
-    Some(TokenKind::LeftBrace) => todo!("object literal"),
+    Some(TokenKind::LeftBrace) => parsers::block_expr(p),
     Some(TokenKind::LeftBracket) => todo!("array literal"),
     Some(TokenKind::Identifier) => parsers::variable_ref(p),
     Some(TokenKind::Minus) => parsers::prefix_expr(p),
     Some(TokenKind::LeftParenthesis) => parsers::paren_expr(p),
     Some(TokenKind::If) => parsers::conditional_expr(p),
+    Some(TokenKind::Function) => parsers::function_definition(p),
     _ => return None,
   };
   Some(completed_marker)

@@ -397,7 +397,7 @@ mod tests {
                 Identifier@15..16 "x"
                 RightParenthesis@16..17 ")"
                 Whitespace@17..18 " "
-              FunctionBody@18..71
+              BlockExpression@18..71
                 LeftBrace@18..19 "{"
                 Whitespace@19..28 "\n        "
                 LetStatement@28..41
@@ -656,5 +656,68 @@ mod tests {
     let code = "let x =\nlet y = 1";
     let parsed = parse(code);
     assert_eq!(parsed.errors.len(), 1);
+  }
+
+  #[test]
+  fn parse_function_call() {
+    check(
+      "foo()",
+      expect![[r#"
+          Root@0..5
+            FunctionCallExpression@0..5
+              VariableReference@0..3
+                Identifier@0..3 "foo"
+              ArgumentList@3..5
+                LeftParenthesis@3..4 "("
+                RightParenthesis@4..5 ")""#]],
+    );
+  }
+
+  #[test]
+  fn parse_function_call_with_argument() {
+    check(
+      "foo(1)",
+      expect![[r#"
+          Root@0..6
+            FunctionCallExpression@0..6
+              VariableReference@0..3
+                Identifier@0..3 "foo"
+              ArgumentList@3..6
+                LeftParenthesis@3..4 "("
+                Number@4..5
+                  Number@4..5 "1"
+                RightParenthesis@5..6 ")""#]],
+    );
+  }
+
+  #[test]
+  fn parse_immediately_invoked_function() {
+    check(
+      "(f() = { 1 })()",
+      expect![[r#"
+          Root@0..15
+            FunctionCallExpression@0..15
+              ParenExpression@0..13
+                LeftParenthesis@0..1 "("
+                AnonymousFunctionExpression@1..12
+                  Function@1..2 "f"
+                  ArgumentList@2..5
+                    LeftParenthesis@2..3 "("
+                    RightParenthesis@3..4 ")"
+                    Whitespace@4..5 " "
+                  Equals@5..6 "="
+                  Whitespace@6..7 " "
+                  BlockExpression@7..12
+                    LeftBrace@7..8 "{"
+                    Whitespace@8..9 " "
+                    Number@9..11
+                      Number@9..10 "1"
+                      Whitespace@10..11 " "
+                    RightBrace@11..12 "}"
+                RightParenthesis@12..13 ")"
+              ArgumentList@13..15
+                LeftParenthesis@13..14 "("
+                RightParenthesis@14..15 ")""#]],
+    );
   }
 }

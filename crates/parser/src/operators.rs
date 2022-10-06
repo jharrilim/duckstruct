@@ -1,3 +1,4 @@
+#[derive(PartialEq)]
 pub(crate) enum InfixOp {
   Add,
   Sub,
@@ -11,6 +12,7 @@ pub(crate) enum InfixOp {
   Neq,
   And,
   Or,
+  LParen, // For function calls
 }
 
 impl InfixOp {
@@ -21,18 +23,20 @@ impl InfixOp {
       Self::Lt | Self::Lte | Self::Gt | Self::Gte => (5, 6),
       Self::Add | Self::Sub => (7, 8),
       Self::Mul | Self::Div => (9, 10),
+      Self::LParen => (11, 11),
     }
   }
 }
 
 pub(crate) enum PrefixOp {
   Neg,
+  LParen,
 }
 
 impl PrefixOp {
   pub fn binding_power(&self) -> ((), u8) {
     match self {
-      Self::Neg => ((), 5),
+      Self::Neg | Self::LParen => ((), 5),
     }
   }
 }
