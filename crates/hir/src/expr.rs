@@ -20,6 +20,15 @@ pub enum Expr {
   VariableRef {
     var: String,
   },
+  Function {
+    name: Option<String>,
+    params: Vec<String>,
+    body: Idx<Self>,
+  },
+  FunctionCall {
+    name: Option<String>,
+    args: Vec<Idx<Self>>,
+  },
   Missing,
 }
 

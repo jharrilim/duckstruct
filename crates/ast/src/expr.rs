@@ -8,6 +8,8 @@ pub enum Expr {
   ParenExpr(ParenExpr),
   UnaryExpr(UnaryExpr),
   VariableRef(VariableRef),
+  Function(Function),
+  FunctionCall(FunctionCall),
 }
 
 impl Expr {
@@ -19,6 +21,10 @@ impl Expr {
       SyntaxKind::ParenExpression => Self::ParenExpr(ParenExpr(node)),
       SyntaxKind::PrefixExpression => Self::UnaryExpr(UnaryExpr(node)),
       SyntaxKind::VariableReference => Self::VariableRef(VariableRef(node)),
+      SyntaxKind::AnonymousFunction => Self::Function(Function(node)),
+      SyntaxKind::AnonymousFunctionExpression => Self::Function(Function(node)),
+      SyntaxKind::NamedFunction => Self::Function(Function(node)),
+      SyntaxKind::NamedFunctionExpression => Self::Function(Function(node)),
       _ => return None,
     };
 
@@ -105,5 +111,58 @@ pub struct VariableRef(SyntaxNode);
 impl VariableRef {
   pub fn name(&self) -> String {
     self.0.first_token().unwrap().text().to_string()
+  }
+}
+
+#[derive(Debug)]
+pub struct Function(SyntaxNode);
+impl Function {
+  pub fn name(&self) -> Option<SyntaxToken> {
+    self
+      .0
+      .children_with_tokens()
+      .filter_map(SyntaxElement::into_token)
+      .find(|token| token.kind() == SyntaxKind::Identifier)
+  }
+
+  pub fn params(&self) -> impl Iterator<Item = SyntaxToken> {
+    self
+      .0
+      .children_with_tokens()
+      .find(|t| t.kind() == SyntaxKind::ArgumentList)
+      .unwrap()
+      .into_node()
+      .unwrap()
+      .children_with_tokens()
+      .filter_map(SyntaxElement::into_token)
+      .filter(|token| token.kind() == SyntaxKind::Identifier)
+  }
+
+  pub fn body(&self) -> Option<Expr> {
+    self.0.children().find_map(Expr::cast)
+  }
+}
+
+#[derive(Debug)]
+pub struct FunctionCall(SyntaxNode);
+impl FunctionCall {
+  pub fn name(&self) -> Option<SyntaxToken> {
+    self
+      .0
+      .children_with_tokens()
+      .filter_map(SyntaxElement::into_token)
+      .find(|token| token.kind() == SyntaxKind::Identifier)
+  }
+
+  pub fn args(&self) -> impl Iterator<Item = Expr> {
+    self
+      .0
+      .children_with_tokens()
+      .find(|t| t.kind() == SyntaxKind::ArgumentList)
+      .unwrap()
+      .into_node()
+      .unwrap()
+      .children()
+      .filter_map(Expr::cast)
   }
 }

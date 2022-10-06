@@ -28,7 +28,8 @@ impl Database {
   }
 
   pub fn lower(&mut self, ast: ast::Root) {
-    #[allow(clippy::needless_collect)] // Suggestion doesn't work due to https://doc.rust-lang.org/error-index.html#E0501
+    #[allow(clippy::needless_collect)]
+    // Suggestion doesn't work due to https://doc.rust-lang.org/error-index.html#E0501
     let stmts: Vec<Stmt> = ast
       .stmts()
       .filter_map(|stmt| self.lower_stmt(stmt))
@@ -46,6 +47,11 @@ impl Database {
         name: ast.name()?.text().to_string(),
         value: self.lower_expr(ast.value()),
       },
+      ast::Stmt::FunctionDef(ast) => Stmt::FunctionDef {
+        name: ast.name()?.text().to_string(),
+        params: ast.params().map(|param| param.text().to_string()).collect(),
+        body: self.lower_expr(ast.body()),
+      },
       ast::Stmt::Expr(ast) => Stmt::Expr(self.lower_expr(Some(ast))),
     };
 
@@ -61,9 +67,32 @@ impl Database {
         ast::Expr::ParenExpr(ast) => self.lower_expr(ast.expr()),
         ast::Expr::UnaryExpr(ast) => self.lower_unary(ast),
         ast::Expr::VariableRef(ast) => Expr::VariableRef { var: ast.name() },
+        ast::Expr::Function(ast) => self.lower_function(ast),
+        ast::Expr::FunctionCall(ast) => self.lower_function_call(ast),
       }
     } else {
       Expr::Missing
+    }
+  }
+
+  fn lower_function_call(&mut self, ast: ast::expr::FunctionCall) -> Expr {
+    let args = ast
+      .args()
+      .map(|arg| self.lower_expr(Some(arg)))
+      .collect::<Vec<_>>();
+
+    Expr::FunctionCall {
+      name: ast.name().map(|name| name.text().to_string()),
+      args: args.into_iter().map(|arg| self.exprs.alloc(arg)).collect()
+    }
+  }
+
+  fn lower_function(&mut self, ast: ast::expr::Function) -> Expr {
+    let body = self.lower_expr(ast.body());
+    Expr::Function {
+      name: ast.name().map(|name| name.text().to_string()),
+      body: self.exprs.alloc(body),
+      params: ast.params().map(|param| param.text().to_string()).collect(),
     }
   }
 
