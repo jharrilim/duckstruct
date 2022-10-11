@@ -10,7 +10,7 @@ use hir::{expr::Expr, stmt::Stmt, DatabaseIdx};
 use rustc_hash::FxHashMap;
 use scope::Scope;
 use typed_db::{TypedDatabase, TypedDatabaseIdx};
-use typed_hir::{TypedExpr, TypedStmt, Ty};
+use typed_hir::{Ty, TypedExpr, TypedStmt};
 
 #[derive(Debug)]
 pub enum Either<A, B> {
@@ -20,7 +20,7 @@ pub enum Either<A, B> {
 
 #[derive(Debug)]
 pub struct TyCheck {
-  hir_db: Rc<hir::Database>,
+  pub hir_db: Rc<hir::Database>,
   pub ty_db: TypedDatabase,
   #[allow(unused)]
   diagnostics: Diagnostics,
@@ -42,7 +42,6 @@ impl TyCheck {
       let typed_stmt = self.infer_stmt(Either::Left(statement), &mut scope);
       self.ty_db.define(stmt_ident.clone(), typed_stmt);
     }
-    println!("scope: {:#?}", scope);
   }
 
   pub fn infer_stmt(&mut self, stmt: Either<&Stmt, &DatabaseIdx>, scope: &mut Scope) -> TypedStmt {
@@ -57,7 +56,7 @@ impl TyCheck {
           }
         }
         Stmt::FunctionDef { name, params, body } => {
-          self.infer_function_def(scope, name, params.clone(), body)
+          self.infer_function_def(scope, name, params, body)
         }
         Stmt::Expr(expr_idx) => TypedStmt::Expr(self.infer_expr(scope, expr_idx)),
       },
@@ -84,7 +83,11 @@ impl TyCheck {
       Expr::Binary { op, lhs, rhs } => return self.infer_binary(scope, op, lhs, rhs),
       Expr::Unary { op, expr } => todo!(),
       Expr::Function { name, params, body } => todo!(),
-      Expr::FunctionCall { name, args } => todo!(),
+      Expr::FunctionCall { name: None, args } => todo!("anonymous function invocations"),
+      Expr::FunctionCall {
+        name: Some(name),
+        args,
+      } => return self.infer_function_call(scope, name, args),
       Expr::Missing => {
         todo!("wtf")
       }
@@ -96,30 +99,89 @@ impl TyCheck {
     &mut self,
     scope: &mut Scope,
     name: &str,
-    params: Vec<String>,
+    params: &Vec<String>,
     body: &DatabaseIdx,
   ) -> TypedStmt {
     scope.push_frame();
 
     let params: FxHashMap<String, TypedDatabaseIdx> = params
       .iter()
-      .map(|name| (name.clone(), self.ty_db.alloc(TypedExpr::Unresolved)))
+      .map(|name| (name.clone(), scope.def(name).unwrap_or_else(|| self.ty_db.alloc(TypedExpr::Unresolved))))
       .collect();
 
     scope.define_all(&params);
-    let body = self.infer_expr(scope, body);
-    let body_ty = self.ty_db.expr(&body).ty();
+    let body_idx = self.infer_expr(scope, body);
+    let body_ty = self.ty_db.expr(&body_idx).ty();
     let func_def = TypedStmt::FunctionDef {
       name: name.to_string(),
       value: self.ty_db.alloc(TypedExpr::FunctionDef {
         name: Some(name.to_string()),
         params,
-        body,
-        ty: if body_ty.has_value() { body_ty } else { Ty::Function(None) },
+        body: body_idx,
+        body_hir: body.clone(),
+        ty: if body_ty.has_value() {
+          body_ty
+        } else {
+          Ty::Function(None)
+        },
       }),
     };
     scope.pop_frame();
     func_def
+  }
+
+  fn infer_function_call(&mut self, scope: &mut Scope, name: &str, args: &Vec<DatabaseIdx>) -> TypedDatabaseIdx {
+    match self.ty_db.definition(name).map(|t| t.clone()) {
+      Some(TypedStmt::FunctionDef { name: _, value }) => {
+        if let TypedExpr::FunctionDef {
+          name: Some(name),
+          params,
+          body,
+          body_hir,
+          ty,
+        } = self.ty_db.expr(&value).clone()
+        {
+          if args.len() != params.len() {
+            self.diagnostics.push_error(format!(
+              "function `{}` expected {} arguments, but got {}",
+              name,
+              params.len(),
+              args.len()
+            ));
+            return self.ty_db.alloc(TypedExpr::Error);
+          }
+          let args_iter = args.iter().map(|arg| self.infer_expr(scope, arg));
+          let params: FxHashMap<String, TypedDatabaseIdx> = params
+            .iter()
+            .zip(args_iter)
+            .map(|((name, _), arg)| (name.clone(), arg))
+            .collect();
+
+          scope.push_frame();
+          scope.define_all(&params);
+
+          let body = self.infer_expr(scope, &body_hir);
+          let function_def = TypedExpr::FunctionDef { name: Some(name.clone()), params: params.clone(), body, body_hir, ty: self.ty_db.expr(&body).ty() };
+          let ty = function_def.ty().clone();
+          // maybe don't have to keep this? not sure if we can provide good insights from this
+          let function_def_idx = self.ty_db.alloc(function_def);
+          let expr = TypedExpr::FunctionCall {
+            name: Some(name.clone()),
+            args: params.clone().values().map(|t| t.clone()).collect(),
+            ty,
+            def: function_def_idx,
+          };
+          scope.pop_frame();
+          self.ty_db.alloc(expr)
+        } else {
+          // invariant: TypedStmt::FunctionDef's should always have a value that points to a TypedExpr::FunctionDef
+          unreachable!()
+        }
+      }
+      // An error here means the user probably typo'd
+      _ => self.ty_db.alloc(TypedExpr::Error),
+    }
+
   }
 
   /// Infererence rules:

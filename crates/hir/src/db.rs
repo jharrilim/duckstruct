@@ -35,8 +35,16 @@ impl Database {
       .filter_map(|stmt| self.lower_stmt(stmt))
       .collect();
     for stmt in stmts.into_iter() {
-      if let Stmt::VariableDef { ref name, value: _ } = stmt {
-        self.defs.insert(name.clone(), stmt);
+      match stmt {
+        Stmt::VariableDef { ref name, value: _ } => {
+          self.defs.insert(name.clone(), stmt);
+        }
+        Stmt::FunctionDef { name, params, body } => {
+          self.defs.insert(name.clone(), Stmt::FunctionDef { name, params, body });
+        }
+        Stmt::Expr(expr) => {
+          self.defs.insert("".to_string(), Stmt::Expr(expr));
+        }
       }
     }
   }

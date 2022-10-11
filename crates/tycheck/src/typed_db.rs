@@ -21,6 +21,10 @@ impl TypedDatabase {
     &self.exprs[*idx]
   }
 
+  pub fn expr_mut(&mut self, idx: &TypedDatabaseIdx) -> &mut TypedExpr {
+    &mut self.exprs[*idx]
+  }
+
   // Used for when lifetimes are the same
   pub fn exprs2(&self, idx1: &TypedDatabaseIdx, idx2: &TypedDatabaseIdx) -> (&TypedExpr, &TypedExpr) {
     (&self.exprs[*idx1], &self.exprs[*idx2])

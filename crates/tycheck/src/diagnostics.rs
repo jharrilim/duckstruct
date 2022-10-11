@@ -12,11 +12,17 @@ impl Diagnostics {
       println!("{}", error);
     }
   }
+
+  pub fn push_error(&mut self, message: String) {
+    self.errors.push(Error {
+      message,
+    });
+  }
 }
 
 #[derive(Debug, Default)]
 pub struct Error {
-  message: &'static str,
+  message: String,
 }
 
 impl Display for Error {

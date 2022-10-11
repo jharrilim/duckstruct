@@ -41,7 +41,7 @@ pub fn repl() -> Result<()> {
         let hir_db = hir::lower(root);
         let mut tycheck = TyCheck::new(hir_db);
         tycheck.infer();
-        println!("{:#?}", tycheck.ty_db);
+        println!("{:#?}", tycheck);
       }
       Err(ReadlineError::Interrupted) => {
         println!("CTRL-C");

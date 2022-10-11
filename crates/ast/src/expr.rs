@@ -25,6 +25,7 @@ impl Expr {
       SyntaxKind::AnonymousFunctionExpression => Self::Function(Function(node)),
       SyntaxKind::NamedFunction => Self::Function(Function(node)),
       SyntaxKind::NamedFunctionExpression => Self::Function(Function(node)),
+      SyntaxKind::FunctionCallExpression => Self::FunctionCall(FunctionCall(node)),
       _ => return None,
     };
 
@@ -147,11 +148,17 @@ impl Function {
 pub struct FunctionCall(SyntaxNode);
 impl FunctionCall {
   pub fn name(&self) -> Option<SyntaxToken> {
-    self
+    let n = self
       .0
       .children_with_tokens()
+      .find(|node_or_token| node_or_token.kind() == SyntaxKind::VariableReference)
+      .unwrap()
+      .into_node()
+      .unwrap()
+      .children_with_tokens()
       .filter_map(SyntaxElement::into_token)
-      .find(|token| token.kind() == SyntaxKind::Identifier)
+      .find(|token| token.kind() == SyntaxKind::Identifier);
+    n
   }
 
   pub fn args(&self) -> impl Iterator<Item = Expr> {

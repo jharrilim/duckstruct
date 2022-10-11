@@ -1,3 +1,4 @@
+use hir::DatabaseIdx;
 use rustc_hash::FxHashMap;
 
 use crate::{Stmt, typed_db::TypedDatabaseIdx};
@@ -84,18 +85,19 @@ pub enum TypedExpr {
   },
   Block {
     stmts: Vec<Stmt>,
-    scope: FxHashMap<String, TypedDatabaseIdx>,
     ty: Ty,
   },
   FunctionDef {
     name: Option<String>,
     params: FxHashMap<String, TypedDatabaseIdx>,
     body: TypedDatabaseIdx,
+    body_hir: DatabaseIdx,
     ty: Ty,
   },
   FunctionCall {
     name: Option<String>,
     args: Vec<TypedDatabaseIdx>,
+    def: TypedDatabaseIdx,
     ty: Ty,
   },
   Unresolved,
