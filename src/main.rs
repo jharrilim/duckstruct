@@ -1,7 +1,7 @@
 pub mod repl;
 
-use std::io;
+use rustyline::Result;
 
-fn main() -> io::Result<()> {
+fn main() -> Result<()> {
   repl::repl()
 }

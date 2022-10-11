@@ -1,6 +1,33 @@
 use rustc_hash::FxHashMap;
 
-use crate::{Stmt, Ty, typed_db::TypedDatabaseIdx};
+use crate::{Stmt, typed_db::TypedDatabaseIdx};
+
+#[derive(Debug, Clone)]
+pub enum Ty {
+  Number(Option<f64>),
+  String(Option<String>),
+  Boolean(Option<bool>),
+  Array(Option<Vec<Ty>>),
+  Object(Option<FxHashMap<String, Ty>>),
+  Function(Option<Box<Ty>>),
+  Generic,
+  Error,
+}
+
+impl Ty {
+  pub fn has_value(&self) -> bool {
+    match self {
+      Ty::Number(Some(_)) => true,
+      Ty::String(Some(_)) => true,
+      Ty::Boolean(Some(_)) => true,
+      Ty::Array(Some(_)) => true,
+      Ty::Object(Some(_)) => true,
+      Ty::Function(Some(_)) => true,
+      _ => false,
+    }
+  }
+}
+
 
 #[derive(Debug, Clone)]
 pub enum TypedStmt {
@@ -10,16 +37,19 @@ pub enum TypedStmt {
   },
   FunctionDef {
     name: String,
-    params: Vec<Param>,
-    body: TypedDatabaseIdx,
+    value: TypedDatabaseIdx,
   },
   Expr(TypedDatabaseIdx),
 }
 
-#[derive(Debug, Clone)]
-pub struct Param {
-  pub name: String,
-  pub ty: Ty,
+impl TypedStmt {
+  pub fn value(&self) -> &TypedDatabaseIdx {
+    match self {
+      TypedStmt::VariableDef { value, .. } => value,
+      TypedStmt::FunctionDef { value, .. } => value,
+      TypedStmt::Expr(value) => value,
+    }
+  }
 }
 
 #[derive(Debug, Clone)]
@@ -59,9 +89,8 @@ pub enum TypedExpr {
   },
   FunctionDef {
     name: Option<String>,
-    params: FxHashMap<String, Ty>,
+    params: FxHashMap<String, TypedDatabaseIdx>,
     body: TypedDatabaseIdx,
-    scope: FxHashMap<String, TypedDatabaseIdx>,
     ty: Ty,
   },
   FunctionCall {
@@ -98,6 +127,19 @@ pub enum BinaryOp {
   Sub,
   Mul,
   Div,
+  Eq,
+}
+
+impl From<&hir::expr::BinaryOp> for BinaryOp {
+  fn from(op: &hir::expr::BinaryOp) -> Self {
+    match op {
+      hir::expr::BinaryOp::Add => Self::Add,
+      hir::expr::BinaryOp::Sub => Self::Sub,
+      hir::expr::BinaryOp::Mul => Self::Mul,
+      hir::expr::BinaryOp::Div => Self::Div,
+      hir::expr::BinaryOp::Eq => Self::Eq,
+    }
+  }
 }
 
 #[derive(Debug, Clone)]

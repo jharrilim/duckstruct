@@ -23,8 +23,7 @@ impl Database {
   }
 
   pub fn defs_iter(&self) -> Vec<(&String, &Stmt)> {
-    let mut defs: Vec<(&String, &Stmt)> = self.defs.iter().map(|(k, v)| (k, v)).collect();
-    defs.reverse(); // This doesn't seem tenable but it works for now
+    let defs: Vec<(&String, &Stmt)> = self.defs.iter().map(|(k, v)| (k, v)).collect();
     defs
   }
 

@@ -1,9 +1,5 @@
-use ctrlc;
 use parser::parse;
-use std::{
-  io::{self, Write},
-  process::exit,
-};
+use rustyline::{self, error::ReadlineError, Result};
 use tycheck::TyCheck;
 
 #[derive(Debug, Default)]
@@ -21,40 +17,45 @@ impl ReplSession {
   }
 }
 
-pub fn repl() -> io::Result<()> {
+pub fn repl() -> Result<()> {
   let mut session = ReplSession {
     history: Vec::new(),
   };
-  let stdin = io::stdin();
-  let mut stdout = io::stdout();
+  let mut rl = rustyline::Editor::<()>::new()?;
 
-  let mut input = String::new();
-
-  ctrlc::set_handler(move || {
-    println!("\nbye");
-    exit(0);
-  })
-  .expect("Error setting Ctrl-C handler");
-
-  writeln!(stdout, "Duckstruct AST Perusal Machine 3000 (v0.0.1)")?;
-  writeln!(stdout, "Type exit to quit.")?;
+  println!("Duckstruct AST Perusal Machine 3000 (v0.0.1)");
+  println!("Type exit to quit.");
   loop {
-    write!(stdout, "→ ")?;
-    stdout.flush()?;
+    let readline = rl.readline(">>> ");
+    match readline {
+      Ok(line) => {
+        if line.trim() == "exit" {
+          break;
+        }
+        rl.add_history_entry(line.as_str());
+        session.add_line(line);
 
-    stdin.read_line(&mut input)?;
+        let parse = parse(&session.code());
+        let root = ast::Root::cast(parse.syntax()).unwrap();
 
-    if input.trim() == "exit" {
-      break Ok(());
+        let hir_db = hir::lower(root);
+        let mut tycheck = TyCheck::new(hir_db);
+        tycheck.infer();
+        println!("{:#?}", tycheck.ty_db);
+      }
+      Err(ReadlineError::Interrupted) => {
+        println!("CTRL-C");
+        break;
+      }
+      Err(ReadlineError::Eof) => {
+        println!("CTRL-D");
+        break;
+      }
+      Err(err) => {
+        println!("Error: {:?}", err);
+        break;
+      }
     }
-    session.add_line(std::mem::take(&mut input));
-
-    let parse = parse(&session.code());
-    let root = ast::Root::cast(parse.syntax()).unwrap();
-
-    let hir_db = hir::lower(root);
-    let mut tycheck = TyCheck::new(hir_db);
-    println!("{:#?}", tycheck.infer());
-
   }
+  Ok(())
 }

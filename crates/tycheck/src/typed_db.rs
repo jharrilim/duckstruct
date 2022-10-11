@@ -30,7 +30,7 @@ impl TypedDatabase {
     self.defs.insert(name, stmt);
   }
 
-  pub fn def(&self, name: &str) -> Option<&TypedStmt> {
+  pub fn definition(&self, name: &str) -> Option<&TypedStmt> {
     self.defs.get(name)
   }
 }

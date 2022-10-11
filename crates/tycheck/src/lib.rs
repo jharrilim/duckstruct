@@ -10,7 +10,7 @@ use hir::{expr::Expr, stmt::Stmt, DatabaseIdx};
 use rustc_hash::FxHashMap;
 use scope::Scope;
 use typed_db::{TypedDatabase, TypedDatabaseIdx};
-use typed_hir::{TypedExpr, TypedStmt};
+use typed_hir::{TypedExpr, TypedStmt, Ty};
 
 #[derive(Debug)]
 pub enum Either<A, B> {
@@ -18,20 +18,10 @@ pub enum Either<A, B> {
   Right(B),
 }
 
-#[derive(Debug, Clone)]
-pub enum Ty {
-  Number(Option<f64>),
-  String(Option<String>),
-  Boolean(Option<bool>),
-  Array(Option<Vec<Ty>>),
-  Object(Option<FxHashMap<String, Ty>>),
-  Generic,
-  Error,
-}
-
+#[derive(Debug)]
 pub struct TyCheck {
   hir_db: Rc<hir::Database>,
-  ty_db: TypedDatabase,
+  pub ty_db: TypedDatabase,
   #[allow(unused)]
   diagnostics: Diagnostics,
 }
@@ -49,18 +39,23 @@ impl TyCheck {
   pub fn infer(&mut self) {
     let mut scope = Scope::default();
     for (stmt_ident, statement) in self.hir_db.clone().defs_iter() {
-      let ty = self.infer_stmt(Either::Left(statement), &mut scope);
-      self.ty_db.define(stmt_ident.clone(), ty);
+      let typed_stmt = self.infer_stmt(Either::Left(statement), &mut scope);
+      self.ty_db.define(stmt_ident.clone(), typed_stmt);
     }
+    println!("scope: {:#?}", scope);
   }
 
   pub fn infer_stmt(&mut self, stmt: Either<&Stmt, &DatabaseIdx>, scope: &mut Scope) -> TypedStmt {
     match stmt {
       Either::Left(stmt) => match stmt {
-        Stmt::VariableDef { name, value } => TypedStmt::VariableDef {
-          name: name.clone(),
-          value: self.infer_expr(scope, value),
-        },
+        Stmt::VariableDef { name, value } => {
+          let value = self.infer_expr(scope, value);
+          scope.define(name.clone(), value);
+          TypedStmt::VariableDef {
+            name: name.clone(),
+            value,
+          }
+        }
         Stmt::FunctionDef { name, params, body } => {
           self.infer_function_def(scope, name, params.clone(), body)
         }
@@ -76,7 +71,7 @@ impl TyCheck {
       Expr::VariableRef { var } => match scope.def(var) {
         Some(t) => TypedExpr::VariableRef {
           var: var.clone(),
-          ty: self.ty_db.expr(t).ty().clone(),
+          ty: self.ty_db.expr(&t).ty().clone(),
         },
         None => TypedExpr::Error,
       },
@@ -86,17 +81,19 @@ impl TyCheck {
       },
       Expr::Block { stmts } => todo!("infer block"),
       Expr::Boolean { b } => TypedExpr::Boolean { val: Some(*b) },
-      Expr::Binary { op, lhs, rhs } => self.infer_binary(scope, op, lhs, rhs),
+      Expr::Binary { op, lhs, rhs } => return self.infer_binary(scope, op, lhs, rhs),
       Expr::Unary { op, expr } => todo!(),
       Expr::Function { name, params, body } => todo!(),
       Expr::FunctionCall { name, args } => todo!(),
-      Expr::Missing => TypedExpr::Error,
+      Expr::Missing => {
+        todo!("wtf")
+      }
     };
     self.ty_db.alloc(expr)
   }
 
   fn infer_function_def(
-    &self,
+    &mut self,
     scope: &mut Scope,
     name: &str,
     params: Vec<String>,
@@ -104,66 +101,81 @@ impl TyCheck {
   ) -> TypedStmt {
     scope.push_frame();
 
-    let params: FxHashMap<String, Ty> = params
+    let params: FxHashMap<String, TypedDatabaseIdx> = params
       .iter()
-      .map(|name| (name.clone(), Ty::Generic))
+      .map(|name| (name.clone(), self.ty_db.alloc(TypedExpr::Unresolved)))
       .collect();
 
-    // TypedStmt::FunctionDef { name: name.to_string(), params: (), body: () };
+    scope.define_all(&params);
+    let body = self.infer_expr(scope, body);
+    let body_ty = self.ty_db.expr(&body).ty();
+    let func_def = TypedStmt::FunctionDef {
+      name: name.to_string(),
+      value: self.ty_db.alloc(TypedExpr::FunctionDef {
+        name: Some(name.to_string()),
+        params,
+        body,
+        ty: if body_ty.has_value() { body_ty } else { Ty::Function(None) },
+      }),
+    };
     scope.pop_frame();
-    todo!("infer function def")
+    func_def
   }
 
+  /// Infererence rules:
+  /// 1. Two known value types should unify into a single known value type
+  /// 2. Unresolved types paired with a concrete type should unify into an unknown value type
+  /// 3. Casting favours the left hand side type
   // rustfmt makes the match block have inconsistent formatting
   #[rustfmt::skip]
   fn infer_binary(
     &mut self,
     scope: &mut Scope,
     op: &hir::expr::BinaryOp,
-    lhs: &DatabaseIdx,
-    rhs: &DatabaseIdx,
-  ) -> TypedExpr {
-    let lhs = self.infer_expr(scope, lhs);
-    let rhs = self.infer_expr(scope, rhs);
+    lhs_idx: &DatabaseIdx,
+    rhs_idx: &DatabaseIdx,
+  ) -> TypedDatabaseIdx {
+    let lhs_idx = self.infer_expr(scope, lhs_idx);
+    let rhs_idx = self.infer_expr(scope, rhs_idx);
 
-    let (lhs, rhs) = self.ty_db.exprs2(&lhs, &rhs);
+    let (lhs, rhs) = self.ty_db.exprs2(&lhs_idx, &rhs_idx);
 
-    match op {
-      hir::expr::BinaryOp::Add => match (lhs, rhs) {
-        // Numbers
-        (TypedExpr::Number { val: Some(lhs) }, TypedExpr::Number { val: Some(rhs) }) => {
-          TypedExpr::Number { val: Some(lhs + rhs) }
-        }
-        (TypedExpr::Number { val: None } | TypedExpr::Unresolved, TypedExpr::Number { val: _ }) => {
-          TypedExpr::Number { val: None }
-        }
-        (TypedExpr::Number { val: _ }, TypedExpr::Number { val: None } | TypedExpr::Unresolved) => {
-          TypedExpr::Number { val: None }
-        }
+    let lhs_ty = lhs.ty();
+    let rhs_ty = rhs.ty();
+    let ty = match op {
+      hir::expr::BinaryOp::Add => match (lhs_ty, rhs_ty) {
+        (Ty::Number(Some(lhs)), Ty::Number(Some(rhs))) => Ty::Number(Some(lhs + rhs)),
+        (Ty::Number(Some(_)), Ty::Number(None) | Ty::Generic) => Ty::Number(None),
+        (Ty::Number(_), Ty::Number(_)) => Ty::Number(None),
 
-        // Strings
-        (TypedExpr::String { val: Some(lhs) }, TypedExpr::String { val: Some(rhs) }) => {
-          TypedExpr::String { val: Some([lhs.as_str(), rhs.as_str()].concat()) }
-        }
-        (TypedExpr::String { val: _ }, TypedExpr::String { val: None } | TypedExpr::Unresolved) => {
-          TypedExpr::String { val: None }
-        }
-        (TypedExpr::String { val: None } | TypedExpr::Unresolved, TypedExpr::String { val: _ }) => {
-          TypedExpr::String { val: None }
-        }
+        (Ty::String(Some(lhs)), Ty::String(Some(rhs))) => Ty::String(Some(lhs + &rhs)),
+        (Ty::String(Some(_)), Ty::String(None) | Ty::Generic) => Ty::String(None),
+        (Ty::String(_), Ty::String(_)) => Ty::String(None),
 
-        // Arrays
-        (TypedExpr::Array { val: Some(lhs) }, TypedExpr::Array { val: Some(rhs) }) => {
-          TypedExpr::Array { val: Some([lhs.clone(), rhs.clone()].concat()) }
-        }
-
-        (TypedExpr::Unresolved, TypedExpr::Unresolved) => TypedExpr::Unresolved,
-        _ => todo!("Other builtin binary ops")
+        (Ty::Array(Some(lhs)), Ty::Array(Some(rhs))) => Ty::Array(Some([lhs, rhs].concat())),
+        (Ty::Array(_), Ty::Array(_)) => Ty::Array(None),
+        _ => Ty::Generic,
       },
-      hir::expr::BinaryOp::Sub => todo!("Subtraction op"),
-      hir::expr::BinaryOp::Mul => todo!("Multiplication op"),
-      hir::expr::BinaryOp::Div => todo!("Division op"),
-      hir::expr::BinaryOp::Eq => todo!("Equality op"),
-    }
+      hir::expr::BinaryOp::Sub => match (lhs_ty, rhs_ty) {
+        (Ty::Number(Some(lhs)), Ty::Number(Some(rhs))) => Ty::Number(Some(lhs - rhs)),
+        (Ty::Number(Some(_)), Ty::Number(None) | Ty::Generic) => Ty::Number(None),
+        (Ty::Number(_), Ty::Number(_)) => Ty::Number(None),
+        _ => Ty::Generic,
+      },
+      hir::expr::BinaryOp::Mul => match (lhs_ty, rhs_ty) {
+        (Ty::Number(Some(lhs)), Ty::Number(Some(rhs))) => Ty::Number(Some(lhs * rhs)),
+        (Ty::Number(Some(_)), Ty::Number(None) | Ty::Generic) => Ty::Number(None),
+        (Ty::Number(_), Ty::Number(_)) => Ty::Number(None),
+        _ => Ty::Generic,
+      },
+      hir::expr::BinaryOp::Div => match (lhs_ty, rhs_ty) {
+        (Ty::Number(Some(lhs)), Ty::Number(Some(rhs))) => Ty::Number(Some(lhs / rhs)),
+        (Ty::Number(Some(_)), Ty::Number(None) | Ty::Generic) => Ty::Number(None),
+        (Ty::Number(_), Ty::Number(_)) => Ty::Number(None),
+        _ => Ty::Generic,
+      },
+      hir::expr::BinaryOp::Eq => todo!("eq"),
+    };
+    self.ty_db.alloc(TypedExpr::Binary { op: op.into(), lhs: lhs_idx, rhs: rhs_idx, ty })
   }
 }
