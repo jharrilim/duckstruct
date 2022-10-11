@@ -1,5 +1,7 @@
 use la_arena::Idx;
 
+use crate::Stmt;
+
 #[derive(Debug, Clone)]
 pub enum Expr {
   Binary {
@@ -12,6 +14,12 @@ pub enum Expr {
   },
   String {
     s: String,
+  },
+  Boolean {
+    b: bool,
+  },
+  Block {
+    stmts: Vec<Stmt>,
   },
   Unary {
     op: UnaryOp,
@@ -38,6 +46,8 @@ pub enum BinaryOp {
   Sub,
   Mul,
   Div,
+
+  Eq,
 }
 
 #[derive(Debug, Clone)]

@@ -1,5 +1,16 @@
+pub mod diagnostics;
+pub mod scope;
+pub mod typed_db;
+pub mod typed_hir;
+
+use std::rc::Rc;
+
+use diagnostics::Diagnostics;
 use hir::{expr::Expr, stmt::Stmt, DatabaseIdx};
 use rustc_hash::FxHashMap;
+use scope::Scope;
+use typed_db::{TypedDatabase, TypedDatabaseIdx};
+use typed_hir::{TypedExpr, TypedStmt};
 
 #[derive(Debug)]
 pub enum Either<A, B> {
@@ -13,90 +24,146 @@ pub enum Ty {
   String(Option<String>),
   Boolean(Option<bool>),
   Array(Option<Vec<Ty>>),
+  Object(Option<FxHashMap<String, Ty>>),
   Generic,
   Error,
 }
 
 pub struct TyCheck {
-  hir_db: hir::Database,
-  ty_db: FxHashMap<String, Ty>,
+  hir_db: Rc<hir::Database>,
+  ty_db: TypedDatabase,
+  #[allow(unused)]
+  diagnostics: Diagnostics,
 }
 
 impl TyCheck {
   pub fn new(hir_db: hir::Database) -> Self {
     Self {
-      hir_db,
-      ty_db: FxHashMap::default(),
+      hir_db: Rc::new(hir_db),
+      ty_db: TypedDatabase::default(),
+      diagnostics: Diagnostics::default(),
     }
   }
 
-  pub fn infer(&mut self) -> &FxHashMap<String, Ty> {
-    for (stmt_ident, statement) in self.hir_db.defs_iter() {
-      let ty = self.infer_stmt(Either::Left(statement));
-      self.ty_db.insert(stmt_ident.clone(), ty);
+  /// Infers types for all statements in the HIR database.
+  pub fn infer(&mut self) {
+    let mut scope = Scope::default();
+    for (stmt_ident, statement) in self.hir_db.clone().defs_iter() {
+      let ty = self.infer_stmt(Either::Left(statement), &mut scope);
+      self.ty_db.define(stmt_ident.clone(), ty);
     }
-    &self.ty_db
   }
 
-  pub fn infer_stmt(&self, stmt: Either<&Stmt, &DatabaseIdx>) -> Ty {
-    let expr = match stmt {
+  pub fn infer_stmt(&mut self, stmt: Either<&Stmt, &DatabaseIdx>, scope: &mut Scope) -> TypedStmt {
+    match stmt {
       Either::Left(stmt) => match stmt {
-        Stmt::VariableDef { name: _, value } => value,
-        Stmt::Expr(expr) => expr,
+        Stmt::VariableDef { name, value } => TypedStmt::VariableDef {
+          name: name.clone(),
+          value: self.infer_expr(scope, value),
+        },
+        Stmt::FunctionDef { name, params, body } => {
+          self.infer_function_def(scope, name, params.clone(), body)
+        }
+        Stmt::Expr(expr_idx) => TypedStmt::Expr(self.infer_expr(scope, expr_idx)),
       },
-      Either::Right(idx) => self.hir_db.get_expr(idx),
-    };
-    self.infer_expr(expr)
+      Either::Right(expr_idx) => TypedStmt::Expr(self.infer_expr(scope, expr_idx)),
+    }
   }
 
-  pub fn infer_expr(&self, expr: &Expr) -> Ty {
-    match expr {
-      Expr::VariableRef { var } => {
-        let ty = self.ty_db.get(var).unwrap_or(&Ty::Error);
-        ty.clone()
-      }
-      Expr::Number { n } => Ty::Number(Some(*n)),
-      Expr::String { s } => Ty::String(Some(s.clone())),
-      Expr::Binary { op, lhs, rhs } => {
-        let lhs = self.infer_expr(self.hir_db.get_expr(lhs));
-        let rhs = self.infer_expr(self.hir_db.get_expr(rhs));
+  pub fn infer_expr(&mut self, scope: &mut Scope, expr_idx: &DatabaseIdx) -> TypedDatabaseIdx {
+    let hir_db = self.hir_db.clone();
+    let expr = match hir_db.get_expr(expr_idx) {
+      Expr::VariableRef { var } => match scope.def(var) {
+        Some(t) => TypedExpr::VariableRef {
+          var: var.clone(),
+          ty: self.ty_db.expr(t).ty().clone(),
+        },
+        None => TypedExpr::Error,
+      },
+      Expr::Number { n } => TypedExpr::Number { val: Some(*n) },
+      Expr::String { s } => TypedExpr::String {
+        val: Some(s.clone()),
+      },
+      Expr::Block { stmts } => todo!("infer block"),
+      Expr::Boolean { b } => TypedExpr::Boolean { val: Some(*b) },
+      Expr::Binary { op, lhs, rhs } => self.infer_binary(scope, op, lhs, rhs),
+      Expr::Unary { op, expr } => todo!(),
+      Expr::Function { name, params, body } => todo!(),
+      Expr::FunctionCall { name, args } => todo!(),
+      Expr::Missing => TypedExpr::Error,
+    };
+    self.ty_db.alloc(expr)
+  }
 
-        match op {
-          hir::expr::BinaryOp::Add => match (lhs, rhs) {
-            (Ty::Number(Some(lhs)), Ty::Number(Some(rhs))) => Ty::Number(Some(lhs + rhs)),
-            (Ty::Number(Some(_)), Ty::Number(None) | Ty::Generic) => Ty::Number(None),
-            (Ty::Number(_), Ty::Number(_)) => Ty::Number(None),
+  fn infer_function_def(
+    &self,
+    scope: &mut Scope,
+    name: &str,
+    params: Vec<String>,
+    body: &DatabaseIdx,
+  ) -> TypedStmt {
+    scope.push_frame();
 
-            (Ty::String(Some(lhs)), Ty::String(Some(rhs))) => Ty::String(Some(lhs + &rhs)),
-            (Ty::String(Some(_)), Ty::String(None) | Ty::Generic) => Ty::String(None),
-            (Ty::String(_), Ty::String(_)) => Ty::String(None),
+    let params: FxHashMap<String, Ty> = params
+      .iter()
+      .map(|name| (name.clone(), Ty::Generic))
+      .collect();
 
-            (Ty::Array(Some(lhs)), Ty::Array(Some(rhs))) => Ty::Array(Some([lhs, rhs].concat())),
-            (Ty::Array(_), Ty::Array(_)) => Ty::Array(None),
-            _ => Ty::Generic,
-          },
-          hir::expr::BinaryOp::Sub => match (lhs, rhs) {
-            (Ty::Number(Some(lhs)), Ty::Number(Some(rhs))) => Ty::Number(Some(lhs - rhs)),
-            (Ty::Number(Some(_)), Ty::Number(None) | Ty::Generic) => Ty::Number(None),
-            (Ty::Number(_), Ty::Number(_)) => Ty::Number(None),
-            _ => Ty::Generic,
-          },
-          hir::expr::BinaryOp::Mul => match (lhs, rhs) {
-            (Ty::Number(Some(lhs)), Ty::Number(Some(rhs))) => Ty::Number(Some(lhs * rhs)),
-            (Ty::Number(Some(_)), Ty::Number(None) | Ty::Generic) => Ty::Number(None),
-            (Ty::Number(_), Ty::Number(_)) => Ty::Number(None),
-            _ => Ty::Generic,
-          },
-          hir::expr::BinaryOp::Div => match (lhs, rhs) {
-            (Ty::Number(Some(lhs)), Ty::Number(Some(rhs))) => Ty::Number(Some(lhs / rhs)),
-            (Ty::Number(Some(_)), Ty::Number(None) | Ty::Generic) => Ty::Number(None),
-            (Ty::Number(_), Ty::Number(_)) => Ty::Number(None),
-            _ => Ty::Generic,
-          },
+    // TypedStmt::FunctionDef { name: name.to_string(), params: (), body: () };
+    scope.pop_frame();
+    todo!("infer function def")
+  }
+
+  // rustfmt makes the match block have inconsistent formatting
+  #[rustfmt::skip]
+  fn infer_binary(
+    &mut self,
+    scope: &mut Scope,
+    op: &hir::expr::BinaryOp,
+    lhs: &DatabaseIdx,
+    rhs: &DatabaseIdx,
+  ) -> TypedExpr {
+    let lhs = self.infer_expr(scope, lhs);
+    let rhs = self.infer_expr(scope, rhs);
+
+    let (lhs, rhs) = self.ty_db.exprs2(&lhs, &rhs);
+
+    match op {
+      hir::expr::BinaryOp::Add => match (lhs, rhs) {
+        // Numbers
+        (TypedExpr::Number { val: Some(lhs) }, TypedExpr::Number { val: Some(rhs) }) => {
+          TypedExpr::Number { val: Some(lhs + rhs) }
         }
-      }
-      Expr::Missing => Ty::Error,
-      _ => Ty::Generic,
+        (TypedExpr::Number { val: None } | TypedExpr::Unresolved, TypedExpr::Number { val: _ }) => {
+          TypedExpr::Number { val: None }
+        }
+        (TypedExpr::Number { val: _ }, TypedExpr::Number { val: None } | TypedExpr::Unresolved) => {
+          TypedExpr::Number { val: None }
+        }
+
+        // Strings
+        (TypedExpr::String { val: Some(lhs) }, TypedExpr::String { val: Some(rhs) }) => {
+          TypedExpr::String { val: Some([lhs.as_str(), rhs.as_str()].concat()) }
+        }
+        (TypedExpr::String { val: _ }, TypedExpr::String { val: None } | TypedExpr::Unresolved) => {
+          TypedExpr::String { val: None }
+        }
+        (TypedExpr::String { val: None } | TypedExpr::Unresolved, TypedExpr::String { val: _ }) => {
+          TypedExpr::String { val: None }
+        }
+
+        // Arrays
+        (TypedExpr::Array { val: Some(lhs) }, TypedExpr::Array { val: Some(rhs) }) => {
+          TypedExpr::Array { val: Some([lhs.clone(), rhs.clone()].concat()) }
+        }
+
+        (TypedExpr::Unresolved, TypedExpr::Unresolved) => TypedExpr::Unresolved,
+        _ => todo!("Other builtin binary ops")
+      },
+      hir::expr::BinaryOp::Sub => todo!("Subtraction op"),
+      hir::expr::BinaryOp::Mul => todo!("Multiplication op"),
+      hir::expr::BinaryOp::Div => todo!("Division op"),
+      hir::expr::BinaryOp::Eq => todo!("Equality op"),
     }
   }
 }

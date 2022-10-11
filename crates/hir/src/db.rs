@@ -1,6 +1,7 @@
 use crate::{
   expr::{BinaryOp, Expr, UnaryOp},
   stmt::Stmt,
+  DatabaseIdx,
 };
 use la_arena::{Arena, Idx};
 use rustc_hash::FxHashMap;
@@ -58,71 +59,70 @@ impl Database {
     Some(result)
   }
 
-  pub(crate) fn lower_expr(&mut self, ast: Option<ast::Expr>) -> Expr {
+  pub(crate) fn lower_expr(&mut self, ast: Option<ast::Expr>) -> DatabaseIdx {
     if let Some(ast) = ast {
       match ast {
+        ast::Expr::NumberLit(ast) => self.exprs.alloc(Expr::Number { n: ast.parse() }),
+        ast::Expr::StringLit(ast) => self.exprs.alloc(Expr::String { s: ast.parse() }),
+        ast::Expr::VariableRef(ast) => self.exprs.alloc(Expr::VariableRef { var: ast.name() }),
         ast::Expr::BinaryExpr(ast) => self.lower_binary(ast),
-        ast::Expr::NumberLit(ast) => Expr::Number { n: ast.parse() },
-        ast::Expr::StringLit(ast) => Expr::String { s: ast.parse() },
         ast::Expr::ParenExpr(ast) => self.lower_expr(ast.expr()),
         ast::Expr::UnaryExpr(ast) => self.lower_unary(ast),
-        ast::Expr::VariableRef(ast) => Expr::VariableRef { var: ast.name() },
         ast::Expr::Function(ast) => self.lower_function(ast),
         ast::Expr::FunctionCall(ast) => self.lower_function_call(ast),
       }
     } else {
-      Expr::Missing
+      self.exprs.alloc(Expr::Missing)
     }
   }
 
-  fn lower_function_call(&mut self, ast: ast::expr::FunctionCall) -> Expr {
+  fn lower_function_call(&mut self, ast: ast::expr::FunctionCall) -> DatabaseIdx {
     let args = ast
       .args()
       .map(|arg| self.lower_expr(Some(arg)))
       .collect::<Vec<_>>();
 
-    Expr::FunctionCall {
+    let expr = Expr::FunctionCall {
       name: ast.name().map(|name| name.text().to_string()),
-      args: args.into_iter().map(|arg| self.exprs.alloc(arg)).collect()
-    }
+      args: args.into_iter().collect(),
+    };
+    self.exprs.alloc(expr)
   }
 
-  fn lower_function(&mut self, ast: ast::expr::Function) -> Expr {
-    let body = self.lower_expr(ast.body());
-    Expr::Function {
+  fn lower_function(&mut self, ast: ast::expr::Function) -> DatabaseIdx {
+    let expr = Expr::Function {
       name: ast.name().map(|name| name.text().to_string()),
-      body: self.exprs.alloc(body),
+      body: self.lower_expr(ast.body()),
       params: ast.params().map(|param| param.text().to_string()).collect(),
-    }
+    };
+    self.exprs.alloc(expr)
   }
 
-  fn lower_binary(&mut self, ast: ast::expr::BinaryExpr) -> Expr {
+  fn lower_binary(&mut self, ast: ast::expr::BinaryExpr) -> DatabaseIdx {
     let op = match ast.op().unwrap().kind() {
       SyntaxKind::Plus => BinaryOp::Add,
       SyntaxKind::Minus => BinaryOp::Sub,
       SyntaxKind::Asterisk => BinaryOp::Mul,
       SyntaxKind::ForwardSlash => BinaryOp::Div,
+      SyntaxKind::DoubleEquals => BinaryOp::Eq,
       _ => unreachable!(),
     };
     let lhs = self.lower_expr(ast.lhs());
     let rhs = self.lower_expr(ast.rhs());
-    Expr::Binary {
-      op,
-      lhs: self.exprs.alloc(lhs),
-      rhs: self.exprs.alloc(rhs),
-    }
+    let expr = Expr::Binary { op, lhs, rhs };
+    self.exprs.alloc(expr)
   }
 
-  fn lower_unary(&mut self, ast: ast::expr::UnaryExpr) -> Expr {
+  fn lower_unary(&mut self, ast: ast::expr::UnaryExpr) -> DatabaseIdx {
     let op = match ast.op().unwrap().kind() {
       SyntaxKind::Minus => UnaryOp::Neg,
       _ => unreachable!(),
     };
 
-    let expr = self.lower_expr(ast.expr());
-    Expr::Unary {
+    let expr = Expr::Unary {
       op,
-      expr: self.exprs.alloc(expr),
-    }
+      expr: self.lower_expr(ast.expr()),
+    };
+    self.exprs.alloc(expr)
   }
 }
