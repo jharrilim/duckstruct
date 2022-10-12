@@ -1,0 +1,19 @@
+---
+source: crates/parser/src/lib.rs
+expression: "&parse.debug_tree()"
+---
+Root@0..10
+  ParenExpression@0..10
+    LeftParenthesis@0..1 "("
+    ParenExpression@1..9
+      LeftParenthesis@1..2 "("
+      ParenExpression@2..8
+        LeftParenthesis@2..3 "("
+        ParenExpression@3..7
+          LeftParenthesis@3..4 "("
+          Number@4..6
+            Number@4..6 "10"
+          RightParenthesis@6..7 ")"
+        RightParenthesis@7..8 ")"
+      RightParenthesis@8..9 ")"
+    RightParenthesis@9..10 ")"

@@ -1,0 +1,21 @@
+---
+source: crates/parser/src/lib.rs
+expression: "&parse.debug_tree()"
+---
+Root@0..15
+  LetStatement@0..14
+    Let@0..3 "let"
+    Whitespace@3..4 " "
+    ArrayPattern@4..11
+      LeftBracket@4..5 "["
+      Identifier@5..6 "_"
+      Comma@6..7 ","
+      Whitespace@7..8 " "
+      Identifier@8..9 "y"
+      RightBracket@9..10 "]"
+      Whitespace@10..11 " "
+    Equals@11..12 "="
+    Whitespace@12..13 " "
+    VariableReference@13..14
+      Identifier@13..14 "x"
+  Semicolon@14..15 ";"

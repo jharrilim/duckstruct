@@ -1,0 +1,28 @@
+---
+source: crates/parser/src/lib.rs
+expression: "&parse.debug_tree()"
+---
+Root@0..32
+  Whitespace@0..7 "\n      "
+  NamedFunctionExpression@7..26
+    Function@7..8 "f"
+    Whitespace@8..9 " "
+    Identifier@9..15 "double"
+    ArgumentList@15..19
+      LeftParenthesis@15..16 "("
+      VariableReference@16..17
+        Identifier@16..17 "x"
+      RightParenthesis@17..18 ")"
+      Whitespace@18..19 " "
+    Equals@19..20 "="
+    Whitespace@20..21 " "
+    InfixExpression@21..26
+      VariableReference@21..23
+        Identifier@21..22 "x"
+        Whitespace@22..23 " "
+      Asterisk@23..24 "*"
+      Whitespace@24..25 " "
+      Number@25..26
+        Number@25..26 "2"
+  Semicolon@26..27 ";"
+  Whitespace@27..32 "\n    "

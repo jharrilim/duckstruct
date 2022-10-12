@@ -1,0 +1,13 @@
+---
+source: crates/parser/src/lib.rs
+expression: "&parse.debug_tree()"
+---
+Root@0..6
+  FunctionCallExpression@0..6
+    VariableReference@0..3
+      Identifier@0..3 "foo"
+    ArgumentList@3..6
+      LeftParenthesis@3..4 "("
+      Number@4..5
+        Number@4..5 "1"
+      RightParenthesis@5..6 ")"

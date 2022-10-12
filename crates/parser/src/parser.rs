@@ -115,6 +115,7 @@ impl<'l, 'input> Parser<'l, 'input> {
   }
 }
 
+#[derive(Debug)]
 pub struct Parse {
   pub root: GreenNode,
   pub errors: Vec<ParseError>,

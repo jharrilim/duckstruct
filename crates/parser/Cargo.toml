@@ -16,4 +16,10 @@ num-traits = "0.2.14"
 text-size = "1.0.0"
 
 [dev-dependencies]
-expect-test = "1.0.1"
+insta = { version = "1.21.0", features = ["yaml"] }
+
+[profile.dev.package.insta]
+opt-level = 3
+
+[profile.dev.package.similar]
+opt-level = 3

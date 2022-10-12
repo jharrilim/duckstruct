@@ -1,0 +1,13 @@
+---
+source: crates/parser/src/lib.rs
+expression: "&parse.debug_tree()"
+---
+Root@0..6
+  InfixExpression@0..6
+    VariableReference@0..2
+      Identifier@0..1 "x"
+      Whitespace@1..2 " "
+    And@2..4 "&&"
+    Whitespace@4..5 " "
+    VariableReference@5..6
+      Identifier@5..6 "y"

@@ -1,0 +1,33 @@
+---
+source: crates/parser/src/lib.rs
+expression: "&parse.debug_tree()"
+---
+Root@0..52
+  Whitespace@0..9 "\n        "
+  ConditionalExpression@9..52
+    If@9..11 "if"
+    Whitespace@11..12 " "
+    ConditionalPredicate@12..18
+      InfixExpression@12..18
+        VariableReference@12..14
+          Identifier@12..13 "x"
+          Whitespace@13..14 " "
+        GreaterThan@14..15 ">"
+        Whitespace@15..16 " "
+        Number@16..18
+          Number@16..17 "0"
+          Whitespace@17..18 " "
+    LeftBrace@18..19 "{"
+    Whitespace@19..30 "\n          "
+    IfCondition@30..44
+      InfixExpression@30..44
+        VariableReference@30..32
+          Identifier@30..31 "x"
+          Whitespace@31..32 " "
+        Plus@32..33 "+"
+        Whitespace@33..34 " "
+        Number@34..44
+          Number@34..35 "1"
+          Whitespace@35..44 "\n        "
+    RightBrace@44..45 "}"
+    Whitespace@45..52 "\n      "
