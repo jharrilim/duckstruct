@@ -65,7 +65,7 @@ pub(super) fn paren_expr(p: &mut Parser) -> CompletedMarker {
   p.bump();
 
   let op = PrefixOp::LParen;
-  let((), right_binding_power) = op.binding_power();
+  let ((), right_binding_power) = op.binding_power();
   expr_binding_power(p, right_binding_power);
 
   p.expect(TokenKind::RightParenthesis);
@@ -216,13 +216,6 @@ pub(crate) fn argument_list(p: &mut Parser) -> CompletedMarker {
         p.bump();
         break m.complete(p, SyntaxKind::ArgumentList);
       }
-      Some(TokenKind::Identifier) => {
-        if on_expr {
-          panic!("u forgor comma 💀")
-        }
-        on_expr = true;
-        p.bump();
-      }
       Some(TokenKind::Comma) => {
         if !on_expr {
           panic!(",,,,,sorry cant do that")
@@ -231,9 +224,12 @@ pub(crate) fn argument_list(p: &mut Parser) -> CompletedMarker {
         p.bump();
       }
       _ => {
-        expr(p);
+        if on_expr {
+          panic!("u forgor comma 💀")
+        }
         on_expr = true;
-      },
+        expr(p);
+      }
     }
   }
 }

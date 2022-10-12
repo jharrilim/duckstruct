@@ -7,7 +7,7 @@ use rowan::Language;
 pub enum SyntaxKind {
   Whitespace,
   Function, // the keyword
-  Boolean, // true or false
+  Boolean,  // true or false
   Class,
   Let,
   If,

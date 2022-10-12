@@ -58,8 +58,8 @@ impl FunctionDef {
       .into_node()
       .unwrap()
       .children_with_tokens()
-      .filter_map(SyntaxElement::into_token)
-      .filter(|token| token.kind() == SyntaxKind::Identifier)
+      .filter(|token| token.kind() == SyntaxKind::VariableReference)
+      .map(|t| t.into_node().unwrap().first_token().unwrap())
   }
 
   pub fn body(&self) -> Option<Expr> {

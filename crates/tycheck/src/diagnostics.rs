@@ -1,12 +1,15 @@
 use std::fmt::Display;
 
-
 #[derive(Debug, Default)]
 pub struct Diagnostics {
   pub errors: Vec<Error>,
 }
 
 impl Diagnostics {
+  pub fn has_errors(&self) -> bool {
+    !self.errors.is_empty()
+  }
+
   pub fn print_errors(&self) {
     for error in &self.errors {
       println!("{}", error);
@@ -14,9 +17,7 @@ impl Diagnostics {
   }
 
   pub fn push_error(&mut self, message: String) {
-    self.errors.push(Error {
-      message,
-    });
+    self.errors.push(Error { message });
   }
 }
 

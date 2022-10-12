@@ -111,6 +111,7 @@ impl UnaryExpr {
 pub struct VariableRef(SyntaxNode);
 impl VariableRef {
   pub fn name(&self) -> String {
+    // First token should be Identifier
     self.0.first_token().unwrap().text().to_string()
   }
 }
@@ -135,8 +136,8 @@ impl Function {
       .into_node()
       .unwrap()
       .children_with_tokens()
-      .filter_map(SyntaxElement::into_token)
-      .filter(|token| token.kind() == SyntaxKind::Identifier)
+      .filter(|token| token.kind() == SyntaxKind::VariableReference)
+      .map(|t| t.into_node().unwrap().first_token().unwrap())
   }
 
   pub fn body(&self) -> Option<Expr> {
@@ -148,7 +149,7 @@ impl Function {
 pub struct FunctionCall(SyntaxNode);
 impl FunctionCall {
   pub fn name(&self) -> Option<SyntaxToken> {
-    let n = self
+    self
       .0
       .children_with_tokens()
       .find(|node_or_token| node_or_token.kind() == SyntaxKind::VariableReference)
@@ -157,8 +158,7 @@ impl FunctionCall {
       .unwrap()
       .children_with_tokens()
       .filter_map(SyntaxElement::into_token)
-      .find(|token| token.kind() == SyntaxKind::Identifier);
-    n
+      .find(|token| token.kind() == SyntaxKind::Identifier)
   }
 
   pub fn args(&self) -> impl Iterator<Item = Expr> {

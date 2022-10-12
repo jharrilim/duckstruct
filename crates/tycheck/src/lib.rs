@@ -23,7 +23,7 @@ pub struct TyCheck {
   pub hir_db: Rc<hir::Database>,
   pub ty_db: TypedDatabase,
   #[allow(unused)]
-  diagnostics: Diagnostics,
+  pub diagnostics: Diagnostics,
 }
 
 impl TyCheck {
@@ -70,7 +70,7 @@ impl TyCheck {
       Expr::VariableRef { var } => match scope.def(var) {
         Some(t) => TypedExpr::VariableRef {
           var: var.clone(),
-          ty: self.ty_db.expr(&t).ty().clone(),
+          ty: self.ty_db.expr(&t).ty(),
         },
         None => TypedExpr::Error,
       },
@@ -99,14 +99,21 @@ impl TyCheck {
     &mut self,
     scope: &mut Scope,
     name: &str,
-    params: &Vec<String>,
+    params: &[String],
     body: &DatabaseIdx,
   ) -> TypedStmt {
     scope.push_frame();
 
     let params: FxHashMap<String, TypedDatabaseIdx> = params
       .iter()
-      .map(|name| (name.clone(), scope.def(name).unwrap_or_else(|| self.ty_db.alloc(TypedExpr::Unresolved))))
+      .map(|name| {
+        (
+          name.clone(),
+          scope
+            .def(name)
+            .unwrap_or_else(|| self.ty_db.alloc(TypedExpr::Unresolved)),
+        )
+      })
       .collect();
 
     scope.define_all(&params);
@@ -118,7 +125,7 @@ impl TyCheck {
         name: Some(name.to_string()),
         params,
         body: body_idx,
-        body_hir: body.clone(),
+        body_hir: *body,
         ty: if body_ty.has_value() {
           body_ty
         } else {
@@ -130,15 +137,20 @@ impl TyCheck {
     func_def
   }
 
-  fn infer_function_call(&mut self, scope: &mut Scope, name: &str, args: &Vec<DatabaseIdx>) -> TypedDatabaseIdx {
-    match self.ty_db.definition(name).map(|t| t.clone()) {
+  fn infer_function_call(
+    &mut self,
+    scope: &mut Scope,
+    name: &str,
+    args: &Vec<DatabaseIdx>,
+  ) -> TypedDatabaseIdx {
+    match self.ty_db.definition(name).cloned() {
       Some(TypedStmt::FunctionDef { name: _, value }) => {
         if let TypedExpr::FunctionDef {
           name: Some(name),
           params,
-          body,
+          body: _,
           body_hir,
-          ty,
+          ty: _,
         } = self.ty_db.expr(&value).clone()
         {
           if args.len() != params.len() {
@@ -161,13 +173,19 @@ impl TyCheck {
           scope.define_all(&params);
 
           let body = self.infer_expr(scope, &body_hir);
-          let function_def = TypedExpr::FunctionDef { name: Some(name.clone()), params: params.clone(), body, body_hir, ty: self.ty_db.expr(&body).ty() };
-          let ty = function_def.ty().clone();
+          let function_def = TypedExpr::FunctionDef {
+            name: Some(name.clone()),
+            params: params.clone(),
+            body,
+            body_hir,
+            ty: self.ty_db.expr(&body).ty(),
+          };
+          let ty = function_def.ty();
           // maybe don't have to keep this? not sure if we can provide good insights from this
           let function_def_idx = self.ty_db.alloc(function_def);
           let expr = TypedExpr::FunctionCall {
-            name: Some(name.clone()),
-            args: params.clone().values().map(|t| t.clone()).collect(),
+            name: Some(name),
+            args: params.clone().values().copied().collect(),
             ty,
             def: function_def_idx,
           };
@@ -179,9 +197,13 @@ impl TyCheck {
         }
       }
       // An error here means the user probably typo'd
-      _ => self.ty_db.alloc(TypedExpr::Error),
+      _ => {
+        self
+          .diagnostics
+          .push_error(format!("function `{}` not found", name));
+        self.ty_db.alloc(TypedExpr::Error)
+      }
     }
-
   }
 
   /// Infererence rules:

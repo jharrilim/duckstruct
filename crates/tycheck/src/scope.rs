@@ -70,6 +70,6 @@ impl Scope {
       .iter()
       .rev()
       .find_map(|frame| frame.defs.get(name));
-    d.map(|idx| idx.clone())
+    d.copied()
   }
 }

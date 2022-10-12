@@ -26,7 +26,11 @@ impl TypedDatabase {
   }
 
   // Used for when lifetimes are the same
-  pub fn exprs2(&self, idx1: &TypedDatabaseIdx, idx2: &TypedDatabaseIdx) -> (&TypedExpr, &TypedExpr) {
+  pub fn exprs2(
+    &self,
+    idx1: &TypedDatabaseIdx,
+    idx2: &TypedDatabaseIdx,
+  ) -> (&TypedExpr, &TypedExpr) {
     (&self.exprs[*idx1], &self.exprs[*idx2])
   }
 

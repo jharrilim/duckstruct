@@ -4,22 +4,57 @@ use tycheck::TyCheck;
 
 #[derive(Debug, Default)]
 struct ReplSession {
-  history: Vec<String>,
+  statements: Vec<String>,
 }
 
 impl ReplSession {
   pub fn add_line(&mut self, line: String) {
-    self.history.push(line);
+    self.statements.push(line);
   }
 
   pub fn code(&self) -> String {
-    self.history.join("\n")
+    let stmts = self
+      .statements
+      .clone()
+      .into_iter()
+      .rev()
+      .collect::<Vec<String>>();
+    stmts.join("\n")
+  }
+
+  pub fn eval(&self, line: Option<String>) {
+    let lines = match line {
+      Some(line) => {
+        let mut lines = self.statements.clone();
+        lines.push(line);
+        lines.into_iter().rev().collect::<Vec<String>>().join("\n")
+      }
+      None => self.code(),
+    };
+
+    let parse = parse(&lines);
+    let root = ast::Root::cast(parse.syntax()).unwrap();
+
+    let hir_db = hir::lower(root);
+    let mut tycheck = TyCheck::new(hir_db);
+    tycheck.infer();
+
+    if tycheck.diagnostics.has_errors() {
+      println!("{:#?}", tycheck);
+      tycheck.diagnostics.print_errors();
+      return;
+    }
+
+    if let Some(def) = tycheck.ty_db.definition("") {
+      let val = tycheck.ty_db.expr(def.value());
+      println!("{}", val.ty());
+    }
   }
 }
 
 pub fn repl() -> Result<()> {
   let mut session = ReplSession {
-    history: Vec::new(),
+    statements: Vec::new(),
   };
   let mut rl = rustyline::Editor::<()>::new()?;
 
@@ -33,15 +68,14 @@ pub fn repl() -> Result<()> {
           break;
         }
         rl.add_history_entry(line.as_str());
-        session.add_line(line);
 
-        let parse = parse(&session.code());
-        let root = ast::Root::cast(parse.syntax()).unwrap();
-
-        let hir_db = hir::lower(root);
-        let mut tycheck = TyCheck::new(hir_db);
-        tycheck.infer();
-        println!("{:#?}", tycheck);
+        // quick hack to only store statements in session
+        if line.contains("f ") || line.contains("let ") {
+          session.add_line(line);
+          session.eval(None);
+        } else {
+          session.eval(Some(line));
+        }
       }
       Err(ReadlineError::Interrupted) => {
         println!("CTRL-C");

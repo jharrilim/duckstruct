@@ -327,7 +327,8 @@ mod tests {
               Identifier@9..15 "double"
               ArgumentList@15..19
                 LeftParenthesis@15..16 "("
-                Identifier@16..17 "x"
+                VariableReference@16..17
+                  Identifier@16..17 "x"
                 RightParenthesis@17..18 ")"
                 Whitespace@18..19 " "
               Equals@19..20 "="
@@ -358,7 +359,8 @@ mod tests {
               Function@7..8 "f"
               ArgumentList@8..12
                 LeftParenthesis@8..9 "("
-                Identifier@9..10 "x"
+                VariableReference@9..10
+                  Identifier@9..10 "x"
                 RightParenthesis@10..11 ")"
                 Whitespace@11..12 " "
               Equals@12..13 "="
@@ -394,7 +396,8 @@ mod tests {
               Identifier@9..14 "upper"
               ArgumentList@14..18
                 LeftParenthesis@14..15 "("
-                Identifier@15..16 "x"
+                VariableReference@15..16
+                  Identifier@15..16 "x"
                 RightParenthesis@16..17 ")"
                 Whitespace@17..18 " "
               BlockExpression@18..71
@@ -432,6 +435,44 @@ mod tests {
   }
 
   #[test]
+  fn parse_function_definition_with_multiple_arguments() {
+    check(
+      r#"
+        f add(x, y) = x + y;
+      "#,
+      expect![[r#"
+          Root@0..36
+            Whitespace@0..9 "\n        "
+            NamedFunctionExpression@9..28
+              Function@9..10 "f"
+              Whitespace@10..11 " "
+              Identifier@11..14 "add"
+              ArgumentList@14..21
+                LeftParenthesis@14..15 "("
+                VariableReference@15..16
+                  Identifier@15..16 "x"
+                Comma@16..17 ","
+                Whitespace@17..18 " "
+                VariableReference@18..19
+                  Identifier@18..19 "y"
+                RightParenthesis@19..20 ")"
+                Whitespace@20..21 " "
+              Equals@21..22 "="
+              Whitespace@22..23 " "
+              InfixExpression@23..28
+                VariableReference@23..25
+                  Identifier@23..24 "x"
+                  Whitespace@24..25 " "
+                Plus@25..26 "+"
+                Whitespace@26..27 " "
+                VariableReference@27..28
+                  Identifier@27..28 "y"
+            Semicolon@28..29 ";"
+            Whitespace@29..36 "\n      ""#]],
+    )
+  }
+
+  #[test]
   fn parse_let_expression_followed_by_f_definition() {
     check(
       r#"
@@ -458,7 +499,8 @@ mod tests {
               Identifier@31..32 "y"
               ArgumentList@32..36
                 LeftParenthesis@32..33 "("
-                Identifier@33..34 "x"
+                VariableReference@33..34
+                  Identifier@33..34 "x"
                 RightParenthesis@34..35 ")"
                 Whitespace@35..36 " "
               Equals@36..37 "="

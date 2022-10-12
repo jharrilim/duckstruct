@@ -38,7 +38,6 @@ pub(super) fn expr_binding_power(
       break;
     }
 
-    
     match op {
       InfixOp::LParen => {
         let m = lhs.precede(p);
