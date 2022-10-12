@@ -107,18 +107,13 @@ name = "duckstruct"
 version = "0.1.0"
 dependencies = [
  "ast",
- "drop_bomb",
  "expect-test",
  "hir",
  "lexer",
- "num-derive",
- "num-traits",
  "parser",
  "project-root",
- "rowan",
  "rustyline",
  "syntax",
- "text-size",
  "tycheck",
 ]
 

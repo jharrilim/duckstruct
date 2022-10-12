@@ -12,13 +12,8 @@ lexer = { path = "./crates/lexer" }
 parser = { path = "./crates/parser" }
 syntax = { path = "./crates/syntax" }
 tycheck = { path = "./crates/tycheck" }
-drop_bomb = "0.1.5"
 project-root = "0.2.2"
 rustyline = "10.0.0"
-rowan = "0.15.4"
-num-derive = "0.3.3"
-num-traits = "0.2.14"
-text-size = "1.0.0"
 
 [dev-dependencies]
 expect-test = "1.0.1"
