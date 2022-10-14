@@ -41,4 +41,8 @@ impl TypedDatabase {
   pub fn definition(&self, name: &str) -> Option<&TypedStmt> {
     self.defs.get(name)
   }
+
+  pub fn defs_iter(&self) -> impl Iterator<Item = (&String, &TypedStmt)> {
+    self.defs.iter()
+  }
 }

@@ -51,6 +51,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "codegen"
+version = "0.1.0"
+dependencies = [
+ "tycheck",
+]
+
+[[package]]
 name = "console"
 version = "0.15.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -107,6 +114,7 @@ name = "duckstruct"
 version = "0.1.0"
 dependencies = [
  "ast",
+ "codegen",
  "expect-test",
  "hir",
  "lexer",

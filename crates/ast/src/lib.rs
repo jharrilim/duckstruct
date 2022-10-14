@@ -26,12 +26,3 @@ impl Root {
     self.0.children().filter_map(Stmt::cast)
   }
 }
-
-#[cfg(test)]
-mod tests {
-  #[test]
-  fn it_works() {
-    let result = 2 + 2;
-    assert_eq!(result, 4);
-  }
-}

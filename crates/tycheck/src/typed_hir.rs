@@ -172,6 +172,18 @@ pub enum BinaryOp {
   Eq,
 }
 
+impl Display for BinaryOp {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match self {
+      BinaryOp::Add => write!(f, "+"),
+      BinaryOp::Sub => write!(f, "-"),
+      BinaryOp::Mul => write!(f, "*"),
+      BinaryOp::Div => write!(f, "/"),
+      BinaryOp::Eq => write!(f, "==="),
+    }
+  }
+}
+
 impl From<&hir::expr::BinaryOp> for BinaryOp {
   fn from(op: &hir::expr::BinaryOp) -> Self {
     match op {

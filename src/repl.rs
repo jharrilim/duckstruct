@@ -1,6 +1,7 @@
 use parser::parse;
 use rustyline::{self, error::ReadlineError, Result};
 use tycheck::TyCheck;
+use codegen::js::JsGenerator;
 
 #[derive(Debug, Default)]
 struct ReplSession {
@@ -17,17 +18,20 @@ impl ReplSession {
       .statements
       .clone()
       .into_iter()
-      .rev()
       .collect::<Vec<String>>();
     stmts.join("\n")
   }
 
   pub fn eval(&self, line: Option<String>) {
-    let lines = match line {
+    let lines = match &line {
       Some(line) => {
-        let mut lines = self.statements.clone();
-        lines.push(line);
-        lines.into_iter().rev().collect::<Vec<String>>().join("\n")
+        if line.eq(".js") {
+          self.code()
+        } else {
+          let mut lines = self.statements.clone();
+          lines.push(line.clone());
+          lines.into_iter().rev().collect::<Vec<String>>().join("\n")
+        }
       }
       None => self.code(),
     };
@@ -43,6 +47,11 @@ impl ReplSession {
       println!("{:#?}", tycheck);
       tycheck.diagnostics.print_errors();
       return;
+    }
+
+    if line.is_some() && line.unwrap().eq(".js") {
+      let js = JsGenerator::new(&tycheck).generate_js();
+      println!("---\njavascript\n---\n{}", js);
     }
 
     if let Some(def) = tycheck.ty_db.definition("") {

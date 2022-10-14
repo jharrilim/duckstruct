@@ -47,7 +47,10 @@ impl Scope {
   }
 
   pub fn push_frame(&mut self) {
-    self.frames.push(Frame::default());
+    self.frames.push(Frame {
+      debug_name: format!("frame {}", self.frames.len() - 1),
+      ..Frame::default()
+    });
   }
 
   pub fn pop_frame(&mut self) -> Option<Frame> {

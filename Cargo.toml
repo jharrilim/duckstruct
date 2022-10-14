@@ -7,6 +7,7 @@ edition = "2018"
 
 [dependencies]
 ast = { path = "./crates/ast" }
+codegen = { path = "./crates/codegen" }
 hir = { path = "./crates/hir" }
 lexer = { path = "./crates/lexer" }
 parser = { path = "./crates/parser" }
@@ -20,3 +21,9 @@ expect-test = "1.0.1"
 
 [workspace]
 members = ["crates/*"]
+
+[profile.dev.package.insta]
+opt-level = 3
+
+[profile.dev.package.similar]
+opt-level = 3
