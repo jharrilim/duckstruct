@@ -37,6 +37,9 @@ pub enum Expr {
     name: Option<String>,
     args: Vec<Idx<Self>>,
   },
+  Array {
+    vals: Vec<Idx<Self>>,
+  },
   Missing,
 }
 

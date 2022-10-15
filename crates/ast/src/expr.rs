@@ -13,6 +13,7 @@ pub enum Expr {
   Function(Function),
   FunctionCall(FunctionCall),
   Block(Block),
+  Array(Array),
 }
 
 impl Expr {
@@ -30,6 +31,7 @@ impl Expr {
       SyntaxKind::NamedFunctionExpression => Self::Function(Function(node)),
       SyntaxKind::FunctionCallExpression => Self::FunctionCall(FunctionCall(node)),
       SyntaxKind::BlockExpression => Self::Block(Block(node)),
+      SyntaxKind::ArrayExpression => Self::Array(Array(node)),
       _ => return None,
     };
 
@@ -183,5 +185,13 @@ pub struct Block(SyntaxNode);
 impl Block {
   pub fn stmts(&self) -> impl Iterator<Item = Stmt> {
     self.0.children().filter_map(Stmt::cast)
+  }
+}
+
+#[derive(Debug)]
+pub struct Array(SyntaxNode);
+impl Array {
+  pub fn elements(&self) -> impl Iterator<Item = Expr> {
+    self.0.children().filter_map(Expr::cast)
   }
 }

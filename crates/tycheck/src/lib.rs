@@ -88,10 +88,30 @@ impl TyCheck {
         name: Some(name),
         args,
       } => return self.infer_function_call(scope, name, args),
+      Expr::Array { vals } => return self.infer_array(scope, vals),
       Expr::Missing => {
         todo!("Handle expression missing")
       }
     };
+    self.ty_db.alloc(expr)
+  }
+
+  fn infer_array(
+    &mut self,
+    scope: &mut Scope,
+    vals: &[DatabaseIdx],
+  ) -> TypedDatabaseIdx {
+    let (vals, tys): (Vec<TypedDatabaseIdx>, Vec<Ty>) = vals
+      .iter()
+      .map(|val| {
+        let val = self.infer_expr(scope, val);
+        let val_ty = self.ty_db.expr(&val).ty();
+        (val, val_ty)
+      })
+      .unzip();
+
+    let ty = Ty::Array(Some(tys));
+    let expr = TypedExpr::Array { vals: Some(vals), ty };
     self.ty_db.alloc(expr)
   }
 

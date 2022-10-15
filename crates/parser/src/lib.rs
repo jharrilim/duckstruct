@@ -275,4 +275,16 @@ mod tests {
     let parse = parse("[(1 + 4), \"h[e]llo\", { let x = 1; x + 1 }]");
     insta::assert_snapshot!(&parse.debug_tree());
   }
+
+  #[test]
+  fn parse_array_assignment() {
+    let parse = parse("let x = [1, 2, 3];");
+    insta::assert_snapshot!(&parse.debug_tree());
+  }
+
+  #[test]
+  fn parse_array_assignment_with_destructuring() {
+    let parse = parse("let [x, y] = [1, 2];");
+    insta::assert_snapshot!(&parse.debug_tree());
+  }
 }

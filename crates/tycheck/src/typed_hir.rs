@@ -105,7 +105,8 @@ pub enum TypedExpr {
     val: Option<bool>,
   },
   Array {
-    val: Option<Vec<TypedDatabaseIdx>>,
+    vals: Option<Vec<TypedDatabaseIdx>>,
+    ty: Ty,
   },
 
   Binary {
@@ -150,7 +151,7 @@ impl TypedExpr {
       Self::Number { val } => Ty::Number(*val),
       Self::String { val } => Ty::String(val.as_ref().cloned()),
       Self::Boolean { val } => Ty::Boolean(*val),
-      Self::Array { val: _ } => todo!("Typed array expr"),
+      Self::Array { vals: _, ty } => ty.clone(),
       Self::Binary { ty, .. } => ty.clone(),
       Self::Unary { ty, .. } => ty.clone(),
       Self::VariableRef { ty, .. } => ty.clone(),

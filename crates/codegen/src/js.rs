@@ -93,7 +93,20 @@ impl<'tycheck> JsGenerator<'tycheck> {
       TypedExpr::Number { val } => todo!(),
       TypedExpr::String { val } => todo!(),
       TypedExpr::Boolean { val } => todo!(),
-      TypedExpr::Array { val } => todo!(),
+      TypedExpr::Array { vals, ty } => {
+        if ty.has_value() {
+          format!("{}", ty)
+        } else {
+          let vals = vals
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|a| self.generate_expr(a))
+            .collect::<Vec<_>>()
+            .join(", ");
+          format!("[{}]", vals)
+        }
+      },
       TypedExpr::Binary { op, lhs, rhs, ty } => {
         if ty.has_value() {
           format!("{}", ty)

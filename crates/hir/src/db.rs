@@ -86,10 +86,19 @@ impl Database {
         ast::Expr::Function(ast) => self.lower_function(ast),
         ast::Expr::FunctionCall(ast) => self.lower_function_call(ast),
         ast::Expr::Block(ast) => self.lower_block(ast),
+        ast::Expr::Array(ast) => self.lower_array(ast),
       }
     } else {
       self.exprs.alloc(Expr::Missing)
     }
+  }
+
+  fn lower_array(&mut self, ast: ast::expr::Array) -> DatabaseIdx {
+    let vals = ast
+      .elements()
+      .map(|val| self.lower_expr(Some(val)))
+      .collect::<Vec<_>>();
+    self.exprs.alloc(Expr::Array { vals })
   }
 
   fn lower_block(&mut self, ast: ast::expr::Block) -> DatabaseIdx {
