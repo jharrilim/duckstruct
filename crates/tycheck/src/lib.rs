@@ -245,7 +245,7 @@ impl TyCheck {
   fn infer_binary(
     &mut self,
     scope: &mut Scope,
-    op: &hir::expr::BinaryOp,
+    op: &hir::BinaryOp,
     lhs_idx: &DatabaseIdx,
     rhs_idx: &DatabaseIdx,
   ) -> TypedDatabaseIdx {
@@ -257,7 +257,7 @@ impl TyCheck {
     let lhs_ty = lhs.ty();
     let rhs_ty = rhs.ty();
     let ty = match op {
-      hir::expr::BinaryOp::Add => match (lhs_ty, rhs_ty) {
+      hir::BinaryOp::Add => match (lhs_ty, rhs_ty) {
         (Ty::Number(Some(lhs)), Ty::Number(Some(rhs))) => Ty::Number(Some(lhs + rhs)),
         (Ty::Number(Some(_)), Ty::Number(None) | Ty::Generic) => Ty::Number(None),
         (Ty::Number(_), Ty::Number(_)) => Ty::Number(None),
@@ -270,25 +270,25 @@ impl TyCheck {
         (Ty::Array(_), Ty::Array(_)) => Ty::Array(None),
         _ => Ty::Generic,
       },
-      hir::expr::BinaryOp::Sub => match (lhs_ty, rhs_ty) {
+      hir::BinaryOp::Sub => match (lhs_ty, rhs_ty) {
         (Ty::Number(Some(lhs)), Ty::Number(Some(rhs))) => Ty::Number(Some(lhs - rhs)),
         (Ty::Number(Some(_)), Ty::Number(None) | Ty::Generic) => Ty::Number(None),
         (Ty::Number(_), Ty::Number(_)) => Ty::Number(None),
         _ => Ty::Generic,
       },
-      hir::expr::BinaryOp::Mul => match (lhs_ty, rhs_ty) {
+      hir::BinaryOp::Mul => match (lhs_ty, rhs_ty) {
         (Ty::Number(Some(lhs)), Ty::Number(Some(rhs))) => Ty::Number(Some(lhs * rhs)),
         (Ty::Number(Some(_)), Ty::Number(None) | Ty::Generic) => Ty::Number(None),
         (Ty::Number(_), Ty::Number(_)) => Ty::Number(None),
         _ => Ty::Generic,
       },
-      hir::expr::BinaryOp::Div => match (lhs_ty, rhs_ty) {
+      hir::BinaryOp::Div => match (lhs_ty, rhs_ty) {
         (Ty::Number(Some(lhs)), Ty::Number(Some(rhs))) => Ty::Number(Some(lhs / rhs)),
         (Ty::Number(Some(_)), Ty::Number(None) | Ty::Generic) => Ty::Number(None),
         (Ty::Number(_), Ty::Number(_)) => Ty::Number(None),
         _ => Ty::Generic,
       },
-      hir::expr::BinaryOp::Eq => match (lhs_ty, rhs_ty) {
+      hir::BinaryOp::Eq => match (lhs_ty, rhs_ty) {
         (Ty::Number(Some(lhs)), Ty::Number(Some(rhs))) => Ty::Boolean(Some(lhs == rhs)),
         (Ty::Number(_), Ty::Number(_)) => Ty::Boolean(None),
         (Ty::String(Some(lhs)), Ty::String(Some(rhs))) => Ty::Boolean(Some(lhs == rhs)),
@@ -306,6 +306,7 @@ impl TyCheck {
   }
 
   fn infer_block(&mut self, scope: &mut Scope, stmts: &[Stmt]) -> TypedDatabaseIdx {
+    scope.push_frame();
     let stmts = stmts
       .iter()
       .map(|stmt| self.infer_stmt(scope, Either::Left(stmt)))
@@ -315,6 +316,7 @@ impl TyCheck {
     } else {
       Ty::Generic
     };
+    scope.pop_frame();
     self.ty_db.alloc(TypedExpr::Block { stmts, ty })
   }
 }
