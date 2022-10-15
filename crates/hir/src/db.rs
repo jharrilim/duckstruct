@@ -1,16 +1,22 @@
+use std::hash::BuildHasherDefault;
+
 use crate::{
   expr::{BinaryOp, Expr, UnaryOp},
   stmt::Stmt,
   DatabaseIdx,
 };
+use indexmap::IndexMap;
 use la_arena::{Arena, Idx};
-use rustc_hash::FxHashMap;
+use rustc_hash::FxHasher;
 use syntax::SyntaxKind;
+
+type FxIndexMap<K, V> = IndexMap<K, V, BuildHasherDefault<FxHasher>>;
+
 
 #[derive(Debug, Default)]
 pub struct Database {
   exprs: Arena<Expr>,
-  defs: FxHashMap<String, Stmt>,
+  defs: FxIndexMap<String, Stmt>,
 }
 
 impl Database {

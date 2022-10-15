@@ -9,3 +9,4 @@ edition = "2021"
 hir = { path = "../hir" }
 la-arena = "0.2.1"
 rustc-hash = "1.1.0"
+indexmap = "1.9.1"

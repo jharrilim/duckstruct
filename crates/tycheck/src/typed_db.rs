@@ -1,9 +1,14 @@
+use std::hash::BuildHasherDefault;
+
 use crate::typed_hir::{TypedExpr, TypedStmt};
+use indexmap::IndexMap;
 use la_arena::{Arena, Idx};
-use rustc_hash::FxHashMap;
+use rustc_hash::FxHasher;
+
+type FxIndexMap<K, V> = IndexMap<K, V, BuildHasherDefault<FxHasher>>;
 
 pub type TypedDatabaseIdx = Idx<TypedExpr>;
-pub type TyContext = FxHashMap<String, TypedStmt>;
+pub type TyContext = FxIndexMap<String, TypedStmt>;
 
 /// This is basically the same as the hir Database, but with types solved.
 #[derive(Debug, Default)]
@@ -42,7 +47,8 @@ impl TypedDatabase {
     self.defs.get(name)
   }
 
-  pub fn defs_iter(&self) -> impl Iterator<Item = (&String, &TypedStmt)> {
-    self.defs.iter()
+  pub fn defs_iter(&self) -> Vec<(&String, &TypedStmt)> {
+    let vec: Vec<(&String, &TypedStmt)> = self.defs.iter().collect();
+    vec
   }
 }

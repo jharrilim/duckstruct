@@ -22,7 +22,7 @@ impl ReplSession {
     stmts.join("\n")
   }
 
-  pub fn eval(&self, line: Option<String>) {
+  pub fn eval(&mut self, line: Option<String>) {
     let lines = match &line {
       Some(line) => {
         if line.eq(".js") {
@@ -30,7 +30,7 @@ impl ReplSession {
         } else {
           let mut lines = self.statements.clone();
           lines.push(line.clone());
-          lines.into_iter().rev().collect::<Vec<String>>().join("\n")
+          lines.into_iter().collect::<Vec<String>>().join("\n")
         }
       }
       None => self.code(),
@@ -46,6 +46,9 @@ impl ReplSession {
     if tycheck.diagnostics.has_errors() {
       println!("{:#?}", tycheck);
       tycheck.diagnostics.print_errors();
+      if line.is_some() {
+        self.statements.pop();
+      }
       return;
     }
 
@@ -67,10 +70,10 @@ pub fn repl() -> Result<()> {
   };
   let mut rl = rustyline::Editor::<()>::new()?;
 
-  println!("Duckstruct AST Perusal Machine 3000 (v0.0.1)");
+  println!("Duckstruct 🐣 (v0.0.1)");
   println!("Type exit to quit.");
   loop {
-    let readline = rl.readline(">>> ");
+    let readline = rl.readline("λ ");
     match readline {
       Ok(line) => {
         if line.trim() == "exit" {

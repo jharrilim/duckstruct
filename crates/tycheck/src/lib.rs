@@ -116,7 +116,7 @@ impl TyCheck {
       })
       .collect();
 
-    scope.define_all(&params);
+    scope.define_args(&params);
     let body_idx = self.infer_expr(scope, body);
     let body_ty = self.ty_db.expr(&body_idx).ty();
     let func_def = TypedStmt::FunctionDef {
@@ -170,24 +170,15 @@ impl TyCheck {
             .collect();
 
           scope.push_frame();
-          scope.define_all(&params);
+          scope.define_args(&params);
 
           let body = self.infer_expr(scope, &body_hir);
-          let function_def = TypedExpr::FunctionDef {
-            name: Some(name.clone()),
-            params: params.clone(),
-            body,
-            body_hir,
-            ty: self.ty_db.expr(&body).ty(),
-          };
-          let ty = function_def.ty();
-          // maybe don't have to keep this? not sure if we can provide good insights from this
-          let function_def_idx = self.ty_db.alloc(function_def);
+
           let expr = TypedExpr::FunctionCall {
             name: Some(name),
             args: params.clone().values().copied().collect(),
-            ty,
-            def: function_def_idx,
+            ty: self.ty_db.expr(&body).ty(),
+            def: value,
           };
           scope.pop_frame();
           self.ty_db.alloc(expr)

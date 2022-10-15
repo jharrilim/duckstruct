@@ -11,6 +11,7 @@ pub struct Frame {
   #[allow(unused)]
   imports: FxHashMap<String, TypedDatabaseIdx>,
   defs: FxHashMap<String, TypedDatabaseIdx>,
+  args: FxHashMap<String, TypedDatabaseIdx>,
 }
 
 impl Frame {
@@ -66,13 +67,17 @@ impl Scope {
     self.current_frame_mut().defs.extend(defs.clone());
   }
 
+  pub fn define_args(&mut self, args: &FxHashMap<String, TypedDatabaseIdx>) {
+    self.current_frame_mut().args.extend(args.clone());
+  }
+
   /// Looks up a definition to see if it's in scope.
   pub fn def(&self, name: &str) -> Option<TypedDatabaseIdx> {
     let d = self
       .frames
       .iter()
       .rev()
-      .find_map(|frame| frame.defs.get(name));
+      .find_map(|frame| frame.args.get(name).or_else(|| frame.defs.get(name)));
     d.copied()
   }
 }
