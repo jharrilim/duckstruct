@@ -39,12 +39,12 @@ impl TyCheck {
   pub fn infer(&mut self) {
     let mut scope = Scope::default();
     for (stmt_ident, statement) in self.hir_db.clone().defs_iter() {
-      let typed_stmt = self.infer_stmt(Either::Left(statement), &mut scope);
+      let typed_stmt = self.infer_stmt(&mut scope, Either::Left(statement));
       self.ty_db.define(stmt_ident.clone(), typed_stmt);
     }
   }
 
-  pub fn infer_stmt(&mut self, stmt: Either<&Stmt, &DatabaseIdx>, scope: &mut Scope) -> TypedStmt {
+  pub fn infer_stmt(&mut self, scope: &mut Scope, stmt: Either<&Stmt, &DatabaseIdx>) -> TypedStmt {
     match stmt {
       Either::Left(stmt) => match stmt {
         Stmt::VariableDef { name, value } => {
@@ -78,18 +78,18 @@ impl TyCheck {
       Expr::String { s } => TypedExpr::String {
         val: Some(s.clone()),
       },
-      Expr::Block { stmts } => todo!("infer block"),
+      Expr::Block { stmts } => return self.infer_block(scope, stmts),
       Expr::Boolean { b } => TypedExpr::Boolean { val: Some(*b) },
       Expr::Binary { op, lhs, rhs } => return self.infer_binary(scope, op, lhs, rhs),
-      Expr::Unary { op, expr } => todo!(),
-      Expr::Function { name, params, body } => todo!(),
+      Expr::Unary { op, expr } => return self.infer_unary(scope, op, expr),
+      Expr::Function { name, params, body } => todo!("function declaration expressions"),
       Expr::FunctionCall { name: None, args } => todo!("anonymous function invocations"),
       Expr::FunctionCall {
         name: Some(name),
         args,
       } => return self.infer_function_call(scope, name, args),
       Expr::Missing => {
-        todo!("wtf")
+        todo!("Handle expression missing")
       }
     };
     self.ty_db.alloc(expr)
@@ -197,6 +197,45 @@ impl TyCheck {
     }
   }
 
+  fn infer_unary(
+    &mut self,
+    scope: &mut Scope,
+    op: &hir::UnaryOp,
+    expr: &DatabaseIdx,
+  ) -> TypedDatabaseIdx {
+    let expr = self.infer_expr(scope, expr);
+    let expr_ty = self.ty_db.expr(&expr).ty();
+    let ty = match op {
+      hir::UnaryOp::Neg => {
+        match expr_ty {
+          Ty::Number(Some(n)) => Ty::Number(Some(-n)),
+          Ty::Number(None) => Ty::Number(None),
+          _ => {
+            self.diagnostics.push_error(format!(
+              "cannot apply unary operator `-` to type `{}`",
+              expr_ty
+            ));
+            Ty::Error
+          }
+        }
+      }
+      hir::UnaryOp::Not => {
+        match expr_ty {
+          Ty::Boolean(Some(b)) => Ty::Boolean(Some(!b)),
+          Ty::Boolean(None) => Ty::Boolean(None),
+          _ => {
+            self.diagnostics.push_error(format!(
+              "cannot apply unary operator `!` to type `{}`",
+              expr_ty
+            ));
+            Ty::Error
+          }
+        }
+      }
+    };
+    self.ty_db.alloc(TypedExpr::Unary { op: op.into(), expr, ty })
+  }
+
   /// Infererence rules:
   /// 1. Two known value types should unify into a single known value type
   /// 2. Unresolved types paired with a concrete type should unify into an unknown value type
@@ -249,8 +288,33 @@ impl TyCheck {
         (Ty::Number(_), Ty::Number(_)) => Ty::Number(None),
         _ => Ty::Generic,
       },
-      hir::expr::BinaryOp::Eq => todo!("eq"),
+      hir::expr::BinaryOp::Eq => match (lhs_ty, rhs_ty) {
+        (Ty::Number(Some(lhs)), Ty::Number(Some(rhs))) => Ty::Boolean(Some(lhs == rhs)),
+        (Ty::Number(_), Ty::Number(_)) => Ty::Boolean(None),
+        (Ty::String(Some(lhs)), Ty::String(Some(rhs))) => Ty::Boolean(Some(lhs == rhs)),
+        (Ty::String(_), Ty::String(_)) => Ty::Boolean(None),
+        (Ty::Boolean(Some(lhs)), Ty::Boolean(Some(rhs))) => Ty::Boolean(Some(lhs == rhs)),
+        (Ty::Array(Some(lhs)), Ty::Array(Some(rhs))) => Ty::Boolean(Some(lhs == rhs)),
+        (Ty::Array(_), Ty::Array(_)) => Ty::Boolean(None),
+        (Ty::Function(Some(lhs)), Ty::Function(Some(rhs))) => Ty::Boolean(Some(lhs == rhs)),
+        (Ty::Function(_), Ty::Function(_)) => Ty::Boolean(None),
+        (Ty::Generic, Ty::Generic) => Ty::Boolean(None),
+        _ => Ty::Generic,
+      },
     };
     self.ty_db.alloc(TypedExpr::Binary { op: op.into(), lhs: lhs_idx, rhs: rhs_idx, ty })
+  }
+
+  fn infer_block(&mut self, scope: &mut Scope, stmts: &[Stmt]) -> TypedDatabaseIdx {
+    let stmts = stmts
+      .iter()
+      .map(|stmt| self.infer_stmt(scope, Either::Left(stmt)))
+      .collect::<Vec<_>>();
+    let ty = if let Some(last) = stmts.last() {
+      self.ty_db.expr(last.value()).ty()
+    } else {
+      Ty::Generic
+    };
+    self.ty_db.alloc(TypedExpr::Block { stmts, ty })
   }
 }

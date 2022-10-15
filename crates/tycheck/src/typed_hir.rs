@@ -5,7 +5,7 @@ use rustc_hash::FxHashMap;
 
 use crate::{typed_db::TypedDatabaseIdx, Stmt};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Ty {
   Number(Option<f64>),
   String(Option<String>),
@@ -124,7 +124,7 @@ pub enum TypedExpr {
     ty: Ty,
   },
   Block {
-    stmts: Vec<Stmt>,
+    stmts: Vec<TypedStmt>,
     ty: Ty,
   },
   FunctionDef {
@@ -184,14 +184,14 @@ impl Display for BinaryOp {
   }
 }
 
-impl From<&hir::expr::BinaryOp> for BinaryOp {
-  fn from(op: &hir::expr::BinaryOp) -> Self {
+impl From<&hir::BinaryOp> for BinaryOp {
+  fn from(op: &hir::BinaryOp) -> Self {
     match op {
-      hir::expr::BinaryOp::Add => Self::Add,
-      hir::expr::BinaryOp::Sub => Self::Sub,
-      hir::expr::BinaryOp::Mul => Self::Mul,
-      hir::expr::BinaryOp::Div => Self::Div,
-      hir::expr::BinaryOp::Eq => Self::Eq,
+      hir::BinaryOp::Add => Self::Add,
+      hir::BinaryOp::Sub => Self::Sub,
+      hir::BinaryOp::Mul => Self::Mul,
+      hir::BinaryOp::Div => Self::Div,
+      hir::BinaryOp::Eq => Self::Eq,
     }
   }
 }
@@ -199,4 +199,14 @@ impl From<&hir::expr::BinaryOp> for BinaryOp {
 #[derive(Debug, Clone)]
 pub enum UnaryOp {
   Neg,
+  Not,
+}
+
+impl From<&hir::UnaryOp> for UnaryOp {
+  fn from(op: &hir::UnaryOp) -> Self {
+    match op {
+      hir::UnaryOp::Neg => Self::Neg,
+      hir::UnaryOp::Not => Self::Not,
+    }
+  }
 }

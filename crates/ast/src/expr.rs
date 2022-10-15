@@ -1,5 +1,7 @@
 use syntax::{SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 
+use crate::Stmt;
+
 #[derive(Debug)]
 pub enum Expr {
   BinaryExpr(BinaryExpr),
@@ -10,6 +12,7 @@ pub enum Expr {
   VariableRef(VariableRef),
   Function(Function),
   FunctionCall(FunctionCall),
+  Block(Block),
 }
 
 impl Expr {
@@ -26,6 +29,7 @@ impl Expr {
       SyntaxKind::NamedFunction => Self::Function(Function(node)),
       SyntaxKind::NamedFunctionExpression => Self::Function(Function(node)),
       SyntaxKind::FunctionCallExpression => Self::FunctionCall(FunctionCall(node)),
+      SyntaxKind::BlockExpression => Self::Block(Block(node)),
       _ => return None,
     };
 
@@ -171,5 +175,13 @@ impl FunctionCall {
       .unwrap()
       .children()
       .filter_map(Expr::cast)
+  }
+}
+
+#[derive(Debug)]
+pub struct Block(SyntaxNode);
+impl Block {
+  pub fn stmts(&self) -> impl Iterator<Item = Stmt> {
+    self.0.children().filter_map(Stmt::cast)
   }
 }

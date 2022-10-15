@@ -85,10 +85,19 @@ impl Database {
         ast::Expr::UnaryExpr(ast) => self.lower_unary(ast),
         ast::Expr::Function(ast) => self.lower_function(ast),
         ast::Expr::FunctionCall(ast) => self.lower_function_call(ast),
+        ast::Expr::Block(ast) => self.lower_block(ast),
       }
     } else {
       self.exprs.alloc(Expr::Missing)
     }
+  }
+
+  fn lower_block(&mut self, ast: ast::expr::Block) -> DatabaseIdx {
+    let stmts: Vec<Stmt> = ast
+      .stmts()
+      .filter_map(|stmt| self.lower_stmt(stmt))
+      .collect();
+    self.exprs.alloc(Expr::Block { stmts })
   }
 
   fn lower_function_call(&mut self, ast: ast::expr::FunctionCall) -> DatabaseIdx {
@@ -131,6 +140,7 @@ impl Database {
   fn lower_unary(&mut self, ast: ast::expr::UnaryExpr) -> DatabaseIdx {
     let op = match ast.op().unwrap().kind() {
       SyntaxKind::Minus => UnaryOp::Neg,
+      SyntaxKind::Bang => UnaryOp::Not,
       _ => unreachable!(),
     };
 
