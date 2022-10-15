@@ -62,6 +62,7 @@ pub enum SyntaxKind {
   NamedFunctionExpression,
   FunctionCallExpression,
   BlockExpression,
+  ArrayExpression,
 }
 
 impl From<SyntaxKind> for rowan::SyntaxKind {

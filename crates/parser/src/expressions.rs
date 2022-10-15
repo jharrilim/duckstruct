@@ -61,7 +61,7 @@ fn lhs(p: &mut Parser) -> Option<CompletedMarker> {
     Some(TokenKind::Boolean) => parsers::boolean_literal(p),
     Some(TokenKind::String) => parsers::string_literal(p),
     Some(TokenKind::LeftBrace) => parsers::block_expr(p),
-    Some(TokenKind::LeftBracket) => todo!("array literal"),
+    Some(TokenKind::LeftBracket) => parsers::array_expr(p),
     Some(TokenKind::Identifier) => parsers::variable_ref(p),
     Some(TokenKind::Minus) => parsers::prefix_expr(p),
     Some(TokenKind::LeftParenthesis) => parsers::paren_expr(p),

@@ -245,4 +245,34 @@ mod tests {
     let parse = parse("(f() = { 1 })()");
     insta::assert_snapshot!(&parse.debug_tree());
   }
+
+  #[test]
+  fn parse_empty_array_expression() {
+    let parse = parse("[]");
+    insta::assert_snapshot!(&parse.debug_tree());
+  }
+
+  #[test]
+  fn parse_array_expression() {
+    let parse = parse("[1, 2, 3]");
+    insta::assert_snapshot!(&parse.debug_tree());
+  }
+
+  #[test]
+  fn parse_two_dimensional_array_expression() {
+    let parse = parse("[[1, 2], [3, 4]]");
+    insta::assert_snapshot!(&parse.debug_tree());
+  }
+
+  #[test]
+  fn parse_array_expression_with_trailing_comma() {
+    let parse = parse("[1, 2, 3,]");
+    insta::assert_snapshot!(&parse.debug_tree());
+  }
+
+  #[test]
+  fn parse_funky_array_expression() {
+    let parse = parse("[(1 + 4), \"h[e]llo\", { let x = 1; x + 1 }]");
+    insta::assert_snapshot!(&parse.debug_tree());
+  }
 }

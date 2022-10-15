@@ -1,0 +1,49 @@
+---
+source: crates/parser/src/lib.rs
+expression: "&parse.debug_tree()"
+---
+Root@0..42
+  ArrayExpression@0..42
+    LeftBracket@0..1 "["
+    ParenExpression@1..8
+      LeftParenthesis@1..2 "("
+      InfixExpression@2..7
+        Number@2..4
+          Number@2..3 "1"
+          Whitespace@3..4 " "
+        Plus@4..5 "+"
+        Whitespace@5..6 " "
+        Number@6..7
+          Number@6..7 "4"
+      RightParenthesis@7..8 ")"
+    Comma@8..9 ","
+    Whitespace@9..10 " "
+    String@10..19
+      String@10..19 "\"h[e]llo\""
+    Comma@19..20 ","
+    Whitespace@20..21 " "
+    BlockExpression@21..41
+      LeftBrace@21..22 "{"
+      Whitespace@22..23 " "
+      LetStatement@23..32
+        Let@23..26 "let"
+        Whitespace@26..27 " "
+        Identifier@27..28 "x"
+        Whitespace@28..29 " "
+        Equals@29..30 "="
+        Whitespace@30..31 " "
+        Number@31..32
+          Number@31..32 "1"
+      Semicolon@32..33 ";"
+      Whitespace@33..34 " "
+      InfixExpression@34..40
+        VariableReference@34..36
+          Identifier@34..35 "x"
+          Whitespace@35..36 " "
+        Plus@36..37 "+"
+        Whitespace@37..38 " "
+        Number@38..40
+          Number@38..39 "1"
+          Whitespace@39..40 " "
+      RightBrace@40..41 "}"
+    RightBracket@41..42 "]"

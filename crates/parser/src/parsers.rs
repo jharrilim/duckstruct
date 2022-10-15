@@ -294,3 +294,24 @@ pub(crate) fn conditional_expr(p: &mut Parser) -> CompletedMarker {
   }
   conditional_expr_marker.complete(p, SyntaxKind::ConditionalExpression)
 }
+
+pub(crate) fn array_expr(p: &mut Parser) -> CompletedMarker {
+  p.expect(TokenKind::LeftBracket);
+  let m = p.start();
+  p.bump();
+
+  loop {
+    match p.peek() {
+      Some(TokenKind::RightBracket) => {
+        p.bump();
+        break m.complete(p, SyntaxKind::ArrayExpression);
+      }
+      Some(TokenKind::Comma) => {
+        p.bump();
+      }
+      _ => {
+        expr(p);
+      }
+    }
+  }
+}
