@@ -2,9 +2,8 @@
 source: crates/parser/src/lib.rs
 expression: "&parse.debug_tree()"
 info:
-  code: "   9876"
+  code: "\"hello\""
 ---
 Root@0..7
-  Whitespace@0..3 "   "
-  Number@3..7
-    Number@3..7 "9876"
+  String@0..7
+    String@0..7 "\"hello\""

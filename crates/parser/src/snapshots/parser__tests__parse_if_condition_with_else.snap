@@ -1,49 +1,51 @@
 ---
 source: crates/parser/src/lib.rs
 expression: "&parse.debug_tree()"
+info:
+  code: "\n      if x > 0 {\n        x + 1\n      } else {\n        x - 1\n      }\n    "
 ---
-Root@0..85
-  Whitespace@0..9 "\n        "
-  ConditionalExpression@9..85
-    If@9..11 "if"
-    Whitespace@11..12 " "
-    ConditionalPredicate@12..18
-      InfixExpression@12..18
-        VariableReference@12..14
-          Identifier@12..13 "x"
-          Whitespace@13..14 " "
-        GreaterThan@14..15 ">"
-        Whitespace@15..16 " "
-        Number@16..18
-          Number@16..17 "0"
-          Whitespace@17..18 " "
-    LeftBrace@18..19 "{"
-    Whitespace@19..30 "\n          "
-    IfCondition@30..44
-      InfixExpression@30..44
-        VariableReference@30..32
-          Identifier@30..31 "x"
-          Whitespace@31..32 " "
-        Plus@32..33 "+"
-        Whitespace@33..34 " "
-        Number@34..44
-          Number@34..35 "1"
-          Whitespace@35..44 "\n        "
-    RightBrace@44..45 "}"
-    Whitespace@45..46 " "
-    Else@46..50 "else"
-    Whitespace@50..51 " "
-    LeftBrace@51..52 "{"
-    Whitespace@52..63 "\n          "
-    ElseCondition@63..77
-      InfixExpression@63..77
-        VariableReference@63..65
-          Identifier@63..64 "x"
-          Whitespace@64..65 " "
-        Minus@65..66 "-"
-        Whitespace@66..67 " "
-        Number@67..77
-          Number@67..68 "1"
-          Whitespace@68..77 "\n        "
-    RightBrace@77..78 "}"
-    Whitespace@78..85 "\n      "
+Root@0..73
+  Whitespace@0..7 "\n      "
+  ConditionalExpression@7..73
+    If@7..9 "if"
+    Whitespace@9..10 " "
+    ConditionalPredicate@10..16
+      InfixExpression@10..16
+        VariableReference@10..12
+          Identifier@10..11 "x"
+          Whitespace@11..12 " "
+        GreaterThan@12..13 ">"
+        Whitespace@13..14 " "
+        Number@14..16
+          Number@14..15 "0"
+          Whitespace@15..16 " "
+    LeftBrace@16..17 "{"
+    Whitespace@17..26 "\n        "
+    IfCondition@26..38
+      InfixExpression@26..38
+        VariableReference@26..28
+          Identifier@26..27 "x"
+          Whitespace@27..28 " "
+        Plus@28..29 "+"
+        Whitespace@29..30 " "
+        Number@30..38
+          Number@30..31 "1"
+          Whitespace@31..38 "\n      "
+    RightBrace@38..39 "}"
+    Whitespace@39..40 " "
+    Else@40..44 "else"
+    Whitespace@44..45 " "
+    LeftBrace@45..46 "{"
+    Whitespace@46..55 "\n        "
+    ElseCondition@55..67
+      InfixExpression@55..67
+        VariableReference@55..57
+          Identifier@55..56 "x"
+          Whitespace@56..57 " "
+        Minus@57..58 "-"
+        Whitespace@58..59 " "
+        Number@59..67
+          Number@59..60 "1"
+          Whitespace@60..67 "\n      "
+    RightBrace@67..68 "}"
+    Whitespace@68..73 "\n    "

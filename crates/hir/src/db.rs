@@ -77,6 +77,7 @@ impl Database {
       match ast {
         ast::Expr::NumberLit(ast) => self.exprs.alloc(Expr::Number { n: ast.parse() }),
         ast::Expr::StringLit(ast) => self.exprs.alloc(Expr::String { s: ast.parse() }),
+        ast::Expr::BooleanLit(ast) => self.exprs.alloc(Expr::Boolean { b: ast.parse() }),
         ast::Expr::VariableRef(ast) => self.exprs.alloc(Expr::VariableRef { var: ast.name() }),
         ast::Expr::BinaryExpr(ast) => self.lower_binary(ast),
         ast::Expr::ParenExpr(ast) => self.lower_expr(ast.expr()),
@@ -93,7 +94,7 @@ impl Database {
   }
 
   fn lower_conditional(&mut self, ast: ast::expr::Conditional) -> DatabaseIdx {
-    let condition = self.lower_expr(ast.condition());
+    let condition = self.lower_expr(ast.predicate());
     let then_branch = self.lower_expr(ast.then_branch());
     let else_branch = self.lower_expr(ast.else_branch());
     self.exprs.alloc(Expr::Conditional {

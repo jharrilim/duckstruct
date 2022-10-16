@@ -1,6 +1,8 @@
 ---
 source: crates/parser/src/lib.rs
 expression: "&parse.debug_tree()"
+info:
+  code: "let x = [1, 2, 3];"
 ---
 Root@0..18
   LetStatement@0..17

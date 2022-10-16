@@ -1,6 +1,8 @@
 ---
 source: crates/parser/src/lib.rs
 expression: "&parse.debug_tree()"
+info:
+  code: add(1)(2)
 ---
 Root@0..9
   FunctionCallExpression@0..9

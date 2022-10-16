@@ -1,33 +1,35 @@
 ---
 source: crates/parser/src/lib.rs
 expression: "&parse.debug_tree()"
+info:
+  code: "\n      if x > 0 {\n        x + 1\n      }\n    "
 ---
-Root@0..52
-  Whitespace@0..9 "\n        "
-  ConditionalExpression@9..52
-    If@9..11 "if"
-    Whitespace@11..12 " "
-    ConditionalPredicate@12..18
-      InfixExpression@12..18
-        VariableReference@12..14
-          Identifier@12..13 "x"
-          Whitespace@13..14 " "
-        GreaterThan@14..15 ">"
-        Whitespace@15..16 " "
-        Number@16..18
-          Number@16..17 "0"
-          Whitespace@17..18 " "
-    LeftBrace@18..19 "{"
-    Whitespace@19..30 "\n          "
-    IfCondition@30..44
-      InfixExpression@30..44
-        VariableReference@30..32
-          Identifier@30..31 "x"
-          Whitespace@31..32 " "
-        Plus@32..33 "+"
-        Whitespace@33..34 " "
-        Number@34..44
-          Number@34..35 "1"
-          Whitespace@35..44 "\n        "
-    RightBrace@44..45 "}"
-    Whitespace@45..52 "\n      "
+Root@0..44
+  Whitespace@0..7 "\n      "
+  ConditionalExpression@7..44
+    If@7..9 "if"
+    Whitespace@9..10 " "
+    ConditionalPredicate@10..16
+      InfixExpression@10..16
+        VariableReference@10..12
+          Identifier@10..11 "x"
+          Whitespace@11..12 " "
+        GreaterThan@12..13 ">"
+        Whitespace@13..14 " "
+        Number@14..16
+          Number@14..15 "0"
+          Whitespace@15..16 " "
+    LeftBrace@16..17 "{"
+    Whitespace@17..26 "\n        "
+    IfCondition@26..38
+      InfixExpression@26..38
+        VariableReference@26..28
+          Identifier@26..27 "x"
+          Whitespace@27..28 " "
+        Plus@28..29 "+"
+        Whitespace@29..30 " "
+        Number@30..38
+          Number@30..31 "1"
+          Whitespace@31..38 "\n      "
+    RightBrace@38..39 "}"
+    Whitespace@39..44 "\n    "

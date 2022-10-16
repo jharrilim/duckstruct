@@ -1,6 +1,8 @@
 ---
 source: crates/parser/src/lib.rs
 expression: "&parse.debug_tree()"
+info:
+  code: "\n      f upper(x) {\n        let y = x * 5;\n        y + 100\n      }\n    "
 ---
 Root@0..71
   Whitespace@0..7 "\n      "

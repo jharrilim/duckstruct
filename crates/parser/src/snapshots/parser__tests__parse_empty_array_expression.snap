@@ -1,6 +1,8 @@
 ---
 source: crates/parser/src/lib.rs
 expression: "&parse.debug_tree()"
+info:
+  code: "[]"
 ---
 Root@0..2
   ArrayExpression@0..2

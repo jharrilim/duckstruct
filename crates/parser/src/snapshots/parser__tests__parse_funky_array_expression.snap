@@ -1,6 +1,8 @@
 ---
 source: crates/parser/src/lib.rs
 expression: "&parse.debug_tree()"
+info:
+  code: "[(1 + 4), \"h[e]llo\", { let x = 1; x + 1 }]"
 ---
 Root@0..42
   ArrayExpression@0..42

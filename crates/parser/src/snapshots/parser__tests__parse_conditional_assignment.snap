@@ -1,6 +1,8 @@
 ---
 source: crates/parser/src/lib.rs
 expression: "&parse.debug_tree()"
+info:
+  code: "let x = if true { 1 } else { 2 }"
 ---
 Root@0..32
   LetStatement@0..32

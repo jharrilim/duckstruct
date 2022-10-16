@@ -2,7 +2,8 @@
 source: crates/parser/src/lib.rs
 expression: "&parse.debug_tree()"
 info:
-  code: // hello!
+  code: "\"\""
 ---
-Root@0..9
-  Comment@0..9 "// hello!"
+Root@0..2
+  String@0..2
+    String@0..2 "\"\""

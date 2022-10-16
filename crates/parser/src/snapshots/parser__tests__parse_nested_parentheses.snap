@@ -1,6 +1,8 @@
 ---
 source: crates/parser/src/lib.rs
 expression: "&parse.debug_tree()"
+info:
+  code: ((((10))))
 ---
 Root@0..10
   ParenExpression@0..10

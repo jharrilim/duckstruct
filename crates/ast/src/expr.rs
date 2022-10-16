@@ -7,6 +7,7 @@ pub enum Expr {
   BinaryExpr(BinaryExpr),
   NumberLit(Number),
   StringLit(Str),
+  BooleanLit(Boolean),
   ParenExpr(ParenExpr),
   UnaryExpr(UnaryExpr),
   VariableRef(VariableRef),
@@ -23,6 +24,7 @@ impl Expr {
       SyntaxKind::InfixExpression => Self::BinaryExpr(BinaryExpr(node)),
       SyntaxKind::Number => Self::NumberLit(Number(node)),
       SyntaxKind::String => Self::StringLit(Str(node)),
+      SyntaxKind::Boolean => Self::BooleanLit(Boolean(node)),
       SyntaxKind::ParenExpression => Self::ParenExpr(ParenExpr(node)),
       SyntaxKind::PrefixExpression => Self::UnaryExpr(UnaryExpr(node)),
       SyntaxKind::VariableReference => Self::VariableRef(VariableRef(node)),
@@ -89,6 +91,14 @@ impl Str {
       .strip_suffix('"')
       .unwrap()
       .to_string()
+  }
+}
+
+#[derive(Debug, Clone)]
+pub struct Boolean(SyntaxNode);
+impl Boolean {
+  pub fn parse(&self) -> bool {
+    self.0.first_token().unwrap().text().parse().unwrap()
   }
 }
 
@@ -199,11 +209,12 @@ impl Array {
 #[derive(Debug, Clone)]
 pub struct Conditional(SyntaxNode);
 impl Conditional {
-  pub fn condition(&self) -> Option<Expr> {
+  pub fn predicate(&self) -> Option<Expr> {
     self
       .0
       .children()
       .find(|t| t.kind() == SyntaxKind::ConditionalPredicate)
+      .and_then(|t| t.first_child())
       .and_then(Expr::cast)
   }
 
@@ -212,6 +223,7 @@ impl Conditional {
       .0
       .children()
       .find(|t| t.kind() == SyntaxKind::IfCondition)
+      .and_then(|t| t.first_child())
       .and_then(Expr::cast)
   }
 
@@ -220,6 +232,7 @@ impl Conditional {
       .0
       .children()
       .find(|t| t.kind() == SyntaxKind::ElseCondition)
+      .and_then(|t| t.first_child())
       .and_then(Expr::cast)
   }
 }
