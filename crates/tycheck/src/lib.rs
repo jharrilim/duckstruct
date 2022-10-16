@@ -125,12 +125,13 @@ impl TyCheck {
       _ => unreachable!("Function definition must be a function"),
     };
 
-    let func_def = TypedStmt::FunctionDef {
-      name: name.to_string(),
-      value: self.infer_function(scope, &Some(name.to_string()), &params, &body),
-    };
+    let func_value = self.infer_function(scope, &Some(name.to_string()), &params, &body);
+    scope.define(name.to_string(), func_value);
 
-    func_def
+    TypedStmt::FunctionDef {
+      name: name.to_string(),
+      value: func_value,
+    }
   }
 
   fn infer_function_call(
@@ -152,8 +153,8 @@ impl TyCheck {
     let lhs_expr = self.ty_db.expr(&lhs);
 
     match lhs_expr.clone() {
-      TypedExpr::VariableRef { var, ty: _ } => match self.ty_db.definition(&var).cloned() {
-        Some(def) => self.infer_function_call_impl(scope, def.value(), args),
+      TypedExpr::VariableRef { var, ty: _ } => match scope.def(&var) {
+        Some(def) => self.infer_function_call_impl(scope, &def, args),
         None => {
           self
             .diagnostics
