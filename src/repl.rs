@@ -13,6 +13,10 @@ impl ReplSession {
     self.statements.push(line);
   }
 
+  pub fn clear(&mut self) {
+    self.statements.clear();
+  }
+
   pub fn code(&self) -> String {
     let stmts = self
       .statements
@@ -79,6 +83,11 @@ pub fn repl() -> Result<()> {
         if line.trim() == "exit" {
           break;
         }
+        if line.trim() == "clear" {
+          session.clear();
+          continue;
+        }
+
         rl.add_history_entry(line.as_str());
 
         // quick hack to only store statements in session
