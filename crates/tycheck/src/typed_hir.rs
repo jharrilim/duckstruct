@@ -84,6 +84,25 @@ impl Ty {
       Ty::Error => Ty::Error,
     }
   }
+
+  pub fn truthy(&self) -> Truthiness {
+    match self {
+      Ty::Number(Some(val)) => Truthiness::Known(*val != 0.0),
+      Ty::String(Some(val)) => Truthiness::Known(!val.is_empty()),
+      Ty::Boolean(Some(val)) => Truthiness::Known(*val),
+      Ty::Array(Some(val)) => Truthiness::Known(!val.is_empty()),
+      Ty::Object(Some(val)) => Truthiness::Known(!val.is_empty()),
+      Ty::Function { .. } => Truthiness::Known(true),
+      Ty::Generic => Truthiness::Unknown,
+      Ty::Error => Truthiness::Unknown,
+      _ => Truthiness::Unknown,
+    }
+  }
+}
+
+pub enum Truthiness {
+  Known(bool),
+  Unknown,
 }
 
 impl Display for Ty {
