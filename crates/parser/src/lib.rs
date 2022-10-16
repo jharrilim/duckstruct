@@ -247,6 +247,18 @@ mod tests {
   }
 
   #[test]
+  fn parse_curried_function_let_assignment() {
+    let parse = parse("let add = f(x) = f(y) = x + y");
+    insta::assert_snapshot!(&parse.debug_tree());
+  }
+
+  #[test]
+  fn parse_curried_function_invocation() {
+    let parse = parse("add(1)(2)");
+    insta::assert_snapshot!(&parse.debug_tree());
+  }
+
+  #[test]
   fn parse_empty_array_expression() {
     let parse = parse("[]");
     insta::assert_snapshot!(&parse.debug_tree());
@@ -287,4 +299,6 @@ mod tests {
     let parse = parse("let [x, y] = [1, 2];");
     insta::assert_snapshot!(&parse.debug_tree());
   }
+
+  
 }

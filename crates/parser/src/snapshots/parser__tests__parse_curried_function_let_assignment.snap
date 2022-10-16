@@ -1,0 +1,40 @@
+---
+source: crates/parser/src/lib.rs
+expression: "&parse.debug_tree()"
+---
+Root@0..29
+  LetStatement@0..29
+    Let@0..3 "let"
+    Whitespace@3..4 " "
+    Identifier@4..7 "add"
+    Whitespace@7..8 " "
+    Equals@8..9 "="
+    Whitespace@9..10 " "
+    AnonymousFunctionExpression@10..29
+      Function@10..11 "f"
+      ArgumentList@11..15
+        LeftParenthesis@11..12 "("
+        VariableReference@12..13
+          Identifier@12..13 "x"
+        RightParenthesis@13..14 ")"
+        Whitespace@14..15 " "
+      Equals@15..16 "="
+      Whitespace@16..17 " "
+      AnonymousFunctionExpression@17..29
+        Function@17..18 "f"
+        ArgumentList@18..22
+          LeftParenthesis@18..19 "("
+          VariableReference@19..20
+            Identifier@19..20 "y"
+          RightParenthesis@20..21 ")"
+          Whitespace@21..22 " "
+        Equals@22..23 "="
+        Whitespace@23..24 " "
+        InfixExpression@24..29
+          VariableReference@24..26
+            Identifier@24..25 "x"
+            Whitespace@25..26 " "
+          Plus@26..27 "+"
+          Whitespace@27..28 " "
+          VariableReference@28..29
+            Identifier@28..29 "y"
