@@ -19,6 +19,14 @@ impl Stmt {
 
     Some(result)
   }
+
+  pub fn expr(&self) -> Option<Expr> {
+    match self {
+      Stmt::VariableDef(def) => def.value(),
+      Stmt::FunctionDef(def) => def.body(),
+      Stmt::Expr(expr) => Some(expr.clone()),
+    }
+  }
 }
 
 #[derive(Debug)]

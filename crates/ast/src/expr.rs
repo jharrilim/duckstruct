@@ -2,7 +2,7 @@ use syntax::{SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 
 use crate::{stmt::FunctionDef, Stmt};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expr {
   BinaryExpr(BinaryExpr),
   NumberLit(Number),
@@ -14,6 +14,7 @@ pub enum Expr {
   FunctionCall(FunctionCall),
   Block(Block),
   Array(Array),
+  Conditional(Conditional),
 }
 
 impl Expr {
@@ -32,6 +33,7 @@ impl Expr {
       SyntaxKind::FunctionCallExpression => Self::FunctionCall(FunctionCall(node)),
       SyntaxKind::BlockExpression => Self::Block(Block(node)),
       SyntaxKind::ArrayExpression => Self::Array(Array(node)),
+      SyntaxKind::ConditionalExpression => Self::Conditional(Conditional(node)),
       _ => return None,
     };
 
@@ -39,7 +41,7 @@ impl Expr {
   }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BinaryExpr(SyntaxNode);
 impl BinaryExpr {
   pub fn lhs(&self) -> Option<Expr> {
@@ -65,7 +67,7 @@ impl BinaryExpr {
   }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Number(SyntaxNode);
 impl Number {
   pub fn parse(&self) -> f64 {
@@ -73,7 +75,7 @@ impl Number {
   }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Str(SyntaxNode);
 impl Str {
   pub fn parse(&self) -> String {
@@ -90,7 +92,7 @@ impl Str {
   }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ParenExpr(SyntaxNode);
 impl ParenExpr {
   pub fn expr(&self) -> Option<Expr> {
@@ -98,7 +100,7 @@ impl ParenExpr {
   }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct UnaryExpr(SyntaxNode);
 impl UnaryExpr {
   pub fn expr(&self) -> Option<Expr> {
@@ -114,7 +116,7 @@ impl UnaryExpr {
   }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VariableRef(SyntaxNode);
 impl VariableRef {
   pub fn name(&self) -> String {
@@ -123,7 +125,7 @@ impl VariableRef {
   }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Function(pub(crate) SyntaxNode);
 impl Function {
   pub fn name(&self) -> Option<SyntaxToken> {
@@ -158,7 +160,7 @@ impl From<FunctionDef> for Function {
   }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FunctionCall(SyntaxNode);
 impl FunctionCall {
   pub fn func(&self) -> Option<Expr> {
@@ -178,7 +180,7 @@ impl FunctionCall {
   }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Block(SyntaxNode);
 impl Block {
   pub fn stmts(&self) -> impl Iterator<Item = Stmt> {
@@ -186,10 +188,38 @@ impl Block {
   }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Array(SyntaxNode);
 impl Array {
   pub fn elements(&self) -> impl Iterator<Item = Expr> {
     self.0.children().filter_map(Expr::cast)
+  }
+}
+
+#[derive(Debug, Clone)]
+pub struct Conditional(SyntaxNode);
+impl Conditional {
+  pub fn condition(&self) -> Option<Expr> {
+    self
+      .0
+      .children()
+      .find(|t| t.kind() == SyntaxKind::ConditionalPredicate)
+      .and_then(Expr::cast)
+  }
+
+  pub fn then_branch(&self) -> Option<Expr> {
+    self
+      .0
+      .children()
+      .find(|t| t.kind() == SyntaxKind::IfCondition)
+      .and_then(Expr::cast)
+  }
+
+  pub fn else_branch(&self) -> Option<Expr> {
+    self
+      .0
+      .children()
+      .find(|t| t.kind() == SyntaxKind::ElseCondition)
+      .and_then(Expr::cast)
   }
 }

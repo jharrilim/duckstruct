@@ -85,10 +85,22 @@ impl Database {
         ast::Expr::FunctionCall(ast) => self.lower_function_call(ast),
         ast::Expr::Block(ast) => self.lower_block(ast),
         ast::Expr::Array(ast) => self.lower_array(ast),
+        ast::Expr::Conditional(ast) => self.lower_conditional(ast),
       }
     } else {
       self.exprs.alloc(Expr::Missing)
     }
+  }
+
+  fn lower_conditional(&mut self, ast: ast::expr::Conditional) -> DatabaseIdx {
+    let condition = self.lower_expr(ast.condition());
+    let then_branch = self.lower_expr(ast.then_branch());
+    let else_branch = self.lower_expr(ast.else_branch());
+    self.exprs.alloc(Expr::Conditional {
+      condition,
+      then_branch,
+      else_branch,
+    })
   }
 
   fn lower_array(&mut self, ast: ast::expr::Array) -> DatabaseIdx {

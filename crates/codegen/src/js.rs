@@ -1,3 +1,5 @@
+#![allow(dead_code, unused)]
+
 /// Generate javascript code from the typed hir
 use tycheck::{
   typed_db::TypedDatabaseIdx,
@@ -142,6 +144,16 @@ impl<'tycheck> JsGenerator<'tycheck> {
             None => "".to_string(),
           };
           format!("function {}({}) {{ return {}; }}", name, params, body)
+        }
+      }
+      TypedExpr::Conditional { condition, then_branch, else_branch, ty } => {
+        if ty.has_value() {
+          format!("{}", ty)
+        } else {
+          let condition = self.generate_expr(condition);
+          let then_branch = self.generate_expr(then_branch);
+          let else_branch = self.generate_expr(else_branch);
+          format!("{} ? {} : {}", condition, then_branch, else_branch)
         }
       }
       TypedExpr::Unresolved => todo!(),

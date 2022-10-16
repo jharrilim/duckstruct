@@ -40,6 +40,11 @@ pub enum Expr {
   Array {
     vals: Vec<Idx<Self>>,
   },
+  Conditional {
+    condition: Idx<Self>,
+    then_branch: Idx<Self>,
+    else_branch: Idx<Self>,
+  },
   Missing,
 }
 

@@ -64,7 +64,8 @@ impl TyCheck {
 
   pub fn infer_expr(&mut self, scope: &mut Scope, expr_idx: &DatabaseIdx) -> TypedDatabaseIdx {
     let hir_db = self.hir_db.clone();
-    let expr = match hir_db.get_expr(expr_idx) {
+    let expr = hir_db.get_expr(expr_idx);
+    let expr = match expr {
       Expr::VariableRef { var } => match scope.def(var) {
         Some(t) => TypedExpr::VariableRef {
           var: var.clone(),
@@ -85,11 +86,66 @@ impl TyCheck {
       }
       Expr::FunctionCall { args, func } => return self.infer_function_call(scope, func, args),
       Expr::Array { vals } => return self.infer_array(scope, vals),
+      Expr::Conditional { condition, then_branch, else_branch } => {
+        return self.infer_conditional(scope, condition, then_branch, else_branch)
+      },
       Expr::Missing => {
-        todo!("Handle expression missing")
+        todo!("Handle expression missing: {:?}", expr);
       }
     };
     self.ty_db.alloc(expr)
+  }
+
+  fn infer_conditional(
+    &mut self,
+    scope: &mut Scope,
+    condition: &DatabaseIdx,
+    then_branch: &DatabaseIdx,
+    else_branch: &DatabaseIdx,
+  ) -> TypedDatabaseIdx {
+    let condition = self.infer_expr(scope, condition);
+    match self.ty_db.expr(&condition).ty() {
+      Ty::Boolean(Some(boolean)) => {
+        if boolean {
+          self.infer_expr(scope, then_branch)
+        } else {
+          self.infer_expr(scope, else_branch)
+        }
+      },
+      Ty::Boolean(None) => {
+        let then_branch = self.infer_expr(scope, then_branch);
+        let else_branch = self.infer_expr(scope, else_branch);
+        let then_ty = self.ty_db.expr(&then_branch).ty();
+        let else_ty = self.ty_db.expr(&else_branch).ty();
+
+        if !then_ty.type_eq(&else_ty) {
+          self.diagnostics.push_error(format!(
+            "Type mismatch in conditional expression: {} and {}",
+            then_ty, else_ty
+          ));
+        }
+
+        let ty = then_ty.deconst();
+        let expr = TypedExpr::Conditional {
+          condition,
+          then_branch,
+          else_branch,
+          ty,
+        };
+        self.ty_db.alloc(expr)
+      }
+      _ =>  {
+        self.diagnostics.push_error("Condition must be a boolean".to_string());
+        let then_branch = self.ty_db.alloc(TypedExpr::Error);
+        let else_branch = self.ty_db.alloc(TypedExpr::Error);
+        self.ty_db.alloc(TypedExpr::Conditional {
+          condition,
+          then_branch,
+          else_branch,
+          ty: Ty::Error,
+        })
+      }
+    }
   }
 
   fn infer_array(&mut self, scope: &mut Scope, vals: &[DatabaseIdx]) -> TypedDatabaseIdx {
@@ -171,7 +227,7 @@ impl TyCheck {
       TypedExpr::FunctionDef {
         name,
         params,
-        body,
+        body: _,
         body_hir,
         ty: _,
         closure_scope,

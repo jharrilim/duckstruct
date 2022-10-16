@@ -3,7 +3,7 @@ use std::fmt::Display;
 use hir::DatabaseIdx;
 use rustc_hash::FxHashMap;
 
-use crate::{scope::Scope, typed_db::TypedDatabaseIdx, Stmt};
+use crate::{scope::Scope, typed_db::TypedDatabaseIdx};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Ty {
@@ -30,6 +30,59 @@ impl Ty {
         params: _,
         ret: Some(_)
       })
+  }
+
+  pub fn type_eq(&self, other: &Ty) -> bool {
+    match (self, other) {
+      (Ty::Number(_), Ty::Number(_)) => true,
+      (Ty::String(_), Ty::String(_)) => true,
+      (Ty::Boolean(_), Ty::Boolean(_)) => true,
+      (Ty::Array(_), Ty::Array(_)) => true,
+      (Ty::Object(_), Ty::Object(_)) => true,
+      (
+        Ty::Function { params, ret },
+        Ty::Function {
+          params: other_params,
+          ret: other_ret,
+        },
+      ) => {
+        if params.len() != other_params.len() {
+          return false;
+        }
+
+        for (param, other_param) in params.iter().zip(other_params.iter()) {
+          if !param.type_eq(other_param) {
+            return false;
+          }
+        }
+
+        match (ret, other_ret) {
+          (Some(ret), Some(other_ret)) => ret.type_eq(other_ret),
+          (None, None) => true,
+          _ => false,
+        }
+      }
+      _ => false,
+    }
+  }
+
+  pub fn deconst(&self) -> Ty {
+    match self {
+      Ty::Number(_) => Ty::Number(None),
+      Ty::String(_) => Ty::String(None),
+      Ty::Boolean(_) => Ty::Boolean(None),
+      Ty::Array(_) => Ty::Array(None),
+      Ty::Object(_) => Ty::Object(None),
+      Ty::Function { params, ret } => Ty::Function {
+        params: params.iter().map(|p| p.deconst()).collect(),
+        ret: match ret {
+          Some(ret) => Some(Box::new(ret.deconst())),
+          None => None,
+        },
+      },
+      Ty::Generic => Ty::Generic,
+      Ty::Error => Ty::Error,
+    }
   }
 }
 
@@ -157,6 +210,12 @@ pub enum TypedExpr {
     ret: TypedDatabaseIdx,
     ty: Ty,
   },
+  Conditional {
+    condition: TypedDatabaseIdx,
+    then_branch: TypedDatabaseIdx,
+    else_branch: TypedDatabaseIdx,
+    ty: Ty,
+  },
   Unresolved,
   Error,
 }
@@ -174,6 +233,7 @@ impl TypedExpr {
       Self::Block { ty, .. } => ty.clone(),
       Self::FunctionDef { ty, .. } => ty.clone(),
       Self::FunctionCall { ty, .. } => ty.clone(),
+      Self::Conditional { ty, .. } => ty.clone(),
       Self::Unresolved => Ty::Generic,
       Self::Error => Ty::Error,
     }
