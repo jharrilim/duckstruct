@@ -12,7 +12,6 @@ use syntax::SyntaxKind;
 
 type FxIndexMap<K, V> = IndexMap<K, V, BuildHasherDefault<FxHasher>>;
 
-
 #[derive(Debug, Default)]
 pub struct Database {
   exprs: Arena<Expr>,
@@ -45,10 +44,10 @@ impl Database {
         Stmt::VariableDef { ref name, value: _ } => {
           self.defs.insert(name.clone(), stmt);
         }
-        Stmt::FunctionDef { name, params, body } => {
+        Stmt::FunctionDef { name, value } => {
           self
             .defs
-            .insert(name.clone(), Stmt::FunctionDef { name, params, body });
+            .insert(name.clone(), Stmt::FunctionDef { name, value });
         }
         Stmt::Expr(expr) => {
           self.defs.insert("".to_string(), Stmt::Expr(expr));
@@ -65,8 +64,7 @@ impl Database {
       },
       ast::Stmt::FunctionDef(ast) => Stmt::FunctionDef {
         name: ast.name()?.text().to_string(),
-        params: ast.params().map(|param| param.text().to_string()).collect(),
-        body: self.lower_expr(ast.body()),
+        value: self.lower_function(ast.into()),
       },
       ast::Stmt::Expr(ast) => Stmt::Expr(self.lower_expr(Some(ast))),
     };
@@ -115,17 +113,24 @@ impl Database {
       .map(|arg| self.lower_expr(Some(arg)))
       .collect::<Vec<_>>();
 
-    let expr = Expr::FunctionCall {
-      name: ast.name().map(|name| name.text().to_string()),
-      args: args.into_iter().collect(),
-    };
-    self.exprs.alloc(expr)
+    let func = ast.func();
+    match func {
+      Some(func) => {
+        let expr = Expr::FunctionCall {
+          func: self.lower_expr(Some(func)),
+          args,
+        };
+        self.exprs.alloc(expr)
+      }
+      None => todo!("Handle invalid function call in hir"),
+    }
   }
 
   fn lower_function(&mut self, ast: ast::expr::Function) -> DatabaseIdx {
+    let name = ast.name().map(|name| name.text().to_string());
     let expr = Expr::Function {
-      name: ast.name().map(|name| name.text().to_string()),
       body: self.lower_expr(ast.body()),
+      name,
       params: ast.params().map(|param| param.text().to_string()).collect(),
     };
     self.exprs.alloc(expr)
@@ -138,6 +143,7 @@ impl Database {
       SyntaxKind::Asterisk => BinaryOp::Mul,
       SyntaxKind::ForwardSlash => BinaryOp::Div,
       SyntaxKind::DoubleEquals => BinaryOp::Eq,
+      SyntaxKind::NotEquals => BinaryOp::Neq,
       _ => unreachable!(),
     };
     let lhs = self.lower_expr(ast.lhs());

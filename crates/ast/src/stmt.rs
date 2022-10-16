@@ -1,4 +1,4 @@
-use crate::expr::Expr;
+use crate::expr::{Expr, Function};
 use syntax::{SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 
 #[derive(Debug)]
@@ -39,7 +39,7 @@ impl VariableDef {
 }
 
 #[derive(Debug)]
-pub struct FunctionDef(SyntaxNode);
+pub struct FunctionDef(pub(crate) SyntaxNode);
 impl FunctionDef {
   pub fn name(&self) -> Option<SyntaxToken> {
     self
@@ -64,5 +64,11 @@ impl FunctionDef {
 
   pub fn body(&self) -> Option<Expr> {
     self.0.children().find_map(Expr::cast)
+  }
+}
+
+impl From<Function> for FunctionDef {
+  fn from(f: Function) -> Self {
+    Self(f.0)
   }
 }

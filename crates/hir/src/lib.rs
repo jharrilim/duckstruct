@@ -1,5 +1,5 @@
 pub use db::Database;
-pub use expr::{BinaryOp, UnaryOp, Expr};
+pub use expr::{BinaryOp, Expr, UnaryOp};
 pub use stmt::Stmt;
 
 mod db;

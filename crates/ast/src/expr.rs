@@ -1,6 +1,6 @@
 use syntax::{SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 
-use crate::Stmt;
+use crate::{stmt::FunctionDef, Stmt};
 
 #[derive(Debug)]
 pub enum Expr {
@@ -56,10 +56,11 @@ impl BinaryExpr {
       .children_with_tokens()
       .filter_map(SyntaxElement::into_token)
       .find(|token| {
-        matches!(
-          token.kind(),
-          SyntaxKind::Plus | SyntaxKind::Minus | SyntaxKind::Asterisk | SyntaxKind::ForwardSlash,
-        )
+        matches!(token.kind(), |SyntaxKind::Plus| SyntaxKind::Minus
+          | SyntaxKind::Asterisk
+          | SyntaxKind::ForwardSlash
+          | SyntaxKind::DoubleEquals
+          | SyntaxKind::NotEquals)
       })
   }
 }
@@ -123,7 +124,7 @@ impl VariableRef {
 }
 
 #[derive(Debug)]
-pub struct Function(SyntaxNode);
+pub struct Function(pub(crate) SyntaxNode);
 impl Function {
   pub fn name(&self) -> Option<SyntaxToken> {
     self
@@ -151,20 +152,17 @@ impl Function {
   }
 }
 
+impl From<FunctionDef> for Function {
+  fn from(function_def: FunctionDef) -> Self {
+    Self(function_def.0)
+  }
+}
+
 #[derive(Debug)]
 pub struct FunctionCall(SyntaxNode);
 impl FunctionCall {
-  pub fn name(&self) -> Option<SyntaxToken> {
-    self
-      .0
-      .children_with_tokens()
-      .find(|node_or_token| node_or_token.kind() == SyntaxKind::VariableReference)
-      .unwrap()
-      .into_node()
-      .unwrap()
-      .children_with_tokens()
-      .filter_map(SyntaxElement::into_token)
-      .find(|token| token.kind() == SyntaxKind::Identifier)
+  pub fn func(&self) -> Option<Expr> {
+    self.0.children().find_map(Expr::cast)
   }
 
   pub fn args(&self) -> impl Iterator<Item = Expr> {

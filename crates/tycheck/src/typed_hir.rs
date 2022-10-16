@@ -3,7 +3,7 @@ use std::fmt::Display;
 use hir::DatabaseIdx;
 use rustc_hash::FxHashMap;
 
-use crate::{typed_db::TypedDatabaseIdx, Stmt};
+use crate::{scope::Scope, typed_db::TypedDatabaseIdx, Stmt};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Ty {
@@ -12,22 +12,24 @@ pub enum Ty {
   Boolean(Option<bool>),
   Array(Option<Vec<Ty>>),
   Object(Option<FxHashMap<String, Ty>>),
-  Function(Option<Box<Ty>>),
+  Function {
+    params: Vec<Ty>,
+    ret: Option<Box<Ty>>,
+  },
   Generic,
   Error,
 }
 
 impl Ty {
   pub fn has_value(&self) -> bool {
-    matches!(
-      self,
-      | Ty::Number(Some(_))
-      | Ty::String(Some(_))
+    matches!(self, |Ty::Number(Some(_))| Ty::String(Some(_))
       | Ty::Boolean(Some(_))
       | Ty::Array(Some(_))
       | Ty::Object(Some(_))
-      | Ty::Function(Some(_))
-    )
+      | Ty::Function {
+        params: _,
+        ret: Some(_)
+      })
   }
 }
 
@@ -57,13 +59,26 @@ impl Display for Ty {
         }
         write!(f, "}}")
       }
-      Ty::Function(Some(ty)) => write!(f, "f () -> {}", ty),
+      Ty::Function { params, ret } => {
+        write!(f, "(")?;
+        for (i, ty) in params.iter().enumerate() {
+          write!(f, "{}", ty)?;
+          if i < params.len() - 1 {
+            write!(f, ", ")?;
+          }
+        }
+        write!(f, ") -> ")?;
+        if let Some(ret) = ret {
+          write!(f, "{}", ret)
+        } else {
+          write!(f, "???")
+        }
+      }
       Ty::Number(None) => write!(f, "number"),
       Ty::String(None) => write!(f, "string"),
       Ty::Boolean(None) => write!(f, "boolean"),
       Ty::Array(None) => write!(f, "array"),
       Ty::Object(None) => write!(f, "object"),
-      Ty::Function(None) => write!(f, "function"),
       Ty::Generic => write!(f, "generic"),
       Ty::Error => write!(f, "error"),
     }
@@ -133,12 +148,13 @@ pub enum TypedExpr {
     params: FxHashMap<String, TypedDatabaseIdx>,
     body: TypedDatabaseIdx,
     body_hir: DatabaseIdx,
+    closure_scope: Scope,
     ty: Ty,
   },
   FunctionCall {
-    name: Option<String>,
     args: Vec<TypedDatabaseIdx>,
     def: TypedDatabaseIdx,
+    ret: TypedDatabaseIdx,
     ty: Ty,
   },
   Unresolved,
@@ -170,7 +186,9 @@ pub enum BinaryOp {
   Sub,
   Mul,
   Div,
+
   Eq,
+  Neq,
 }
 
 impl Display for BinaryOp {
@@ -181,6 +199,7 @@ impl Display for BinaryOp {
       BinaryOp::Mul => write!(f, "*"),
       BinaryOp::Div => write!(f, "/"),
       BinaryOp::Eq => write!(f, "==="),
+      BinaryOp::Neq => write!(f, "!=="),
     }
   }
 }
@@ -193,6 +212,7 @@ impl From<&hir::BinaryOp> for BinaryOp {
       hir::BinaryOp::Mul => Self::Mul,
       hir::BinaryOp::Div => Self::Div,
       hir::BinaryOp::Eq => Self::Eq,
+      hir::BinaryOp::Neq => Self::Neq,
     }
   }
 }

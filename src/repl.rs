@@ -1,7 +1,7 @@
+use codegen::js::JsGenerator;
 use parser::parse;
 use rustyline::{self, error::ReadlineError, Result};
 use tycheck::TyCheck;
-use codegen::js::JsGenerator;
 
 #[derive(Debug, Default)]
 struct ReplSession {
@@ -18,11 +18,7 @@ impl ReplSession {
   }
 
   pub fn code(&self) -> String {
-    let stmts = self
-      .statements
-      .clone()
-      .into_iter()
-      .collect::<Vec<String>>();
+    let stmts = self.statements.clone().into_iter().collect::<Vec<String>>();
     stmts.join("\n")
   }
 

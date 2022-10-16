@@ -299,6 +299,4 @@ mod tests {
     let parse = parse("let [x, y] = [1, 2];");
     insta::assert_snapshot!(&parse.debug_tree());
   }
-
-  
 }

@@ -36,6 +36,7 @@ impl<'tycheck> JsGenerator<'tycheck> {
             body,
             body_hir,
             ty,
+            closure_scope: _,
           } => (name, params, body, body_hir, ty),
           _ => unreachable!(),
         };
@@ -65,33 +66,37 @@ impl<'tycheck> JsGenerator<'tycheck> {
           format!("{}", var)
         }
       }
-      TypedExpr::FunctionCall {
-        def,
-        args,
-        ty,
-        name,
-        ..
-      } => {
+      TypedExpr::FunctionCall { def, args, ty, ret } => {
         if ty.has_value() {
           format!("{}", ty)
         } else {
           let args = args
-          .iter()
-          .map(|a| self.generate_expr(a))
-          .collect::<Vec<_>>()
-          .join(", ");
+            .iter()
+            .map(|a| self.generate_expr(a))
+            .collect::<Vec<_>>()
+            .join(", ");
 
-        let name = match name {
-          Some(s) => s.clone(),
-          None => "".to_string(),
-        };
+          let lhs = match self.tycheck.ty_db.expr(def) {
+            TypedExpr::FunctionDef { name, .. } => match name {
+              Some(s) => s.clone(),
+              None => "".to_string(),
+            },
+            TypedExpr::VariableRef { var, .. } => var.clone(),
+            _ => {
+              let expr = self.tycheck.ty_db.expr(def);
+              expr.ty().to_string()
+            }
+          };
 
-        format!("{}({})", name, args)
+          format!("{}({})", lhs, args)
         }
       }
       TypedExpr::Number { val: Some(val) } => val.to_string(),
       TypedExpr::Number { val } => todo!(),
-      TypedExpr::String { val } => todo!(),
+      TypedExpr::String { val } => match val {
+        Some(s) => format!("\"{}\"", s),
+        None => format!("\"\""),
+      },
       TypedExpr::Boolean { val } => todo!(),
       TypedExpr::Array { vals, ty } => {
         if ty.has_value() {
@@ -106,7 +111,7 @@ impl<'tycheck> JsGenerator<'tycheck> {
             .join(", ");
           format!("[{}]", vals)
         }
-      },
+      }
       TypedExpr::Binary { op, lhs, rhs, ty } => {
         if ty.has_value() {
           format!("{}", ty)
@@ -115,7 +120,7 @@ impl<'tycheck> JsGenerator<'tycheck> {
           let rhs = self.generate_expr(rhs);
           format!("{} {} {}", lhs, op, rhs)
         }
-      },
+      }
       TypedExpr::Unary { op, expr, ty } => todo!(),
       TypedExpr::Block { stmts, ty } => todo!(),
       TypedExpr::FunctionDef {
@@ -124,7 +129,21 @@ impl<'tycheck> JsGenerator<'tycheck> {
         body,
         body_hir,
         ty,
-      } => todo!(),
+        closure_scope,
+      } => {
+        if ty.has_value() {
+          format!("{}", ty)
+        } else {
+          let params: Vec<String> = params.iter().map(|(k, v)| k.clone()).collect();
+          let params = params.join(", ");
+          let body = self.generate_expr(body);
+          let name = match name {
+            Some(s) => s.clone(),
+            None => "".to_string(),
+          };
+          format!("function {}({}) {{ return {}; }}", name, params, body)
+        }
+      }
       TypedExpr::Unresolved => todo!(),
       TypedExpr::Error => todo!(),
     };

@@ -55,9 +55,7 @@ impl TyCheck {
             value,
           }
         }
-        Stmt::FunctionDef { name, params, body } => {
-          self.infer_function_def(scope, name, params, body)
-        }
+        Stmt::FunctionDef { name, value } => self.infer_function_def(scope, name, value),
         Stmt::Expr(expr_idx) => TypedStmt::Expr(self.infer_expr(scope, expr_idx)),
       },
       Either::Right(expr_idx) => TypedStmt::Expr(self.infer_expr(scope, expr_idx)),
@@ -82,12 +80,10 @@ impl TyCheck {
       Expr::Boolean { b } => TypedExpr::Boolean { val: Some(*b) },
       Expr::Binary { op, lhs, rhs } => return self.infer_binary(scope, op, lhs, rhs),
       Expr::Unary { op, expr } => return self.infer_unary(scope, op, expr),
-      Expr::Function { name, params, body } => todo!("function declaration expressions"),
-      Expr::FunctionCall { name: None, args } => todo!("anonymous function invocations"),
-      Expr::FunctionCall {
-        name: Some(name),
-        args,
-      } => return self.infer_function_call(scope, name, args),
+      Expr::Function { name, params, body } => {
+        return self.infer_function(scope, name, params, body)
+      }
+      Expr::FunctionCall { args, func } => return self.infer_function_call(scope, func, args),
       Expr::Array { vals } => return self.infer_array(scope, vals),
       Expr::Missing => {
         todo!("Handle expression missing")
@@ -96,11 +92,7 @@ impl TyCheck {
     self.ty_db.alloc(expr)
   }
 
-  fn infer_array(
-    &mut self,
-    scope: &mut Scope,
-    vals: &[DatabaseIdx],
-  ) -> TypedDatabaseIdx {
+  fn infer_array(&mut self, scope: &mut Scope, vals: &[DatabaseIdx]) -> TypedDatabaseIdx {
     let (vals, tys): (Vec<TypedDatabaseIdx>, Vec<Ty>) = vals
       .iter()
       .map(|val| {
@@ -111,7 +103,10 @@ impl TyCheck {
       .unzip();
 
     let ty = Ty::Array(Some(tys));
-    let expr = TypedExpr::Array { vals: Some(vals), ty };
+    let expr = TypedExpr::Array {
+      vals: Some(vals),
+      ty,
+    };
     self.ty_db.alloc(expr)
   }
 
@@ -119,11 +114,117 @@ impl TyCheck {
     &mut self,
     scope: &mut Scope,
     name: &str,
-    params: &[String],
-    body: &DatabaseIdx,
+    value: &DatabaseIdx,
   ) -> TypedStmt {
-    scope.push_frame();
+    let (params, body) = match self.hir_db.get_expr(value).clone() {
+      Expr::Function {
+        name: _,
+        params,
+        body,
+      } => (params, body),
+      _ => unreachable!("Function definition must be a function"),
+    };
 
+    let func_def = TypedStmt::FunctionDef {
+      name: name.to_string(),
+      value: self.infer_function(scope, &Some(name.to_string()), &params, &body),
+    };
+
+    func_def
+  }
+
+  fn infer_function_call(
+    &mut self,
+    scope: &mut Scope,
+    lhs: &DatabaseIdx,
+    args: &Vec<DatabaseIdx>,
+  ) -> TypedDatabaseIdx {
+    let lhs = self.infer_expr(scope, lhs);
+    self.infer_function_call_impl(scope, &lhs, args)
+  }
+
+  fn infer_function_call_impl(
+    &mut self,
+    scope: &mut Scope,
+    lhs: &TypedDatabaseIdx,
+    args: &Vec<DatabaseIdx>,
+  ) -> TypedDatabaseIdx {
+    let lhs_expr = self.ty_db.expr(&lhs);
+
+    match lhs_expr.clone() {
+      TypedExpr::VariableRef { var, ty: _ } => match self.ty_db.definition(&var).cloned() {
+        Some(def) => self.infer_function_call_impl(scope, def.value(), args),
+        None => {
+          self
+            .diagnostics
+            .push_error(format!("Undefined variable `{}`", var));
+          self.ty_db.alloc(TypedExpr::Error)
+        }
+      },
+      TypedExpr::FunctionCall {
+        args: _,
+        def: _,
+        ret,
+        ty: _,
+      } => self.infer_function_call_impl(scope, &ret, args),
+      TypedExpr::FunctionDef {
+        name,
+        params,
+        body,
+        body_hir,
+        ty: _,
+        closure_scope,
+      } => {
+        if args.len() != params.len() {
+          self.diagnostics.push_error(format!(
+            "function `{}` expected {} arguments, but got {}",
+            name.unwrap_or("".to_string()),
+            params.len(),
+            args.len()
+          ));
+          return self.ty_db.alloc(TypedExpr::Error);
+        }
+        let scope = &mut scope.extend_frames(&closure_scope);
+        let args_iter = args.iter().map(|arg| self.infer_expr(scope, arg));
+        let params: FxHashMap<String, TypedDatabaseIdx> = params
+          .iter()
+          .zip(args_iter)
+          .map(|((name, _), arg)| (name.clone(), arg))
+          .collect();
+
+        scope.push_frame();
+        scope.define_args(&params);
+        let body = self.infer_expr(scope, &body_hir);
+        let expr = TypedExpr::FunctionCall {
+          args: params.clone().values().copied().collect(),
+          ty: self.ty_db.expr(&body).ty(),
+          ret: body,
+          def: *lhs,
+        };
+        scope.pop_frame();
+        self.ty_db.alloc(expr)
+      }
+      // An error here means the user probably typo'd
+      TypedExpr::Error => {
+        self
+          .diagnostics
+          .push_error(format!("Cannot call `{:?}`", self.ty_db.expr(&lhs)));
+        self.ty_db.alloc(TypedExpr::Error)
+      }
+      _ => {
+        todo!("recursive")
+        // self.infer_function_call_impl(scope, lhs, args)
+      }
+    }
+  }
+
+  fn infer_function(
+    &mut self,
+    scope: &mut Scope,
+    name: &Option<String>,
+    params: &Vec<String>,
+    body: &DatabaseIdx,
+  ) -> TypedDatabaseIdx {
     let params: FxHashMap<String, TypedDatabaseIdx> = params
       .iter()
       .map(|name| {
@@ -136,85 +237,24 @@ impl TyCheck {
       })
       .collect();
 
+    scope.push_frame();
     scope.define_args(&params);
     let body_idx = self.infer_expr(scope, body);
     let body_ty = self.ty_db.expr(&body_idx).ty();
-    let func_def = TypedStmt::FunctionDef {
-      name: name.to_string(),
-      value: self.ty_db.alloc(TypedExpr::FunctionDef {
-        name: Some(name.to_string()),
-        params,
-        body: body_idx,
-        body_hir: *body,
-        ty: if body_ty.has_value() {
-          body_ty
-        } else {
-          Ty::Function(None)
-        },
-      }),
+
+    let expr = TypedExpr::FunctionDef {
+      name: name.clone(),
+      params: params.clone(),
+      body: body_idx,
+      body_hir: *body,
+      closure_scope: scope.clone(),
+      ty: Ty::Function {
+        ret: Some(Box::new(body_ty)),
+        params: (0..params.len()).map(|_| Ty::Generic).collect(),
+      },
     };
     scope.pop_frame();
-    func_def
-  }
-
-  fn infer_function_call(
-    &mut self,
-    scope: &mut Scope,
-    name: &str,
-    args: &Vec<DatabaseIdx>,
-  ) -> TypedDatabaseIdx {
-    match self.ty_db.definition(name).cloned() {
-      Some(TypedStmt::FunctionDef { name: _, value }) => {
-        if let TypedExpr::FunctionDef {
-          name: Some(name),
-          params,
-          body: _,
-          body_hir,
-          ty: _,
-        } = self.ty_db.expr(&value).clone()
-        {
-          if args.len() != params.len() {
-            self.diagnostics.push_error(format!(
-              "function `{}` expected {} arguments, but got {}",
-              name,
-              params.len(),
-              args.len()
-            ));
-            return self.ty_db.alloc(TypedExpr::Error);
-          }
-          let args_iter = args.iter().map(|arg| self.infer_expr(scope, arg));
-          let params: FxHashMap<String, TypedDatabaseIdx> = params
-            .iter()
-            .zip(args_iter)
-            .map(|((name, _), arg)| (name.clone(), arg))
-            .collect();
-
-          scope.push_frame();
-          scope.define_args(&params);
-
-          let body = self.infer_expr(scope, &body_hir);
-
-          let expr = TypedExpr::FunctionCall {
-            name: Some(name),
-            args: params.clone().values().copied().collect(),
-            ty: self.ty_db.expr(&body).ty(),
-            def: value,
-          };
-          scope.pop_frame();
-          self.ty_db.alloc(expr)
-        } else {
-          // invariant: TypedStmt::FunctionDef's should always have a value that points to a TypedExpr::FunctionDef
-          unreachable!()
-        }
-      }
-      // An error here means the user probably typo'd
-      _ => {
-        self
-          .diagnostics
-          .push_error(format!("function `{}` not found", name));
-        self.ty_db.alloc(TypedExpr::Error)
-      }
-    }
+    self.ty_db.alloc(expr)
   }
 
   fn infer_unary(
@@ -226,34 +266,34 @@ impl TyCheck {
     let expr = self.infer_expr(scope, expr);
     let expr_ty = self.ty_db.expr(&expr).ty();
     let ty = match op {
-      hir::UnaryOp::Neg => {
-        match expr_ty {
-          Ty::Number(Some(n)) => Ty::Number(Some(-n)),
-          Ty::Number(None) => Ty::Number(None),
-          _ => {
-            self.diagnostics.push_error(format!(
-              "cannot apply unary operator `-` to type `{}`",
-              expr_ty
-            ));
-            Ty::Error
-          }
+      hir::UnaryOp::Neg => match expr_ty {
+        Ty::Number(Some(n)) => Ty::Number(Some(-n)),
+        Ty::Number(None) => Ty::Number(None),
+        _ => {
+          self.diagnostics.push_error(format!(
+            "cannot apply unary operator `-` to type `{}`",
+            expr_ty
+          ));
+          Ty::Error
         }
-      }
-      hir::UnaryOp::Not => {
-        match expr_ty {
-          Ty::Boolean(Some(b)) => Ty::Boolean(Some(!b)),
-          Ty::Boolean(None) => Ty::Boolean(None),
-          _ => {
-            self.diagnostics.push_error(format!(
-              "cannot apply unary operator `!` to type `{}`",
-              expr_ty
-            ));
-            Ty::Error
-          }
+      },
+      hir::UnaryOp::Not => match expr_ty {
+        Ty::Boolean(Some(b)) => Ty::Boolean(Some(!b)),
+        Ty::Boolean(None) => Ty::Boolean(None),
+        _ => {
+          self.diagnostics.push_error(format!(
+            "cannot apply unary operator `!` to type `{}`",
+            expr_ty
+          ));
+          Ty::Error
         }
-      }
+      },
     };
-    self.ty_db.alloc(TypedExpr::Unary { op: op.into(), expr, ty })
+    self.ty_db.alloc(TypedExpr::Unary {
+      op: op.into(),
+      expr,
+      ty,
+    })
   }
 
   /// Infererence rules:
@@ -316,10 +356,23 @@ impl TyCheck {
         (Ty::Boolean(Some(lhs)), Ty::Boolean(Some(rhs))) => Ty::Boolean(Some(lhs == rhs)),
         (Ty::Array(Some(lhs)), Ty::Array(Some(rhs))) => Ty::Boolean(Some(lhs == rhs)),
         (Ty::Array(_), Ty::Array(_)) => Ty::Boolean(None),
-        (Ty::Function(Some(lhs)), Ty::Function(Some(rhs))) => Ty::Boolean(Some(lhs == rhs)),
-        (Ty::Function(_), Ty::Function(_)) => Ty::Boolean(None),
+        (Ty::Function { ret: Some(lhs), .. }, Ty::Function { ret: Some(rhs), .. }) => Ty::Boolean(Some(lhs == rhs)),
+        (Ty::Function { ret: None, .. }, Ty::Function { ret: None, .. }) => Ty::Boolean(None),
         (Ty::Generic, Ty::Generic) => Ty::Boolean(None),
-        _ => Ty::Generic,
+        _ => Ty::Boolean(Some(false)),
+      },
+      hir::BinaryOp::Neq => match (lhs_ty, rhs_ty) {
+        (Ty::Number(Some(lhs)), Ty::Number(Some(rhs))) => Ty::Boolean(Some(lhs != rhs)),
+        (Ty::Number(_), Ty::Number(_)) => Ty::Boolean(None),
+        (Ty::String(Some(lhs)), Ty::String(Some(rhs))) => Ty::Boolean(Some(lhs != rhs)),
+        (Ty::String(_), Ty::String(_)) => Ty::Boolean(None),
+        (Ty::Boolean(Some(lhs)), Ty::Boolean(Some(rhs))) => Ty::Boolean(Some(lhs != rhs)),
+        (Ty::Array(Some(lhs)), Ty::Array(Some(rhs))) => Ty::Boolean(Some(lhs != rhs)),
+        (Ty::Array(_), Ty::Array(_)) => Ty::Boolean(None),
+        (Ty::Function { ret: Some(lhs), .. }, Ty::Function { ret: Some(rhs), .. }) => Ty::Boolean(Some(lhs != rhs)),
+        (Ty::Function { ret: None, .. }, Ty::Function { ret: None, .. }) => Ty::Boolean(None),
+        (Ty::Generic, Ty::Generic) => Ty::Boolean(None),
+        _ => Ty::Boolean(Some(true)),
       },
     };
     self.ty_db.alloc(TypedExpr::Binary { op: op.into(), lhs: lhs_idx, rhs: rhs_idx, ty })

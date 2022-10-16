@@ -34,7 +34,7 @@ pub enum Expr {
     body: Idx<Self>,
   },
   FunctionCall {
-    name: Option<String>,
+    func: Idx<Self>,
     args: Vec<Idx<Self>>,
   },
   Array {
@@ -51,6 +51,7 @@ pub enum BinaryOp {
   Div,
 
   Eq,
+  Neq,
 }
 
 #[derive(Debug, Clone)]

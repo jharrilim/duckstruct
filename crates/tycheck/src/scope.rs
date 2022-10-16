@@ -4,14 +4,17 @@ use crate::typed_db::TypedDatabaseIdx;
 
 /// A frame is created whenever a new scope is entered. This happens for things
 /// like blocks, functions, and loops.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Frame {
   #[allow(unused)]
   debug_name: String,
+  id: usize,
   #[allow(unused)]
   imports: FxHashMap<String, TypedDatabaseIdx>,
   defs: FxHashMap<String, TypedDatabaseIdx>,
   args: FxHashMap<String, TypedDatabaseIdx>,
+  /// used for identifying anonymous functions
+  anon_counter: usize,
 }
 
 impl Frame {
@@ -26,7 +29,7 @@ impl Frame {
 /// A scope is a stack of frames. The top frame is the current scope. We can use
 /// this to resolve variables and functions in the current scope, and in the
 /// correct order.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Scope {
   frames: Vec<Frame>,
 }
@@ -48,14 +51,42 @@ impl Scope {
   }
 
   pub fn push_frame(&mut self) {
-    self.frames.push(Frame {
+    self.frames.push(self.new_frame());
+  }
+
+  fn new_frame(&self) -> Frame {
+    Frame {
       debug_name: format!("frame {}", self.frames.len() - 1),
+      id: self.frames.len() - 1,
       ..Frame::default()
-    });
+    }
   }
 
   pub fn pop_frame(&mut self) -> Option<Frame> {
     self.frames.pop()
+  }
+
+  pub fn extend_frames(&self, other: &Scope) -> Scope {
+    let mut scope = self.clone();
+    for frame in other.frames.iter().rev() {
+      let new_frame = scope.new_frame();
+      scope.frames.push(Frame {
+        debug_name: new_frame.debug_name,
+        id: new_frame.id,
+        ..frame.clone()
+      });
+    }
+    scope.frames.extend(other.frames.iter().cloned());
+    scope
+  }
+
+  pub fn anonymous_function_name(&mut self) -> String {
+    let frame = self.current_frame();
+    // Starting this with a special symbol prevents collisions with user-defined
+    // functions since they can't use those symbols.
+    let name = format!("<>__anon__<{},{}>", frame.id, frame.anon_counter);
+    self.current_frame_mut().anon_counter += 1;
+    name
   }
 
   pub fn define(&mut self, name: String, idx: TypedDatabaseIdx) {
