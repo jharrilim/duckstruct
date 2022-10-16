@@ -327,4 +327,10 @@ mod tests {
     let code = "let [x, y] = [1, 2];";
     parse_snapshot!(code);
   }
+
+  #[test]
+  fn parse_function_as_an_argument() {
+    let code = "foo(f(x) = x + 1)";
+    parse_snapshot!(code);
+  }
 }

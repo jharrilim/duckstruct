@@ -133,8 +133,8 @@ impl<'tycheck> JsGenerator<'tycheck> {
         ty,
         closure_scope,
       } => {
-        if ty.has_value() {
-          format!("{}", ty)
+        if self.tycheck.ty_db.expr(body).ty().has_value() {
+          format!("{}", self.tycheck.ty_db.expr(body).ty())
         } else {
           let params: Vec<String> = params.iter().map(|(k, v)| k.clone()).collect();
           let params = params.join(", ");

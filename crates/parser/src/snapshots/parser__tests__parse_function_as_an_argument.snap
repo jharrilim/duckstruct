@@ -1,0 +1,31 @@
+---
+source: crates/parser/src/lib.rs
+expression: "&parse.debug_tree()"
+info:
+  code: foo(f(x) = x + 1)
+---
+Root@0..17
+  FunctionCallExpression@0..17
+    VariableReference@0..3
+      Identifier@0..3 "foo"
+    ArgumentList@3..17
+      LeftParenthesis@3..4 "("
+      AnonymousFunctionExpression@4..16
+        Function@4..5 "f"
+        ArgumentList@5..9
+          LeftParenthesis@5..6 "("
+          VariableReference@6..7
+            Identifier@6..7 "x"
+          RightParenthesis@7..8 ")"
+          Whitespace@8..9 " "
+        Equals@9..10 "="
+        Whitespace@10..11 " "
+        InfixExpression@11..16
+          VariableReference@11..13
+            Identifier@11..12 "x"
+            Whitespace@12..13 " "
+          Plus@13..14 "+"
+          Whitespace@14..15 " "
+          Number@15..16
+            Number@15..16 "1"
+      RightParenthesis@16..17 ")"
