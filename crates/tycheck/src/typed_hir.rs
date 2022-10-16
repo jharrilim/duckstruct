@@ -37,7 +37,7 @@ impl Display for Ty {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     match self {
       Ty::Number(Some(n)) => write!(f, "{}", n),
-      Ty::String(Some(s)) => write!(f, "{}", s),
+      Ty::String(Some(s)) => write!(f, "'{}'", s),
       Ty::Boolean(Some(b)) => write!(f, "{}", b),
       Ty::Array(Some(a)) => {
         write!(f, "[")?;
