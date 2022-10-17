@@ -1,7 +1,14 @@
 use codegen::js::JsGenerator;
 use parser::parse;
-use rustyline::{self, error::ReadlineError, Result};
+use rustyline::{self, error::ReadlineError, validate::MatchingBracketValidator, Result};
+use rustyline_derive::*;
 use tycheck::TyCheck;
+
+#[derive(Completer, Helper, Highlighter, Hinter, Validator)]
+struct InputValidator {
+  #[rustyline(Validator)]
+  pub brackets: MatchingBracketValidator,
+}
 
 #[derive(Debug, Default)]
 struct ReplSession {
@@ -41,6 +48,7 @@ impl ReplSession {
 
     let hir_db = hir::lower(root);
     let mut tycheck = TyCheck::new(hir_db);
+    
     tycheck.infer();
 
     if tycheck.diagnostics.has_errors() {
@@ -59,6 +67,7 @@ impl ReplSession {
 
     if let Some(def) = tycheck.ty_db.definition("") {
       let val = tycheck.ty_db.expr(def.value());
+      println!("{:#?}", tycheck);
       println!("{}", val.ty());
     }
   }
@@ -68,7 +77,11 @@ pub fn repl() -> Result<()> {
   let mut session = ReplSession {
     statements: Vec::new(),
   };
-  let mut rl = rustyline::Editor::<()>::new()?;
+  let validator = InputValidator {
+    brackets: MatchingBracketValidator::new(),
+  };
+  let mut rl = rustyline::Editor::new()?;
+  rl.set_helper(Option::Some(validator));
 
   println!("Duckstruct 🐣 (v0.0.1)");
   println!("Type exit to quit.");
@@ -83,7 +96,6 @@ pub fn repl() -> Result<()> {
           session.clear();
           continue;
         }
-
         rl.add_history_entry(line.as_str());
 
         // quick hack to only store statements in session
