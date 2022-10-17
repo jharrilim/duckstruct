@@ -67,7 +67,6 @@ impl ReplSession {
 
     if let Some(def) = tycheck.ty_db.definition("") {
       let val = tycheck.ty_db.expr(def.value());
-      println!("{:#?}", tycheck);
       println!("{}", val.ty());
     }
   }

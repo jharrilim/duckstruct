@@ -315,7 +315,7 @@ pub(crate) fn conditional_expr(p: &mut Parser) -> CompletedMarker {
   conditional_expr_marker.complete(p, SyntaxKind::ConditionalExpression)
 }
 
-pub(crate) fn array_expr(p: &mut Parser) -> CompletedMarker {
+pub(crate) fn array_literal(p: &mut Parser) -> CompletedMarker {
   p.expect(TokenKind::LeftBracket);
   let m = p.start();
   p.bump();
@@ -334,4 +334,46 @@ pub(crate) fn array_expr(p: &mut Parser) -> CompletedMarker {
       }
     }
   }
+}
+
+pub(crate) fn object_literal(p: &mut Parser) -> CompletedMarker {
+  p.expect(TokenKind::DoubleLeftBrace);
+  let m = p.start();
+  p.bump();
+
+  loop {
+    match p.peek() {
+      Some(TokenKind::DoubleRightBrace) => {
+        p.bump();
+        break m.complete(p, SyntaxKind::ObjectExpression);
+      }
+      None => {
+        p.expected(TokenKind::DoubleRightBrace);
+      }
+      _ => {
+        object_field(p);
+        if p.peek() == Some(TokenKind::Comma) {
+          p.bump();
+        }
+      }
+    }
+  }
+}
+
+fn object_field(p: &mut Parser) -> CompletedMarker {
+  p.expect(TokenKind::Identifier);
+  let m = p.start();
+  {
+    let m = p.start();
+    p.bump();
+    m.complete(p, SyntaxKind::ObjectFieldKey);
+  }
+  p.expect(TokenKind::Colon);
+  p.bump();
+  {
+    let m = p.start();
+    expr(p);
+    m.complete(p, SyntaxKind::ObjectFieldValue);
+  }
+  m.complete(p, SyntaxKind::ObjectField)
 }

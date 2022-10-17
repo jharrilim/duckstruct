@@ -1,6 +1,6 @@
 use la_arena::Idx;
 
-use crate::Stmt;
+use crate::{Stmt, db::FxIndexMap};
 
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -44,6 +44,9 @@ pub enum Expr {
     condition: Idx<Self>,
     then_branch: Idx<Self>,
     else_branch: Idx<Self>,
+  },
+  Object {
+    fields: FxIndexMap<String, Idx<Self>>,
   },
   Missing,
 }

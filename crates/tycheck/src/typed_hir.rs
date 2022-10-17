@@ -1,9 +1,8 @@
 use std::fmt::Display;
 
 use hir::DatabaseIdx;
-use rustc_hash::FxHashMap;
 
-use crate::{scope::Scope, typed_db::TypedDatabaseIdx};
+use crate::{scope::Scope, typed_db::{TypedDatabaseIdx, FxIndexMap}};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Ty {
@@ -11,7 +10,7 @@ pub enum Ty {
   String(Option<String>),
   Boolean(Option<bool>),
   Array(Option<Vec<Ty>>),
-  Object(Option<FxHashMap<String, Ty>>),
+  Object(Option<FxIndexMap<String, Ty>>),
   Function {
     params: Vec<Ty>,
     ret: Option<Box<Ty>>,
@@ -217,7 +216,7 @@ pub enum TypedExpr {
   },
   FunctionDef {
     name: Option<String>,
-    params: FxHashMap<String, TypedDatabaseIdx>,
+    params: FxIndexMap<String, TypedDatabaseIdx>,
     body: TypedDatabaseIdx,
     body_hir: DatabaseIdx,
     closure_scope: Scope,
@@ -233,6 +232,10 @@ pub enum TypedExpr {
     condition: TypedDatabaseIdx,
     then_branch: TypedDatabaseIdx,
     else_branch: TypedDatabaseIdx,
+    ty: Ty,
+  },
+  Object {
+    fields: FxIndexMap<String, TypedDatabaseIdx>,
     ty: Ty,
   },
   Unresolved,
@@ -253,6 +256,7 @@ impl TypedExpr {
       Self::FunctionDef { ty, .. } => ty.clone(),
       Self::FunctionCall { ty, .. } => ty.clone(),
       Self::Conditional { ty, .. } => ty.clone(),
+      Self::Object { ty, .. } => ty.clone(),
       Self::Unresolved => Ty::Generic,
       Self::Error => Ty::Error,
     }

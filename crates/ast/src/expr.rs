@@ -15,6 +15,7 @@ pub enum Expr {
   FunctionCall(FunctionCall),
   Block(Block),
   Array(Array),
+  Object(Object),
   Conditional(Conditional),
 }
 
@@ -36,6 +37,7 @@ impl Expr {
       SyntaxKind::BlockExpression => Self::Block(Block(node)),
       SyntaxKind::ArrayExpression => Self::Array(Array(node)),
       SyntaxKind::ConditionalExpression => Self::Conditional(Conditional(node)),
+      SyntaxKind::ObjectExpression => Self::Object(Object(node)),
       _ => return None,
     };
 
@@ -233,6 +235,34 @@ impl Conditional {
       .children()
       .find(|t| t.kind() == SyntaxKind::ElseCondition)
       .and_then(|t| t.first_child())
+      .and_then(Expr::cast)
+  }
+}
+
+#[derive(Debug, Clone)]
+pub struct Object(SyntaxNode);
+impl Object {
+  pub fn fields(&self) -> impl Iterator<Item = (String, Option<Expr>)> + '_{
+    self.0.children().filter(|c| c.kind() == SyntaxKind::ObjectField)
+      .map(|c| {
+        let key = self.key(&c);
+        let value = self.value(&c);
+        (key, value)
+      })
+  }
+
+  fn key(&self, object_field_node: &SyntaxNode) -> String {
+    object_field_node.children().find(|c| c.kind() == SyntaxKind::ObjectFieldKey)
+      .unwrap()
+      .first_token()
+      .unwrap()
+      .text()
+      .to_string()
+  }
+
+  fn value(&self, object_field_node: &SyntaxNode) -> Option<Expr> {
+    object_field_node.children().find(|c| c.kind() == SyntaxKind::ObjectFieldValue)
+      .and_then(|c| c.first_child())
       .and_then(Expr::cast)
   }
 }

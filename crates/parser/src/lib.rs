@@ -351,6 +351,34 @@ mod tests {
     parse_snapshot!(code);
   }
 
+  #[test]
+  fn parse_object_literal() {
+    let code = r#"
+      {{
+        x: 1,
+        y: "yes",
+        z: f(x) = x + 1,
+      }}
+    "#;
+    parse_snapshot!(code);
+  }
+
+  #[test]
+  fn parse_nested_object_literal() {
+    let code = r#"
+      {{
+        x: 1,
+        y: "yes",
+        z: f(x) = x + 1,
+        a: {{
+          b: [2],
+          c: "no",
+        }}
+      }}
+    "#;
+    parse_snapshot!(code);
+  }
+
   mod error_tests {
     use super::*;
 

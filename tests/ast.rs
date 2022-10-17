@@ -48,3 +48,30 @@ fn test_ast_conditional_assignment() {
 
     assert!(cond.then_branch().is_some());
 }
+
+#[test]
+fn test_ast_object_literal() {
+    let ast = ast("let x = {{ a: 1, b: 2 }}");
+    assert_eq!(ast.stmts().count(), 1);
+
+    let stmt = ast.stmts().next();
+    assert!(stmt.is_some());
+
+    let stmt = stmt.unwrap();
+    assert!(stmt.expr().is_some());
+
+    let expr = stmt.expr().unwrap();
+    assert!(matches!(expr, ast::Expr::Object(_)));
+
+    let obj = match expr {
+      ast::Expr::Object(obj) => {
+        Some(obj)
+      },
+      _ => None,
+    };
+    assert!(obj.is_some());
+
+    let obj = obj.unwrap();
+
+    assert_eq!(obj.fields().count(), 2);
+}

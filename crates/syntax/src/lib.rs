@@ -31,6 +31,8 @@ pub enum SyntaxKind {
   Equals,
   LeftParenthesis,
   RightParenthesis,
+  DoubleLeftBrace,
+  DoubleRightBrace,
   LeftBrace,
   RightBrace,
   LeftBracket,
@@ -63,6 +65,10 @@ pub enum SyntaxKind {
   FunctionCallExpression,
   BlockExpression,
   ArrayExpression,
+  ObjectExpression,
+  ObjectField,
+  ObjectFieldKey,
+  ObjectFieldValue,
 }
 
 impl From<SyntaxKind> for rowan::SyntaxKind {
@@ -100,6 +106,8 @@ impl From<TokenKind> for SyntaxKind {
       TokenKind::Equals => Self::Equals,
       TokenKind::LeftParenthesis => Self::LeftParenthesis,
       TokenKind::RightParenthesis => Self::RightParenthesis,
+      TokenKind::DoubleLeftBrace => Self::DoubleLeftBrace,
+      TokenKind::DoubleRightBrace => Self::DoubleRightBrace,
       TokenKind::LeftBrace => Self::LeftBrace,
       TokenKind::RightBrace => Self::RightBrace,
       TokenKind::LeftBracket => Self::LeftBracket,

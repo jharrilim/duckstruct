@@ -5,7 +5,7 @@ use indexmap::IndexMap;
 use la_arena::{Arena, Idx};
 use rustc_hash::FxHasher;
 
-type FxIndexMap<K, V> = IndexMap<K, V, BuildHasherDefault<FxHasher>>;
+pub(crate) type FxIndexMap<K, V> = IndexMap<K, V, BuildHasherDefault<FxHasher>>;
 
 pub type TypedDatabaseIdx = Idx<TypedExpr>;
 pub type TyContext = FxIndexMap<String, TypedStmt>;

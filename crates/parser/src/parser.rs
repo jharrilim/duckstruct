@@ -90,6 +90,11 @@ impl<'l, 'input> Parser<'l, 'input> {
     self.error();
   }
 
+  pub(crate) fn expected(&mut self, expected: TokenKind) {
+    self.expected_kinds.push(expected);
+    self.error();
+  }
+
   pub(crate) fn peek(&mut self) -> Option<TokenKind> {
     self.source.peek_kind()
   }

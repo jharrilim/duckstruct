@@ -2,9 +2,8 @@ use std::rc::Rc;
 
 use crate::diagnostics::Diagnostics;
 use hir::{expr::Expr, stmt::Stmt, DatabaseIdx};
-use rustc_hash::FxHashMap;
 use crate::scope::Scope;
-use crate::typed_db::{TypedDatabase, TypedDatabaseIdx};
+use crate::typed_db::{TypedDatabase, TypedDatabaseIdx, FxIndexMap};
 use crate::typed_hir::{Ty, TypedExpr, TypedStmt};
 
 #[derive(Debug)]
@@ -84,11 +83,30 @@ impl TyCheck {
       Expr::Conditional { condition, then_branch, else_branch } => {
         return self.infer_conditional(scope, condition, then_branch, else_branch)
       },
+      Expr::Object { fields } => return self.infer_object(scope, fields),
       Expr::Missing => {
         todo!("Handle expression missing: {:?}", expr);
       }
     };
     self.ty_db.alloc(expr)
+  }
+
+  fn infer_object(
+    &mut self,
+    scope: &mut Scope,
+    fields: &FxIndexMap<String, DatabaseIdx>,
+  ) -> TypedDatabaseIdx {
+    let mut tys: FxIndexMap<String, Ty> = FxIndexMap::default();
+    let mut typed_fields: FxIndexMap<String, TypedDatabaseIdx> = FxIndexMap::default();
+
+    for (field, expr) in fields.iter() {
+      let expr = self.infer_expr(scope, expr);
+      let ty = self.ty_db.expr(&expr).ty();
+      
+      tys.insert(field.clone(), ty);
+      typed_fields.insert(field.clone(), expr);
+    }
+    self.ty_db.alloc(TypedExpr::Object { fields: typed_fields, ty: Ty::Object(Some(tys)) })
   }
 
   fn infer_conditional(
@@ -238,7 +256,7 @@ impl TyCheck {
         }
         let scope = &mut scope.extend_frames(&closure_scope);
         let args_iter = args.iter().map(|arg| self.infer_expr(scope, arg));
-        let params: FxHashMap<String, TypedDatabaseIdx> = params
+        let params: FxIndexMap<String, TypedDatabaseIdx> = params
           .iter()
           .zip(args_iter)
           .map(|((name, _), arg)| (name.clone(), arg))
@@ -304,7 +322,7 @@ impl TyCheck {
     params: &Vec<String>,
     body: &DatabaseIdx,
   ) -> TypedDatabaseIdx {
-    let params: FxHashMap<String, TypedDatabaseIdx> = params
+    let params: FxIndexMap<String, TypedDatabaseIdx> = params
       .iter()
       .map(|name| {
         (

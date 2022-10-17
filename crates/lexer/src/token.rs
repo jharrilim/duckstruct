@@ -28,6 +28,12 @@ pub enum TokenKind {
   #[token("while")]
   While,
 
+  #[token("{{")]
+  DoubleLeftBrace,
+
+  #[token("}}")]
+  DoubleRightBrace,
+
   #[token("{")]
   LeftBrace,
 
@@ -160,6 +166,8 @@ impl fmt::Display for TokenKind {
       Self::Equals => "'='",
       Self::LeftParenthesis => "'('",
       Self::RightParenthesis => "')'",
+      Self::DoubleLeftBrace => "'{{'",
+      Self::DoubleRightBrace => "'}}'",
       Self::LeftBrace => "'{'",
       Self::RightBrace => "'}'",
       Self::LeftBracket => "'['",
@@ -286,5 +294,15 @@ mod tests {
   #[test]
   fn lex_comment() {
     check("// im a comment", TokenKind::Comment);
+  }
+
+  #[test]
+  fn lex_double_left_brace() {
+    check("{{", TokenKind::DoubleLeftBrace);
+  }
+
+  #[test]
+  fn lex_double_right_brace() {
+    check("}}", TokenKind::DoubleRightBrace);
   }
 }

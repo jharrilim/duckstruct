@@ -10,7 +10,7 @@ use la_arena::{Arena, Idx};
 use rustc_hash::FxHasher;
 use syntax::SyntaxKind;
 
-type FxIndexMap<K, V> = IndexMap<K, V, BuildHasherDefault<FxHasher>>;
+pub(crate) type FxIndexMap<K, V> = IndexMap<K, V, BuildHasherDefault<FxHasher>>;
 
 #[derive(Debug, Default)]
 pub struct Database {
@@ -87,10 +87,20 @@ impl Database {
         ast::Expr::Block(ast) => self.lower_block(ast),
         ast::Expr::Array(ast) => self.lower_array(ast),
         ast::Expr::Conditional(ast) => self.lower_conditional(ast),
+        ast::Expr::Object(ast) => self.lower_object(ast),
       }
     } else {
       self.exprs.alloc(Expr::Missing)
     }
+  }
+
+  fn lower_object(&mut self, ast: ast::expr::Object) -> DatabaseIdx {
+    let mut fields = FxIndexMap::default();
+    for (key, value) in ast.fields() {
+      let value = self.lower_expr(value);
+      fields.insert(key, value);
+    }
+    self.exprs.alloc(Expr::Object { fields })
   }
 
   fn lower_conditional(&mut self, ast: ast::expr::Conditional) -> DatabaseIdx {

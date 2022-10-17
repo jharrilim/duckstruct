@@ -1,6 +1,6 @@
 use rustc_hash::FxHashMap;
 
-use crate::typed_db::TypedDatabaseIdx;
+use crate::typed_db::{TypedDatabaseIdx, FxIndexMap};
 
 /// A frame is created whenever a new scope is entered. This happens for things
 /// like blocks, functions, and loops.
@@ -94,11 +94,11 @@ impl Scope {
   }
 
   /// Defines variables for the current frame in scope.
-  pub fn define_all(&mut self, defs: &FxHashMap<String, TypedDatabaseIdx>) {
+  pub fn define_all(&mut self, defs: &FxIndexMap<String, TypedDatabaseIdx>) {
     self.current_frame_mut().defs.extend(defs.clone());
   }
 
-  pub fn define_args(&mut self, args: &FxHashMap<String, TypedDatabaseIdx>) {
+  pub fn define_args(&mut self, args: &FxIndexMap<String, TypedDatabaseIdx>) {
     self.current_frame_mut().args.extend(args.clone());
   }
 

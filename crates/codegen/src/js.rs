@@ -163,6 +163,18 @@ impl<'tycheck> JsGenerator<'tycheck> {
           format!("{} ? {} : {}", condition, then_branch, else_branch)
         }
       }
+      TypedExpr::Object { fields, ty } => {
+        if ty.has_value() {
+          format!("{}", ty)
+        } else {
+          let fields = fields
+            .iter()
+            .map(|(k, v)| format!("{}: {}", k, self.generate_expr(v)))
+            .collect::<Vec<_>>()
+            .join(", ");
+          format!("{{{}}}", fields)
+        }
+      }
       TypedExpr::Unresolved => todo!(),
       TypedExpr::Error => todo!(),
     };
