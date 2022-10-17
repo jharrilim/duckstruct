@@ -345,6 +345,12 @@ mod tests {
     parse_snapshot!(code);
   }
 
+  #[test]
+  fn parse_expression_with_many_different_precedences() {
+    let code = "-(x + -y * z - 1 / 2)";
+    parse_snapshot!(code);
+  }
+
   mod error_tests {
     use super::*;
 

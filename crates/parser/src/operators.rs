@@ -42,8 +42,10 @@ pub(crate) enum PrefixOp {
 impl PrefixOp {
   pub fn binding_power(&self) -> ((), u8) {
     match self {
+      Self::LParen => ((), 5),
       Self::Not => ((), 12),
-      Self::Neg | Self::LParen => ((), 5),
+      // As a prefix, negation binds the highest, as it is considered a part of the number
+      Self::Neg => ((), 13),
     }
   }
 }
