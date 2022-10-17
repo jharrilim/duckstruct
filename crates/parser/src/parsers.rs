@@ -1,3 +1,6 @@
+/// This is where all of the parser's parslets live. Each parslet describes
+/// the structure of a particular kind of expression or statement.
+
 use lexer::token::TokenKind;
 use syntax::SyntaxKind;
 
@@ -6,8 +9,6 @@ use crate::marker::{CompletedMarker, Marker};
 use crate::operators::PrefixOp;
 use crate::parser::Parser;
 use crate::statements;
-
-// be nice if these returned a parse result instead
 
 pub(super) fn number_literal(p: &mut Parser) -> CompletedMarker {
   p.expect(TokenKind::Number);
@@ -41,7 +42,7 @@ pub(super) fn variable_ref(p: &mut Parser) -> CompletedMarker {
   m.complete(p, SyntaxKind::VariableReference)
 }
 
-pub(super) fn prefix_expr(p: &mut Parser) -> CompletedMarker {
+pub(super) fn negation_expr(p: &mut Parser) -> CompletedMarker {
   p.expect(TokenKind::Minus);
 
   let m = p.start();
@@ -54,7 +55,23 @@ pub(super) fn prefix_expr(p: &mut Parser) -> CompletedMarker {
 
   expr_binding_power(p, right_binding_power);
 
-  m.complete(p, SyntaxKind::PrefixExpression)
+  m.complete(p, SyntaxKind::UnaryExpression)
+}
+
+pub(super) fn not_expr(p: &mut Parser) -> CompletedMarker {
+  p.expect(TokenKind::Bang);
+
+  let m = p.start();
+
+  let op = PrefixOp::Not;
+  let ((), right_binding_power) = op.binding_power();
+
+  // Eat the operator’s token.
+  p.bump();
+
+  expr_binding_power(p, right_binding_power);
+
+  m.complete(p, SyntaxKind::UnaryExpression)
 }
 
 pub(super) fn paren_expr(p: &mut Parser) -> CompletedMarker {

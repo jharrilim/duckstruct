@@ -250,13 +250,6 @@ mod tests {
   }
 
   #[test]
-  fn err_let_stmt() {
-    let code = "let x =\nlet y = 1";
-    let parsed = parse(code);
-    assert_eq!(parsed.errors.len(), 1);
-  }
-
-  #[test]
   fn parse_function_call() {
     let code = "foo()";
     parse_snapshot!(code);
@@ -332,5 +325,49 @@ mod tests {
   fn parse_function_as_an_argument() {
     let code = "foo(f(x) = x + 1)";
     parse_snapshot!(code);
+  }
+
+  #[test]
+  fn parse_unary_negation() {
+    let code = "-x";
+    parse_snapshot!(code);
+  }
+
+  #[test]
+  fn parse_unary_not() {
+    let code = "!x";
+    parse_snapshot!(code);
+  }
+
+  #[test]
+  fn parse_unary_not_higher_precedence_than_and() {
+    let code = "!x && y";
+    parse_snapshot!(code);
+  }
+
+  mod error_tests {
+    use super::*;
+
+    #[test]
+    fn parse_error_on_incomplete_let_statement() {
+      let code = "let x =\nlet y = 1";
+      let parsed = parse(code);
+      println!("{:?}", parsed.errors);
+      assert_eq!(parsed.errors.len(), 1);
+    }
+
+    #[test]
+    fn parse_error_on_lone_binary_op() {
+      let code = "+";
+      let parsed = parse(code);
+      assert_eq!(parsed.errors.len(), 1);
+    }
+
+    #[test]
+    fn parse_error_on_dangling_binary_op() {
+      let code = "1 /";
+      let parsed = parse(code);
+      assert_eq!(parsed.errors.len(), 1);
+    }
   }
 }

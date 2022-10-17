@@ -26,7 +26,7 @@ impl Expr {
       SyntaxKind::String => Self::StringLit(Str(node)),
       SyntaxKind::Boolean => Self::BooleanLit(Boolean(node)),
       SyntaxKind::ParenExpression => Self::ParenExpr(ParenExpr(node)),
-      SyntaxKind::PrefixExpression => Self::UnaryExpr(UnaryExpr(node)),
+      SyntaxKind::UnaryExpression => Self::UnaryExpr(UnaryExpr(node)),
       SyntaxKind::VariableReference => Self::VariableRef(VariableRef(node)),
       SyntaxKind::AnonymousFunction => Self::Function(Function(node)),
       SyntaxKind::AnonymousFunctionExpression => Self::Function(Function(node)),
@@ -122,7 +122,7 @@ impl UnaryExpr {
       .0
       .children_with_tokens()
       .filter_map(SyntaxElement::into_token)
-      .find(|token| token.kind() == SyntaxKind::Minus)
+      .find(|token| matches!(token.kind(), SyntaxKind::Minus | SyntaxKind::Bang))
   }
 }
 

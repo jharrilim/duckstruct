@@ -45,7 +45,7 @@ pub enum SyntaxKind {
   Root,
   InfixExpression,
   ParenExpression,
-  PrefixExpression,
+  UnaryExpression,
   LetStatement,
   ConditionalExpression,
   ConditionalPredicate,

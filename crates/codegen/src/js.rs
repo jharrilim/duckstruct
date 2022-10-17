@@ -123,7 +123,14 @@ impl<'tycheck> JsGenerator<'tycheck> {
           format!("{} {} {}", lhs, op, rhs)
         }
       }
-      TypedExpr::Unary { op, expr, ty } => todo!(),
+      TypedExpr::Unary { op, expr, ty } => {
+        if ty.has_value() {
+          format!("{}", ty)
+        } else {
+          let expr = self.generate_expr(expr);
+          format!("{}{}", op, expr)
+        }
+      }
       TypedExpr::Block { stmts, ty } => todo!(),
       TypedExpr::FunctionDef {
         name,

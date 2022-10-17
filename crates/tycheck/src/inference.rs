@@ -262,8 +262,6 @@ impl TyCheck {
         let args_iter = args.iter().map(|arg| self.infer_expr(scope, arg));
         let args: Vec<TypedDatabaseIdx> = args_iter.collect();
 
-        scope.push_frame();
-
         let expr = TypedExpr::FunctionCall {
           args,
           ty: Ty::Generic,
@@ -271,6 +269,7 @@ impl TyCheck {
           ret: *lhs,
           def: *lhs,
         };
+        scope.pop_frame();
         self.ty_db.alloc(expr)
       }
       TypedExpr::Block { stmts, ty: _ } => {
@@ -360,6 +359,13 @@ impl TyCheck {
       hir::UnaryOp::Not => match expr_ty {
         Ty::Boolean(Some(b)) => Ty::Boolean(Some(!b)),
         Ty::Boolean(None) => Ty::Boolean(None),
+        Ty::Number(Some(n)) => Ty::Boolean(Some(n == 0.0)),
+        Ty::Number(None) => Ty::Boolean(None),
+        Ty::String(Some(s)) => Ty::Boolean(Some(s.is_empty())),
+        Ty::String(None) => Ty::Boolean(None),
+        Ty::Array(_) => Ty::Boolean(Some(false)),
+        Ty::Object(_) => Ty::Boolean(Some(false)),
+        Ty::Generic => Ty::Boolean(None),
         _ => {
           self.diagnostics.push_error(format!(
             "cannot apply unary operator `!` to type `{}`",
