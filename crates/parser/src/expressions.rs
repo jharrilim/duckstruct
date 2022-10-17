@@ -49,7 +49,11 @@ pub(super) fn expr_binding_power(
         let m = lhs.precede(p);
         p.bump();
         p.expect(TokenKind::Identifier);
-        p.bump();
+        {
+          let m = p.start();
+          p.bump();
+          m.complete(p, SyntaxKind::ObjectFieldKey);
+        }
         lhs = m.complete(p, SyntaxKind::ObjectFieldAccessExpression);
       },
       _ => {

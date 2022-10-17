@@ -84,11 +84,40 @@ impl TyCheck {
         return self.infer_conditional(scope, condition, then_branch, else_branch)
       },
       Expr::Object { fields } => return self.infer_object(scope, fields),
+      Expr::ObjectFieldAccess { object, field } => return self.infer_object_field_access(scope, object, field),
       Expr::Missing => {
         todo!("Handle expression missing: {:?}", expr);
       }
     };
     self.ty_db.alloc(expr)
+  }
+
+  fn infer_object_field_access(&mut self, scope: &mut Scope, object: &DatabaseIdx, field: &str) -> TypedDatabaseIdx {
+    let object = self.infer_expr(scope, object);
+    let object_ty = self.ty_db.expr(&object).ty();
+    let field_ty = match object_ty {
+      Ty::Object(Some(fields)) => {
+        match fields.get(field) {
+          Some(ty) => ty.clone(),
+          None => {
+            self.diagnostics.push_error(format!("Object does not have field `{}`", field));
+            Ty::Error
+          }
+        }
+      }
+      Ty::Object(None) => {
+        todo!("handle object with unknown fields");
+      }
+      _ => {
+        self.diagnostics.push_error(format!("Cannot access field `{}` on non-object type", field));
+        Ty::Error
+      }
+    };
+    self.ty_db.alloc(TypedExpr::ObjectFieldAccess {
+      object,
+      field: field.to_string(),
+      ty: field_ty,
+    })
   }
 
   fn infer_object(

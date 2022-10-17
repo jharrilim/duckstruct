@@ -48,6 +48,10 @@ pub enum Expr {
   Object {
     fields: FxIndexMap<String, Idx<Self>>,
   },
+  ObjectFieldAccess {
+    object: Idx<Self>,
+    field: String,
+  },
   Missing,
 }
 

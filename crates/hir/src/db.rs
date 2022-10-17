@@ -88,10 +88,19 @@ impl Database {
         ast::Expr::Array(ast) => self.lower_array(ast),
         ast::Expr::Conditional(ast) => self.lower_conditional(ast),
         ast::Expr::Object(ast) => self.lower_object(ast),
+        ast::Expr::ObjectFieldAccess(ast) => self.lower_object_field_access(ast),
       }
     } else {
       self.exprs.alloc(Expr::Missing)
     }
+  }
+
+  fn lower_object_field_access(&mut self, ast: ast::expr::ObjectFieldAccess) -> DatabaseIdx {
+    let object = self.lower_expr(ast.object());
+    self.exprs.alloc(Expr::ObjectFieldAccess {
+      object,
+      field: ast.field(),
+    })
   }
 
   fn lower_object(&mut self, ast: ast::expr::Object) -> DatabaseIdx {

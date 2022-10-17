@@ -238,6 +238,11 @@ pub enum TypedExpr {
     fields: FxIndexMap<String, TypedDatabaseIdx>,
     ty: Ty,
   },
+  ObjectFieldAccess {
+    object: TypedDatabaseIdx,
+    field: String,
+    ty: Ty,
+  },
   Unresolved,
   Error,
 }
@@ -257,6 +262,7 @@ impl TypedExpr {
       Self::FunctionCall { ty, .. } => ty.clone(),
       Self::Conditional { ty, .. } => ty.clone(),
       Self::Object { ty, .. } => ty.clone(),
+      Self::ObjectFieldAccess { ty, .. } => ty.clone(),
       Self::Unresolved => Ty::Generic,
       Self::Error => Ty::Error,
     }

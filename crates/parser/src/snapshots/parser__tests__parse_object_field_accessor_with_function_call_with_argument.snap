@@ -10,7 +10,8 @@ Root@0..6
       VariableReference@0..1
         Identifier@0..1 "x"
       Period@1..2 "."
-      Identifier@2..3 "y"
+      ObjectFieldKey@2..3
+        Identifier@2..3 "y"
     ArgumentList@3..6
       LeftParenthesis@3..4 "("
       Number@4..5

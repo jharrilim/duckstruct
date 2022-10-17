@@ -9,4 +9,5 @@ Root@0..3
     VariableReference@0..1
       Identifier@0..1 "x"
     Period@1..2 "."
-    Identifier@2..3 "y"
+    ObjectFieldKey@2..3
+      Identifier@2..3 "y"

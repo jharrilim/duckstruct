@@ -16,7 +16,8 @@ Root@0..29
             String@6..13 "\"world\""
           RightParenthesis@13..14 ")"
       Period@14..15 "."
-      Identifier@15..27 "to_uppercase"
+      ObjectFieldKey@15..27
+        Identifier@15..27 "to_uppercase"
     ArgumentList@27..29
       LeftParenthesis@27..28 "("
       RightParenthesis@28..29 ")"

@@ -175,6 +175,14 @@ impl<'tycheck> JsGenerator<'tycheck> {
           format!("{{{}}}", fields)
         }
       }
+      TypedExpr::ObjectFieldAccess { object, field, ty } => {
+        if ty.has_value() {
+          format!("{}", ty)
+        } else {
+          let object = self.generate_expr(object);
+          format!("{}.{}", object, field)
+        }
+      }
       TypedExpr::Unresolved => todo!(),
       TypedExpr::Error => todo!(),
     };

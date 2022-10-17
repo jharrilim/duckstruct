@@ -16,6 +16,7 @@ pub enum Expr {
   Block(Block),
   Array(Array),
   Object(Object),
+  ObjectFieldAccess(ObjectFieldAccess),
   Conditional(Conditional),
 }
 
@@ -38,6 +39,7 @@ impl Expr {
       SyntaxKind::ArrayExpression => Self::Array(Array(node)),
       SyntaxKind::ConditionalExpression => Self::Conditional(Conditional(node)),
       SyntaxKind::ObjectExpression => Self::Object(Object(node)),
+      SyntaxKind::ObjectFieldAccessExpression => Self::ObjectFieldAccess(ObjectFieldAccess(node)),
       _ => return None,
     };
 
@@ -242,8 +244,11 @@ impl Conditional {
 #[derive(Debug, Clone)]
 pub struct Object(SyntaxNode);
 impl Object {
-  pub fn fields(&self) -> impl Iterator<Item = (String, Option<Expr>)> + '_{
-    self.0.children().filter(|c| c.kind() == SyntaxKind::ObjectField)
+  pub fn fields(&self) -> impl Iterator<Item = (String, Option<Expr>)> + '_ {
+    self
+      .0
+      .children()
+      .filter(|c| c.kind() == SyntaxKind::ObjectField)
       .map(|c| {
         let key = self.key(&c);
         let value = self.value(&c);
@@ -252,7 +257,9 @@ impl Object {
   }
 
   fn key(&self, object_field_node: &SyntaxNode) -> String {
-    object_field_node.children().find(|c| c.kind() == SyntaxKind::ObjectFieldKey)
+    object_field_node
+      .children()
+      .find(|c| c.kind() == SyntaxKind::ObjectFieldKey)
       .unwrap()
       .first_token()
       .unwrap()
@@ -261,8 +268,36 @@ impl Object {
   }
 
   fn value(&self, object_field_node: &SyntaxNode) -> Option<Expr> {
-    object_field_node.children().find(|c| c.kind() == SyntaxKind::ObjectFieldValue)
+    object_field_node
+      .children()
+      .find(|c| c.kind() == SyntaxKind::ObjectFieldValue)
       .and_then(|c| c.first_child())
       .and_then(Expr::cast)
+  }
+}
+
+/// ObjectFieldAccessExpression@0..3
+///   VariableReference@0..1
+///     Identifier@0..1 "x"
+///    Period@1..2 "."
+///    ObjectFieldKey@2..3
+///      Identifier@2..3 "y"
+#[derive(Debug, Clone)]
+pub struct ObjectFieldAccess(SyntaxNode);
+impl ObjectFieldAccess {
+  pub fn object(&self) -> Option<Expr> {
+    self.0.children().find_map(Expr::cast)
+  }
+
+  pub fn field(&self) -> String {
+    self
+      .0
+      .children()
+      .find(|c| c.kind() == SyntaxKind::ObjectFieldKey)
+      .unwrap()
+      .first_token()
+      .unwrap()
+      .text()
+      .to_string()
   }
 }
