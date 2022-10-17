@@ -69,6 +69,7 @@ pub enum SyntaxKind {
   ObjectField,
   ObjectFieldKey,
   ObjectFieldValue,
+  ObjectFieldAccessExpression,
 }
 
 impl From<SyntaxKind> for rowan::SyntaxKind {

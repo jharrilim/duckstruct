@@ -379,6 +379,36 @@ mod tests {
     parse_snapshot!(code);
   }
 
+  #[test]
+  fn parse_object_field_accessor() {
+    let code = "x.y";
+    parse_snapshot!(code);
+  }
+
+  #[test]
+  fn parse_object_field_accessor_with_function_call() {
+    let code = "x.y()";
+    parse_snapshot!(code);
+  }
+
+  #[test]
+  fn parse_object_field_accessor_with_function_call_with_argument() {
+    let code = "x.y(1)";
+    parse_snapshot!(code);
+  }
+
+  #[test]
+  fn parse_object_field_accessor_multiple() {
+    let code = "x.y.z";
+    parse_snapshot!(code);
+  }
+
+  #[test]
+  fn parse_object_field_accessor_on_function_call_expression() {
+    let code = "hello(\"world\").to_uppercase()";
+    parse_snapshot!(code);
+  }
+
   mod error_tests {
     use super::*;
 

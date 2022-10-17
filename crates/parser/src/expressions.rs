@@ -29,6 +29,7 @@ pub(super) fn expr_binding_power(
       Some(TokenKind::And) => InfixOp::And,
       Some(TokenKind::Or) => InfixOp::Or,
       Some(TokenKind::LeftParenthesis) => InfixOp::LParen,
+      Some(TokenKind::Period) => InfixOp::Dot,
       _ => break,
     };
 
@@ -43,7 +44,14 @@ pub(super) fn expr_binding_power(
         let m = lhs.precede(p);
         parsers::argument_list(p);
         lhs = m.complete(p, SyntaxKind::FunctionCallExpression);
-      }
+      },
+      InfixOp::Dot => {
+        let m = lhs.precede(p);
+        p.bump();
+        p.expect(TokenKind::Identifier);
+        p.bump();
+        lhs = m.complete(p, SyntaxKind::ObjectFieldAccessExpression);
+      },
       _ => {
         p.bump();
         if p.at_end() {

@@ -13,6 +13,7 @@ pub(crate) enum InfixOp {
   And,
   Or,
   LParen, // For function calls
+  Dot,
 }
 
 impl InfixOp {
@@ -29,6 +30,7 @@ impl InfixOp {
       Self::Add | Self::Sub => (7, 8),
       Self::Mul | Self::Div => (9, 10),
       Self::LParen => (11, 11),
+      Self::Dot => (12, 13),
     }
   }
 }
