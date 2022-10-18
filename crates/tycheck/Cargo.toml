@@ -6,7 +6,5 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+data-structures = { path = "../data-structures" }
 hir = { path = "../hir" }
-la-arena = "0.2.1"
-rustc-hash = "1.1.0"
-indexmap = "1.9.1"

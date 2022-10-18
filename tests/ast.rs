@@ -6,7 +6,7 @@ fn ast(code: &str) -> Root {
 }
 
 #[test]
-fn test_ast_number_literal() {
+fn ast_number_literal() {
     let ast = ast("1");
     assert_eq!(ast.stmts().count(), 1);
 
@@ -21,7 +21,7 @@ fn test_ast_number_literal() {
 }
 
 #[test]
-fn test_ast_conditional_assignment() {
+fn ast_conditional_assignment() {
     let ast = ast("let x = if true { 1 } else { 2 }");
     assert_eq!(ast.stmts().count(), 1);
 
@@ -50,7 +50,7 @@ fn test_ast_conditional_assignment() {
 }
 
 #[test]
-fn test_ast_object_literal() {
+fn ast_object_literal() {
     let ast = ast("let x = {{ a: 1, b: 2 }}");
     assert_eq!(ast.stmts().count(), 1);
 
@@ -77,7 +77,7 @@ fn test_ast_object_literal() {
 }
 
 #[test]
-fn test_ast_object_field_access() {
+fn ast_object_field_access() {
     let ast = ast("let x = {{ a: 1, b: 2 }}.a");
     assert_eq!(ast.stmts().count(), 1);
 

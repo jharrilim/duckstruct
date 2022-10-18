@@ -1,6 +1,6 @@
-use rustc_hash::FxHashMap;
+use data_structures::FxIndexMap;
 
-use crate::typed_db::{TypedDatabaseIdx, FxIndexMap};
+use crate::typed_db::TypedDatabaseIdx;
 
 /// A frame is created whenever a new scope is entered. This happens for things
 /// like blocks, functions, and loops.
@@ -10,9 +10,9 @@ pub struct Frame {
   debug_name: String,
   id: usize,
   #[allow(unused)]
-  imports: FxHashMap<String, TypedDatabaseIdx>,
-  defs: FxHashMap<String, TypedDatabaseIdx>,
-  args: FxHashMap<String, TypedDatabaseIdx>,
+  imports: FxIndexMap<String, TypedDatabaseIdx>,
+  defs: FxIndexMap<String, TypedDatabaseIdx>,
+  args: FxIndexMap<String, TypedDatabaseIdx>,
   /// used for identifying anonymous functions
   anon_counter: usize,
 }

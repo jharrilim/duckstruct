@@ -54,7 +54,7 @@ impl ReplSession {
     if tycheck.diagnostics.has_errors() {
       println!("{:#?}", tycheck);
       tycheck.diagnostics.print_errors();
-      if line.is_some() {
+      if line.map(|l| l.starts_with("f ") || l.starts_with("let ")).unwrap_or(false) {
         self.statements.pop();
       }
       return;

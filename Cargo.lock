@@ -77,6 +77,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "03746e0c6dd9b5d2d9132ffe0bede35fb5f815604fd371bb42599fd37bc8e483"
 
 [[package]]
+name = "data-structures"
+version = "0.1.0"
+dependencies = [
+ "indexmap",
+ "la-arena",
+ "rustc-hash",
+]
+
+[[package]]
 name = "dirs-next"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -115,6 +124,7 @@ version = "0.1.0"
 dependencies = [
  "ast",
  "codegen",
+ "data-structures",
  "expect-test",
  "hir",
  "lexer",
@@ -219,9 +229,7 @@ name = "hir"
 version = "0.1.0"
 dependencies = [
  "ast",
- "indexmap",
- "la-arena",
- "rustc-hash",
+ "data-structures",
  "syntax",
 ]
 
@@ -636,10 +644,8 @@ dependencies = [
 name = "tycheck"
 version = "0.1.0"
 dependencies = [
+ "data-structures",
  "hir",
- "indexmap",
- "la-arena",
- "rustc-hash",
 ]
 
 [[package]]

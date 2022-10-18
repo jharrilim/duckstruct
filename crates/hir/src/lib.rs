@@ -6,7 +6,7 @@ mod db;
 pub mod expr;
 pub mod stmt;
 
-pub type DatabaseIdx = la_arena::Idx<Expr>;
+pub type DatabaseIdx = data_structures::arena::Idx<Expr>;
 
 pub fn lower(ast: ast::Root) -> Database {
   let mut db = Database::default();

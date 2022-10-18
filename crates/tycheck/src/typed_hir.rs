@@ -1,8 +1,9 @@
 use std::fmt::Display;
 
+use data_structures::FxIndexMap;
 use hir::DatabaseIdx;
 
-use crate::{scope::Scope, typed_db::{TypedDatabaseIdx, FxIndexMap}};
+use crate::{scope::Scope, typed_db::TypedDatabaseIdx};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Ty {

@@ -1,11 +1,6 @@
-use std::hash::BuildHasherDefault;
-
 use crate::typed_hir::{TypedExpr, TypedStmt};
-use indexmap::IndexMap;
-use la_arena::{Arena, Idx};
-use rustc_hash::FxHasher;
-
-pub(crate) type FxIndexMap<K, V> = IndexMap<K, V, BuildHasherDefault<FxHasher>>;
+use data_structures::FxIndexMap;
+use data_structures::arena::{Arena, Idx};
 
 pub type TypedDatabaseIdx = Idx<TypedExpr>;
 pub type TyContext = FxIndexMap<String, TypedStmt>;
@@ -45,6 +40,11 @@ impl TypedDatabase {
 
   pub fn definition(&self, name: &str) -> Option<&TypedStmt> {
     self.defs.get(name)
+  }
+
+  pub fn definition_expr(&self, name: &str) -> Option<&TypedExpr> {
+    let def = self.definition(name);
+    def.map(|d| self.expr(d.value()))
   }
 
   pub fn defs_iter(&self) -> Vec<(&String, &TypedStmt)> {

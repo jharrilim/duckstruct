@@ -1,6 +1,6 @@
-use la_arena::Idx;
+use data_structures::{FxIndexMap, arena::Idx};
 
-use crate::{Stmt, db::FxIndexMap};
+use crate::Stmt;
 
 #[derive(Debug, Clone)]
 pub enum Expr {

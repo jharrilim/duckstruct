@@ -1,10 +1,11 @@
 use std::rc::Rc;
 
 use crate::diagnostics::Diagnostics;
-use hir::{expr::Expr, stmt::Stmt, DatabaseIdx};
 use crate::scope::Scope;
-use crate::typed_db::{TypedDatabase, TypedDatabaseIdx, FxIndexMap};
+use crate::typed_db::{TypedDatabase, TypedDatabaseIdx};
 use crate::typed_hir::{Ty, TypedExpr, TypedStmt};
+use data_structures::FxIndexMap;
+use hir::{expr::Expr, stmt::Stmt, DatabaseIdx};
 
 #[derive(Debug)]
 pub enum Either<A, B> {
@@ -80,11 +81,15 @@ impl TyCheck {
       }
       Expr::FunctionCall { args, func } => return self.infer_function_call(scope, func, args),
       Expr::Array { vals } => return self.infer_array(scope, vals),
-      Expr::Conditional { condition, then_branch, else_branch } => {
-        return self.infer_conditional(scope, condition, then_branch, else_branch)
-      },
+      Expr::Conditional {
+        condition,
+        then_branch,
+        else_branch,
+      } => return self.infer_conditional(scope, condition, then_branch, else_branch),
       Expr::Object { fields } => return self.infer_object(scope, fields),
-      Expr::ObjectFieldAccess { object, field } => return self.infer_object_field_access(scope, object, field),
+      Expr::ObjectFieldAccess { object, field } => {
+        return self.infer_object_field_access(scope, object, field)
+      }
       Expr::Missing => {
         todo!("Handle expression missing: {:?}", expr);
       }
@@ -92,24 +97,32 @@ impl TyCheck {
     self.ty_db.alloc(expr)
   }
 
-  fn infer_object_field_access(&mut self, scope: &mut Scope, object: &DatabaseIdx, field: &str) -> TypedDatabaseIdx {
+  fn infer_object_field_access(
+    &mut self,
+    scope: &mut Scope,
+    object: &DatabaseIdx,
+    field: &str,
+  ) -> TypedDatabaseIdx {
     let object = self.infer_expr(scope, object);
     let object_ty = self.ty_db.expr(&object).ty();
     let field_ty = match object_ty {
-      Ty::Object(Some(fields)) => {
-        match fields.get(field) {
-          Some(ty) => ty.clone(),
-          None => {
-            self.diagnostics.push_error(format!("Object does not have field `{}`", field));
-            Ty::Error
-          }
+      Ty::Object(Some(fields)) => match fields.get(field) {
+        Some(ty) => ty.clone(),
+        None => {
+          self
+            .diagnostics
+            .push_error(format!("Object does not have field `{}`", field));
+          Ty::Error
         }
-      }
+      },
       Ty::Object(None) => {
         todo!("handle object with unknown fields");
       }
       _ => {
-        self.diagnostics.push_error(format!("Cannot access field `{}` on non-object type", field));
+        self.diagnostics.push_error(format!(
+          "Cannot access field `{}` on non-object type",
+          field
+        ));
         Ty::Error
       }
     };
@@ -131,11 +144,14 @@ impl TyCheck {
     for (field, expr) in fields.iter() {
       let expr = self.infer_expr(scope, expr);
       let ty = self.ty_db.expr(&expr).ty();
-      
+
       tys.insert(field.clone(), ty);
       typed_fields.insert(field.clone(), expr);
     }
-    self.ty_db.alloc(TypedExpr::Object { fields: typed_fields, ty: Ty::Object(Some(tys)) })
+    self.ty_db.alloc(TypedExpr::Object {
+      fields: typed_fields,
+      ty: Ty::Object(Some(tys)),
+    })
   }
 
   fn infer_conditional(
@@ -153,7 +169,7 @@ impl TyCheck {
         } else {
           self.infer_expr(scope, else_branch)
         }
-      },
+      }
       Ty::Boolean(None) => {
         let then_branch = self.infer_expr(scope, then_branch);
         let else_branch = self.infer_expr(scope, else_branch);
@@ -176,8 +192,10 @@ impl TyCheck {
         };
         self.ty_db.alloc(expr)
       }
-      _ =>  {
-        self.diagnostics.push_error("Condition must be a boolean".to_string());
+      _ => {
+        self
+          .diagnostics
+          .push_error("Condition must be a boolean".to_string());
         let then_branch = self.ty_db.alloc(TypedExpr::Error);
         let else_branch = self.ty_db.alloc(TypedExpr::Error);
         self.ty_db.alloc(TypedExpr::Conditional {
@@ -319,11 +337,42 @@ impl TyCheck {
         scope.pop_frame();
         self.ty_db.alloc(expr)
       }
+      TypedExpr::ObjectFieldAccess {
+        object,
+        field,
+        ty: _,
+      } => match self.ty_db.expr(&object) {
+        TypedExpr::Object { fields, ty: _ } => match fields.get(&field) {
+          Some(field) => {
+            let field = field.clone();
+            self.infer_function_call_impl(scope, &field, args)
+          }
+          None => {
+            self
+              .diagnostics
+              .push_error(format!("Object does not have field `{}`", field));
+            self.ty_db.alloc(TypedExpr::Error)
+          }
+        },
+        _ => {
+          self
+            .diagnostics
+            .push_error(format!("Cannot call function on non-object"));
+          self.ty_db.alloc(TypedExpr::Error)
+        }
+      },
       TypedExpr::Block { stmts, ty: _ } => {
-        match stmts.last().and_then(|s| Some(self.ty_db.expr(s.value()).ty())) {
-          Some(Ty::Function { .. }) => self.infer_function_call_impl(scope, stmts.last().unwrap().value(), args),
+        match stmts
+          .last()
+          .and_then(|s| Some(self.ty_db.expr(s.value()).ty()))
+        {
+          Some(Ty::Function { .. }) => {
+            self.infer_function_call_impl(scope, stmts.last().unwrap().value(), args)
+          }
           _ => {
-            self.diagnostics.push_error("Cannot call `block` that does not return a function".to_string());
+            self
+              .diagnostics
+              .push_error("Cannot call `block` that does not return a function".to_string());
             self.ty_db.alloc(TypedExpr::Error)
           }
         }

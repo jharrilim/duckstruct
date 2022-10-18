@@ -8,6 +8,7 @@ edition = "2018"
 [dependencies]
 ast = { path = "./crates/ast" }
 codegen = { path = "./crates/codegen" }
+data-structures = { path = "./crates/data-structures" }
 hir = { path = "./crates/hir" }
 lexer = { path = "./crates/lexer" }
 parser = { path = "./crates/parser" }
