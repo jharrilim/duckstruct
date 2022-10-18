@@ -268,6 +268,9 @@ impl TyCheck {
   ) -> TypedDatabaseIdx {
     let lhs_expr = self.ty_db.expr(&lhs);
 
+    // TODO: This is working right now but it's totally wrong. Need to resolve
+    // the lhs into a function and then infer the args against the function.
+
     match lhs_expr.clone() {
       TypedExpr::VariableRef { var, ty: _ } => match scope.def(&var) {
         Some(def) => self.infer_function_call_impl(scope, &def, args),
@@ -342,6 +345,29 @@ impl TyCheck {
         field,
         ty: _,
       } => match self.ty_db.expr(&object) {
+        TypedExpr::VariableRef { var, ty } => match scope.def(var) {
+          Some(def) => {
+            match self.ty_db.expr(&def) {
+              TypedExpr::Object { fields, ty: _ } => {
+                let field = fields.get(&field).unwrap().clone();
+                self.infer_function_call_impl(scope, &field, args)
+              }
+              _ => {
+                self.diagnostics.push_error(format!(
+                  "Cannot call field `{}` on non-object type `{}`",
+                  field, ty
+                ));
+                self.ty_db.alloc(TypedExpr::Error)
+              }
+            }
+          },
+          None => {
+            self
+              .diagnostics
+              .push_error(format!("Undefined variable `{}`", var));
+            self.ty_db.alloc(TypedExpr::Error)
+          }
+        }
         TypedExpr::Object { fields, ty: _ } => match fields.get(&field) {
           Some(field) => {
             let field = field.clone();
@@ -357,7 +383,7 @@ impl TyCheck {
         _ => {
           self
             .diagnostics
-            .push_error(format!("Cannot call function on non-object"));
+            .push_error(format!("Cannot call function on non-object. {} {:#?}", field, object));
           self.ty_db.alloc(TypedExpr::Error)
         }
       },

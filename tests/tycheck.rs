@@ -152,4 +152,15 @@ mod expressions {
 
     expect_type_for_definition(&tycheck, "", Ty::Number(Some(2.0)));
   }
+
+  #[test]
+  fn tycheck_object_property_accessor_function_call() {
+    let code = "
+      let obj = {{ a: 1, b: f() = 2 }};
+      obj.b()
+    ";
+    let tycheck = tycheck(code);
+
+    expect_type_for_definition(&tycheck, "", Ty::Number(Some(2.0)));
+  }
 }
