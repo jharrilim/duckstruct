@@ -94,7 +94,7 @@ mod expressions {
 
   #[test]
   fn tycheck_function_with_constant_body() {
-    let code = "f() { 1 }";
+    let code = "f() = 1 ";
     let tycheck = tycheck(code);
 
     expect_type_for_definition(
@@ -120,5 +120,36 @@ mod expressions {
         ret: Some(Box::new(Ty::Generic)),
       },
     );
+  }
+
+  #[test]
+  fn tycheck_function_invocation() {
+    let code = "
+      f hello() { \"hello\" }
+      hello()
+    ";
+    let tycheck = tycheck(code);
+
+    expect_type_for_definition(
+      &tycheck,
+      "hello",
+      Ty::Function {
+        params: vec![],
+        ret: Some(Box::new(Ty::String(Some("hello".to_string())))),
+      },
+    );
+
+    expect_type_for_definition(&tycheck, "", Ty::String(Some("hello".to_string())));
+  }
+
+  #[test]
+  fn tycheck_object_property_accessor() {
+    let code = "
+      let obj = {{ a: 1, b: 2 }};
+      obj.b
+    ";
+    let tycheck = tycheck(code);
+
+    expect_type_for_definition(&tycheck, "", Ty::Number(Some(2.0)));
   }
 }
