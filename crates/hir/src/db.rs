@@ -171,6 +171,10 @@ impl Database {
       SyntaxKind::ForwardSlash => BinaryOp::Div,
       SyntaxKind::DoubleEquals => BinaryOp::Eq,
       SyntaxKind::NotEquals => BinaryOp::Neq,
+      SyntaxKind::LessThan => BinaryOp::Lt,
+      SyntaxKind::LessThanOrEqual => BinaryOp::Lte,
+      SyntaxKind::GreaterThan => BinaryOp::Gt,
+      SyntaxKind::GreaterThanOrEqual => BinaryOp::Gte,
       _ => unreachable!(),
     };
     let lhs = self.lower_expr(ast.lhs());

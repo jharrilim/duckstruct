@@ -68,7 +68,11 @@ impl BinaryExpr {
           | SyntaxKind::Asterisk
           | SyntaxKind::ForwardSlash
           | SyntaxKind::DoubleEquals
-          | SyntaxKind::NotEquals)
+          | SyntaxKind::NotEquals
+          | SyntaxKind::LessThan
+          | SyntaxKind::GreaterThan
+          | SyntaxKind::LessThanOrEqual
+          | SyntaxKind::GreaterThanOrEqual)
       })
   }
 }

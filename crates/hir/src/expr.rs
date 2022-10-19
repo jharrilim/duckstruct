@@ -64,6 +64,10 @@ pub enum BinaryOp {
 
   Eq,
   Neq,
+  Lt,
+  Lte,
+  Gt,
+  Gte,
 }
 
 #[derive(Debug, Clone)]

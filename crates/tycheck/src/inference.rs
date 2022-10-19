@@ -581,6 +581,34 @@ impl TyCheck {
         (Ty::Generic, Ty::Generic) => Ty::Boolean(None),
         _ => Ty::Boolean(Some(true)),
       },
+      hir::BinaryOp::Lt => match (lhs_ty, rhs_ty) {
+        (Ty::Number(Some(lhs)), Ty::Number(Some(rhs))) => Ty::Boolean(Some(lhs < rhs)),
+        (Ty::Number(_), Ty::Number(_)) => Ty::Boolean(None),
+        (Ty::String(Some(lhs)), Ty::String(Some(rhs))) => Ty::Boolean(Some(lhs < rhs)),
+        (Ty::String(_), Ty::String(_)) => Ty::Boolean(None),
+        _ => Ty::Boolean(None),
+      },
+      hir::BinaryOp::Lte => match (lhs_ty, rhs_ty) {
+        (Ty::Number(Some(lhs)), Ty::Number(Some(rhs))) => Ty::Boolean(Some(lhs <= rhs)),
+        (Ty::Number(_), Ty::Number(_)) => Ty::Boolean(None),
+        (Ty::String(Some(lhs)), Ty::String(Some(rhs))) => Ty::Boolean(Some(lhs <= rhs)),
+        (Ty::String(_), Ty::String(_)) => Ty::Boolean(None),
+        _ => Ty::Boolean(None),
+      },
+      hir::BinaryOp::Gt => match (lhs_ty, rhs_ty) {
+        (Ty::Number(Some(lhs)), Ty::Number(Some(rhs))) => Ty::Boolean(Some(lhs > rhs)),
+        (Ty::Number(_), Ty::Number(_)) => Ty::Boolean(None),
+        (Ty::String(Some(lhs)), Ty::String(Some(rhs))) => Ty::Boolean(Some(lhs > rhs)),
+        (Ty::String(_), Ty::String(_)) => Ty::Boolean(None),
+        _ => Ty::Boolean(None),
+      },
+      hir::BinaryOp::Gte => match (lhs_ty, rhs_ty) {
+        (Ty::Number(Some(lhs)), Ty::Number(Some(rhs))) => Ty::Boolean(Some(lhs >= rhs)),
+        (Ty::Number(_), Ty::Number(_)) => Ty::Boolean(None),
+        (Ty::String(Some(lhs)), Ty::String(Some(rhs))) => Ty::Boolean(Some(lhs >= rhs)),
+        (Ty::String(_), Ty::String(_)) => Ty::Boolean(None),
+        _ => Ty::Boolean(None),
+      },
     };
     self.ty_db.alloc(TypedExpr::Binary { op: op.into(), lhs: lhs_idx, rhs: rhs_idx, ty })
   }
