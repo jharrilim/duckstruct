@@ -6,9 +6,7 @@ use insta;
 
 pub fn codestub(path: &str) -> PathBuf{
   let root = env!("CARGO_MANIFEST_DIR");
-  let output = Path::new(root).join("tests/codestubs").join(path);
-  println!("codestub: {}", output.display());
-  output
+  Path::new(root).join("tests/codestubs").join(path)
 }
 
 #[derive(Serialize)]
