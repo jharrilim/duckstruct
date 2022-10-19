@@ -266,7 +266,7 @@ impl TyCheck {
     lhs: &TypedDatabaseIdx,
     args: &Vec<DatabaseIdx>,
   ) -> TypedDatabaseIdx {
-    let lhs_expr = self.ty_db.expr(&lhs);
+    let lhs_expr = self.ty_db.expr(lhs);
 
     // TODO: This is working right now but it's totally wrong. Need to resolve
     // the lhs into a function and then infer the args against the function.
@@ -298,7 +298,7 @@ impl TyCheck {
         if args.len() != params.len() {
           self.diagnostics.push_error(format!(
             "function `{}` expected {} arguments, but got {}",
-            name.unwrap_or("".to_string()),
+            name.unwrap_or_else(|| "".to_string()),
             params.len(),
             args.len()
           ));
@@ -348,7 +348,7 @@ impl TyCheck {
         TypedExpr::VariableRef { var, ty } => match scope.def(var) {
           Some(def) => match self.ty_db.expr(&def) {
             TypedExpr::Object { fields, ty: _ } => {
-              let field = fields.get(&field).unwrap().clone();
+              let field = *fields.get(&field).unwrap();
               self.infer_function_call_impl(scope, &field, args)
             }
             _ => {
@@ -389,7 +389,7 @@ impl TyCheck {
       TypedExpr::Block { stmts, ty: _ } => {
         match stmts
           .last()
-          .and_then(|s| Some(self.ty_db.expr(s.value()).ty()))
+          .map(|s| self.ty_db.expr(s.value()).ty())
         {
           Some(Ty::Function { .. }) => {
             self.infer_function_call_impl(scope, stmts.last().unwrap().value(), args)
@@ -406,13 +406,13 @@ impl TyCheck {
       TypedExpr::Error => {
         self
           .diagnostics
-          .push_error(format!("Cannot call `{:?}`", self.ty_db.expr(&lhs)));
+          .push_error(format!("Cannot call `{:?}`", self.ty_db.expr(lhs)));
         self.ty_db.alloc(TypedExpr::Error)
       }
       _ => {
         self
           .diagnostics
-          .push_error(format!("Cannot call `{:?}`", self.ty_db.expr(&lhs)));
+          .push_error(format!("Cannot call `{:?}`", self.ty_db.expr(lhs)));
         self.ty_db.alloc(TypedExpr::Error)
       }
     }
@@ -422,7 +422,7 @@ impl TyCheck {
     &mut self,
     scope: &mut Scope,
     name: &Option<String>,
-    params: &Vec<String>,
+    params: &[String],
     body: &DatabaseIdx,
   ) -> TypedDatabaseIdx {
     let params: FxIndexMap<String, TypedDatabaseIdx> = params
