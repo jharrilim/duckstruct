@@ -3,7 +3,7 @@
 /// Generate javascript code from the typed hir
 use tycheck::{
   typed_db::TypedDatabaseIdx,
-  typed_hir::{TypedExpr, TypedStmt},
+  typed_hir::{TypedExpr, TypedStmt, FunctionDef},
   TyCheck,
 };
 
@@ -32,14 +32,14 @@ impl<'tycheck> JsGenerator<'tycheck> {
       }
       TypedStmt::FunctionDef { name, value } => {
         let (name, params, body, body_hir, ty) = match self.tycheck.ty_db.expr(value) {
-          TypedExpr::FunctionDef {
+          TypedExpr::FunctionDef(FunctionDef {
             name,
             params,
             body,
             body_hir,
             ty,
             closure_scope: _,
-          } => (name, params, body, body_hir, ty),
+          }) => (name, params, body, body_hir, ty),
           _ => unreachable!(),
         };
         let params: Vec<String> = params.iter().map(|(k, v)| k.clone()).collect();
@@ -79,7 +79,7 @@ impl<'tycheck> JsGenerator<'tycheck> {
             .join(", ");
 
           let lhs = match self.tycheck.ty_db.expr(def) {
-            TypedExpr::FunctionDef { name, .. } => match name {
+            TypedExpr::FunctionDef(FunctionDef { name, .. }) => match name {
               Some(s) => s.clone(),
               None => "".to_string(),
             },
@@ -132,14 +132,14 @@ impl<'tycheck> JsGenerator<'tycheck> {
         }
       }
       TypedExpr::Block { stmts, ty } => todo!(),
-      TypedExpr::FunctionDef {
+      TypedExpr::FunctionDef(FunctionDef {
         name,
         params,
         body,
         body_hir,
         ty,
         closure_scope,
-      } => {
+      }) => {
         if self.tycheck.ty_db.expr(body).ty().has_value() {
           format!("{}", self.tycheck.ty_db.expr(body).ty())
         } else {

@@ -3,7 +3,7 @@ use std::rc::Rc;
 use crate::diagnostics::Diagnostics;
 use crate::scope::Scope;
 use crate::typed_db::{TypedDatabase, TypedDatabaseIdx};
-use crate::typed_hir::{Ty, TypedExpr, TypedStmt};
+use crate::typed_hir::{Ty, TypedExpr, TypedStmt, FunctionDef};
 use data_structures::FxIndexMap;
 use hir::{expr::Expr, stmt::Stmt, DatabaseIdx};
 
@@ -287,14 +287,14 @@ impl TyCheck {
         ret,
         ty: _,
       } => self.infer_function_call_impl(scope, &ret, args),
-      TypedExpr::FunctionDef {
+      TypedExpr::FunctionDef(FunctionDef {
         name,
         params,
         body: _,
         body_hir,
         ty: _,
         closure_scope,
-      } => {
+      }) => {
         if args.len() != params.len() {
           self.diagnostics.push_error(format!(
             "function `{}` expected {} arguments, but got {}",
@@ -443,7 +443,7 @@ impl TyCheck {
     let body_idx = self.infer_expr(scope, body);
     let body_ty = self.ty_db.expr(&body_idx).ty();
 
-    let expr = TypedExpr::FunctionDef {
+    let expr = TypedExpr::FunctionDef(FunctionDef {
       name: name.clone(),
       params: params.clone(),
       body: body_idx,
@@ -453,7 +453,7 @@ impl TyCheck {
         ret: Some(Box::new(body_ty)),
         params: (0..params.len()).map(|_| Ty::Generic).collect(),
       },
-    };
+    });
     scope.pop_frame();
     self.ty_db.alloc(expr)
   }
