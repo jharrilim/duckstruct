@@ -1,6 +1,6 @@
 use ast::Root;
 use data_structures::FxIndexMap;
-use hir;
+
 use parser::parse;
 use tycheck::{typed_hir::Ty, TyCheck};
 

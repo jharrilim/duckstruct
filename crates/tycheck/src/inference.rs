@@ -368,7 +368,7 @@ impl TyCheck {
         },
         TypedExpr::Object { fields, ty: _ } => match fields.get(&field) {
           Some(field) => {
-            let field = field.clone();
+            let field = *field;
             self.infer_function_call_impl(scope, &field, args)
           }
           None => {

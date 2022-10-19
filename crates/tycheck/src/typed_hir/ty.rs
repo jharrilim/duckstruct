@@ -72,10 +72,7 @@ impl Ty {
       Ty::Object(_) => Ty::Object(None),
       Ty::Function { params, ret } => Ty::Function {
         params: params.iter().map(|p| p.deconst()).collect(),
-        ret: match ret {
-          Some(ret) => Some(Box::new(ret.deconst())),
-          None => None,
-        },
+        ret: ret.as_ref().map(|r| Box::new(r.deconst())),
       },
       Ty::Generic => Ty::Generic,
       Ty::Error => Ty::Error,

@@ -65,7 +65,7 @@ impl<'tycheck> JsGenerator<'tycheck> {
         if ty.has_value() {
           format!("{}", ty)
         } else {
-          format!("{}", var)
+          var.to_string()
         }
       }
       TypedExpr::FunctionCall { def, args, ty, ret } => {
@@ -97,7 +97,7 @@ impl<'tycheck> JsGenerator<'tycheck> {
       TypedExpr::Number { val } => todo!(),
       TypedExpr::String { val } => match val {
         Some(s) => format!("\"{}\"", s),
-        None => format!("\"\""),
+        None => "\"\"".to_string(),
       },
       TypedExpr::Boolean { val } => todo!(),
       TypedExpr::Array { vals, ty } => {
