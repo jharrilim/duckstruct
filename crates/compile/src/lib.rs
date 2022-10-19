@@ -25,8 +25,8 @@ impl Compiler {
       None => return Err("Failed to generate AST from source".to_string()),
     };
     let hir = lower(ast);
-    let tycheck = TyCheck::new(hir);
-
+    let mut tycheck = TyCheck::new(hir);
+    tycheck.infer();
     Ok(JsGenerator::new(&tycheck).generate())
   }
 
@@ -36,6 +36,7 @@ impl Compiler {
     target: TargetLang
   ) -> Result<(), String> {
     let output_path = path.with_extension("js");
+    println!("{} => {}", path.display(), output_path.display());
     let source = match std::fs::read_to_string(path) {
       Ok(source) => source,
       Err(e) => return Err(format!("Failed to read file: {}", e)),

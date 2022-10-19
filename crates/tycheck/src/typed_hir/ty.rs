@@ -22,7 +22,6 @@ impl Ty {
     matches!(self, |Ty::Number(Some(_))| Ty::String(Some(_))
       | Ty::Boolean(Some(_))
       | Ty::Array(Some(_))
-      | Ty::Object(Some(_))
       | Ty::Function {
         params: _,
         ret: Some(_)

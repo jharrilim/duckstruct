@@ -17,9 +17,8 @@ fn main() -> Result<()> {
 
   match args.compile {
     Some(file_path) => {
-      println!("Compiling file: {}", file_path.display());
       match Compiler::new().compile_file(file_path, TargetLang::Javascript) {
-        Ok(()) => println!("Compilation successful"),
+        Ok(()) => {},
         Err(err) => println!("Compilation failed: {}", err),
       };
       Ok(())

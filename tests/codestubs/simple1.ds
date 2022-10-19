@@ -1,0 +1,7 @@
+let Person = f(name) = {{
+  name: name,
+}};
+
+let p = Person("duck");
+
+let greeting = "hello, " + p.name;

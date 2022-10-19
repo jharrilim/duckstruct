@@ -1,0 +1,9 @@
+---
+source: tests/compiler.rs
+expression: "&output"
+info:
+  file: simple1.ds
+---
+const Person = function (name) { return { name: name }; };
+const p = ("duck");
+const greeting = 'hello, duck';

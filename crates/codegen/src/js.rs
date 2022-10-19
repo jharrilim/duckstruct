@@ -161,18 +161,14 @@ impl<'tycheck> JsGenerator<'tycheck> {
         ty,
         closure_scope,
       }) => {
-        if self.tycheck.ty_db.expr(body).ty().has_value() {
-          format!("{}", self.tycheck.ty_db.expr(body).ty())
-        } else {
-          let params: Vec<String> = params.iter().map(|(k, v)| k.clone()).collect();
-          let params = params.join(", ");
-          let body = self.generate_expr(body);
-          let name = match name {
-            Some(s) => s.clone(),
-            None => "".to_string(),
-          };
-          format!("function {}({}) {{ return {}; }}", name, params, body)
-        }
+        let params: Vec<String> = params.iter().map(|(k, v)| k.clone()).collect();
+        let params = params.join(", ");
+        let body = self.generate_expr(body);
+        let name = match name {
+          Some(s) => s.clone(),
+          None => "".to_string(),
+        };
+        format!("function {}({}) {{ return {}; }}", name, params, body)
       }
       TypedExpr::Conditional {
         condition,
@@ -198,7 +194,7 @@ impl<'tycheck> JsGenerator<'tycheck> {
             .map(|(k, v)| format!("{}: {}", k, self.generate_expr(v)))
             .collect::<Vec<_>>()
             .join(", ");
-          format!("{{{}}}", fields)
+          format!("{{ {} }}", fields)
         }
       }
       TypedExpr::ObjectFieldAccess { object, field, ty } => {
@@ -209,8 +205,8 @@ impl<'tycheck> JsGenerator<'tycheck> {
           format!("{}.{}", object, field)
         }
       }
-      TypedExpr::Unresolved => todo!(),
-      TypedExpr::Error => todo!(),
+      TypedExpr::Unresolved => todo!("unresolved"),
+      TypedExpr::Error => todo!("typedexpr errorrrr"),
     };
     expr
   }

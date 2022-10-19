@@ -184,6 +184,7 @@ dependencies = [
  "compile",
  "data-structures",
  "hir",
+ "insta",
  "lexer",
  "parser",
  "project-root",
