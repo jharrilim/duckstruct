@@ -3,7 +3,7 @@ use std::rc::Rc;
 use crate::diagnostics::Diagnostics;
 use crate::scope::Scope;
 use crate::typed_db::{TypedDatabase, TypedDatabaseIdx};
-use crate::typed_hir::{Ty, TypedExpr, TypedStmt, FunctionDef};
+use crate::typed_hir::{FunctionDef, Ty, TypedExpr, TypedStmt};
 use data_structures::FxIndexMap;
 use hir::{expr::Expr, stmt::Stmt, DatabaseIdx};
 
@@ -346,19 +346,17 @@ impl TyCheck {
         ty: _,
       } => match self.ty_db.expr(&object) {
         TypedExpr::VariableRef { var, ty } => match scope.def(var) {
-          Some(def) => {
-            match self.ty_db.expr(&def) {
-              TypedExpr::Object { fields, ty: _ } => {
-                let field = fields.get(&field).unwrap().clone();
-                self.infer_function_call_impl(scope, &field, args)
-              }
-              _ => {
-                self.diagnostics.push_error(format!(
-                  "Cannot call field `{}` on non-object type `{}`",
-                  field, ty
-                ));
-                self.ty_db.alloc(TypedExpr::Error)
-              }
+          Some(def) => match self.ty_db.expr(&def) {
+            TypedExpr::Object { fields, ty: _ } => {
+              let field = fields.get(&field).unwrap().clone();
+              self.infer_function_call_impl(scope, &field, args)
+            }
+            _ => {
+              self.diagnostics.push_error(format!(
+                "Cannot call field `{}` on non-object type `{}`",
+                field, ty
+              ));
+              self.ty_db.alloc(TypedExpr::Error)
             }
           },
           None => {
@@ -367,7 +365,7 @@ impl TyCheck {
               .push_error(format!("Undefined variable `{}`", var));
             self.ty_db.alloc(TypedExpr::Error)
           }
-        }
+        },
         TypedExpr::Object { fields, ty: _ } => match fields.get(&field) {
           Some(field) => {
             let field = field.clone();
@@ -381,9 +379,10 @@ impl TyCheck {
           }
         },
         _ => {
-          self
-            .diagnostics
-            .push_error(format!("Cannot call function on non-object. {} {:#?}", field, object));
+          self.diagnostics.push_error(format!(
+            "Cannot call function on non-object. {} {:#?}",
+            field, object
+          ));
           self.ty_db.alloc(TypedExpr::Error)
         }
       },

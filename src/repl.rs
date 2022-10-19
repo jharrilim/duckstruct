@@ -48,13 +48,16 @@ impl ReplSession {
 
     let hir_db = hir::lower(root);
     let mut tycheck = TyCheck::new(hir_db);
-    
+
     tycheck.infer();
 
     if tycheck.diagnostics.has_errors() {
       println!("{:#?}", tycheck);
       tycheck.diagnostics.print_errors();
-      if line.map(|l| l.starts_with("f ") || l.starts_with("let ")).unwrap_or(false) {
+      if line
+        .map(|l| l.starts_with("f ") || l.starts_with("let "))
+        .unwrap_or(false)
+      {
         self.statements.pop();
       }
       return;

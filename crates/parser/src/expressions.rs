@@ -44,7 +44,7 @@ pub(super) fn expr_binding_power(
         let m = lhs.precede(p);
         parsers::argument_list(p);
         lhs = m.complete(p, SyntaxKind::FunctionCallExpression);
-      },
+      }
       InfixOp::Dot => {
         let m = lhs.precede(p);
         p.bump();
@@ -55,7 +55,7 @@ pub(super) fn expr_binding_power(
           m.complete(p, SyntaxKind::ObjectFieldKey);
         }
         lhs = m.complete(p, SyntaxKind::ObjectFieldAccessExpression);
-      },
+      }
       _ => {
         p.bump();
         if p.at_end() {
@@ -89,8 +89,8 @@ fn lhs(p: &mut Parser) -> Option<CompletedMarker> {
     Some(TokenKind::Let) => return None, // handled in a parslet
     _ => {
       p.error();
-      return None
-    },
+      return None;
+    }
   };
   Some(completed_marker)
 }

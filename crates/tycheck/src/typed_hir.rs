@@ -1,11 +1,11 @@
 mod operators;
 mod ty;
 
+use crate::{scope::Scope, typed_db::TypedDatabaseIdx};
 use data_structures::FxIndexMap;
 use hir::DatabaseIdx;
 pub use operators::*;
 pub use ty::*;
-use crate::{scope::Scope, typed_db::TypedDatabaseIdx};
 
 #[derive(Debug, Clone)]
 pub enum TypedStmt {

@@ -1,6 +1,5 @@
 /// This is where all of the parser's parslets live. Each parslet describes
 /// the structure of a particular kind of expression or statement.
-
 use lexer::token::TokenKind;
 use syntax::SyntaxKind;
 

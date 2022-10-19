@@ -1,6 +1,6 @@
 use crate::typed_hir::{TypedExpr, TypedStmt};
-use data_structures::FxIndexMap;
 use data_structures::arena::{Arena, Idx};
+use data_structures::FxIndexMap;
 
 pub type TypedDatabaseIdx = Idx<TypedExpr>;
 pub type TyContext = FxIndexMap<String, TypedStmt>;

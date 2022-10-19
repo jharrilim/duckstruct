@@ -1,4 +1,4 @@
-use data_structures::{FxIndexMap, arena::Idx};
+use data_structures::{arena::Idx, FxIndexMap};
 
 use crate::Stmt;
 

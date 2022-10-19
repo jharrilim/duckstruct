@@ -3,8 +3,8 @@ use crate::{
   stmt::Stmt,
   DatabaseIdx,
 };
-use data_structures::FxIndexMap;
 use data_structures::arena::{Arena, Idx};
+use data_structures::FxIndexMap;
 use syntax::SyntaxKind;
 
 #[derive(Debug, Default)]
