@@ -7,8 +7,16 @@ use tycheck::{
   TyCheck,
 };
 
+use crate::CodeGenerator;
+
 pub struct JsGenerator<'tycheck> {
   tycheck: &'tycheck TyCheck,
+}
+
+impl <'tycheck> CodeGenerator for JsGenerator<'tycheck> {
+  fn generate(&self) -> String {
+    self.generate_js()
+  }
 }
 
 impl<'tycheck> JsGenerator<'tycheck> {

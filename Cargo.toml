@@ -8,18 +8,19 @@ edition = "2018"
 [dependencies]
 ast = { path = "./crates/ast" }
 codegen = { path = "./crates/codegen" }
+compile = { path = "./crates/compile" }
 data-structures = { path = "./crates/data-structures" }
 hir = { path = "./crates/hir" }
 lexer = { path = "./crates/lexer" }
 parser = { path = "./crates/parser" }
 syntax = { path = "./crates/syntax" }
 tycheck = { path = "./crates/tycheck" }
+clap = { version = "4.0.17", features = ["derive"] }
 project-root = "0.2.2"
 rustyline = "10.0.0"
 rustyline-derive = "0.7.0"
 
 [dev-dependencies]
-expect-test = "1.0.1"
 serde = "1.0.145"
 
 
