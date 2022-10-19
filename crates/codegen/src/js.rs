@@ -131,7 +131,20 @@ impl<'tycheck> JsGenerator<'tycheck> {
           format!("{}{}", op, expr)
         }
       }
-      TypedExpr::Block { stmts, ty } => todo!(),
+      TypedExpr::Block { stmts, ty } => {
+        if ty.has_value() {
+          format!("{}", ty)
+        } else {
+          let stmts = stmts
+            .iter()
+            .map(|s| self.generate_stmt("", s))
+            .collect::<Vec<_>>();
+          // return last statment
+          let last = stmts.last().unwrap();
+          let stmts = stmts[..stmts.len() - 1].join("\n return ");
+          format!("(() => {{ {} }}())", stmts)
+        }
+      },
       TypedExpr::FunctionDef(FunctionDef {
         name,
         params,
