@@ -268,9 +268,6 @@ impl TyCheck {
   ) -> TypedDatabaseIdx {
     let lhs_expr = self.ty_db.expr(lhs);
 
-    // TODO: This is working right now but it's totally wrong. Need to resolve
-    // the lhs into a function and then infer the args against the function.
-
     match lhs_expr.clone() {
       TypedExpr::VariableRef { var, ty: _ } => match scope.def(&var) {
         Some(def) => self.infer_function_call_impl(scope, &def, args),
@@ -526,11 +523,13 @@ impl TyCheck {
     let ty = match op {
       hir::BinaryOp::Add => match (lhs_ty, rhs_ty) {
         (Ty::Number(Some(lhs)), Ty::Number(Some(rhs))) => Ty::Number(Some(lhs + rhs)),
-        (Ty::Number(Some(_)), Ty::Number(None) | Ty::Generic) => Ty::Number(None),
+        (Ty::Number(_), Ty::Generic) => Ty::Number(None),
+        (Ty::Generic, Ty::Number(_)) => Ty::Number(None),
         (Ty::Number(_), Ty::Number(_)) => Ty::Number(None),
 
         (Ty::String(Some(lhs)), Ty::String(Some(rhs))) => Ty::String(Some(lhs + &rhs)),
-        (Ty::String(Some(_)), Ty::String(None) | Ty::Generic) => Ty::String(None),
+        (Ty::String(_), Ty::Generic) => Ty::String(None),
+        (Ty::Generic, Ty::String(_)) => Ty::String(None),
         (Ty::String(_), Ty::String(_)) => Ty::String(None),
 
         (Ty::Array(Some(lhs)), Ty::Array(Some(rhs))) => Ty::Array(Some([lhs, rhs].concat())),
@@ -539,19 +538,22 @@ impl TyCheck {
       },
       hir::BinaryOp::Sub => match (lhs_ty, rhs_ty) {
         (Ty::Number(Some(lhs)), Ty::Number(Some(rhs))) => Ty::Number(Some(lhs - rhs)),
-        (Ty::Number(Some(_)), Ty::Number(None) | Ty::Generic) => Ty::Number(None),
+        (Ty::Number(_), Ty::Generic) => Ty::Number(None),
+        (Ty::Generic, Ty::Number(_)) => Ty::Number(None),
         (Ty::Number(_), Ty::Number(_)) => Ty::Number(None),
         _ => Ty::Generic,
       },
       hir::BinaryOp::Mul => match (lhs_ty, rhs_ty) {
         (Ty::Number(Some(lhs)), Ty::Number(Some(rhs))) => Ty::Number(Some(lhs * rhs)),
-        (Ty::Number(Some(_)), Ty::Number(None) | Ty::Generic) => Ty::Number(None),
+        (Ty::Number(_), Ty::Generic) => Ty::Number(None),
+        (Ty::Generic, Ty::Number(_)) => Ty::Number(None),
         (Ty::Number(_), Ty::Number(_)) => Ty::Number(None),
         _ => Ty::Generic,
       },
       hir::BinaryOp::Div => match (lhs_ty, rhs_ty) {
         (Ty::Number(Some(lhs)), Ty::Number(Some(rhs))) => Ty::Number(Some(lhs / rhs)),
-        (Ty::Number(Some(_)), Ty::Number(None) | Ty::Generic) => Ty::Number(None),
+        (Ty::Number(_), Ty::Generic) => Ty::Number(None),
+        (Ty::Generic, Ty::Number(_)) => Ty::Number(None),
         (Ty::Number(_), Ty::Number(_)) => Ty::Number(None),
         _ => Ty::Generic,
       },
