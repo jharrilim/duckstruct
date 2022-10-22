@@ -25,6 +25,10 @@ impl TypedDatabase {
     &mut self.exprs[*idx]
   }
 
+  pub fn expr_replace(&mut self, idx: &TypedDatabaseIdx, expr: TypedExpr) {
+    self.exprs[*idx] = expr;
+  }
+
   // Used for when lifetimes are the same
   pub fn exprs2(
     &self,

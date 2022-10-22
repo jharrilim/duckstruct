@@ -234,17 +234,32 @@ mod expressions {
   }
 
   #[test]
-  fn tycheck_function_with_object_argument() {
-    let code = "f(x) { x.a }";
+  fn tycheck_function_passing_function_and_calling_it() {
+    let code = "
+      f a(x) { x() }
+      a(f() = 1)
+    ";
     let tycheck = tycheck(code);
 
     expect_type_for_definition(
       &tycheck,
       "",
-      Ty::Function {
-        params: vec![Ty::Object(None)],
-        ret: Some(Box::new(Ty::Generic)),
-      },
+      Ty::Number(Some(1.0))
+    );
+  }
+
+  #[test] /* 🥴 */
+  fn tycheck_function_passing_function_and_returning_function_and_calling_it() {
+    let code = "
+      f a(x) { x() }
+      a(f() = f() = 1)()
+    ";
+    let tycheck = tycheck(code);
+
+    expect_type_for_definition(
+      &tycheck,
+      "",
+      Ty::Number(Some(1.0))
     );
   }
 }

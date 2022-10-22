@@ -111,4 +111,20 @@ impl Scope {
       .find_map(|frame| frame.args.get(name).or_else(|| frame.defs.get(name)));
     d.copied()
   }
+
+  /// Return a new function scope with all of the frames flattened into one.
+  /// Any args defined in the non-topmost frame will become defs in the new
+  /// scope's topmost frame.
+  pub fn flatten(&self) -> Scope {
+    let mut scope = Scope::default();
+    let mut defs = FxIndexMap::default();
+    for frame in self.frames.iter() {
+      defs.extend(frame.args.clone());
+      defs.extend(frame.defs.clone());
+    }
+    let mut frame = scope.current_frame_mut();
+    frame.defs = defs;
+    frame.args = self.current_frame().args.clone();
+    scope
+  }
 }

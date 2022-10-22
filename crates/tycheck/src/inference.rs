@@ -268,6 +268,9 @@ impl TyCheck {
   ) -> TypedDatabaseIdx {
     let lhs_expr = self.ty_db.expr(lhs);
 
+    // Need to try to travel through the callee expression to find a function definition
+    // to invoke. A function definition can be returned from a variable reference, the
+    // result of a function call, the end of a block, or just the function definition itself.
     match lhs_expr.clone() {
       TypedExpr::VariableRef { var, ty: _ } => match scope.def(&var) {
         Some(def) => self.infer_function_call_impl(scope, &def, args),
@@ -279,11 +282,23 @@ impl TyCheck {
         }
       },
       TypedExpr::FunctionCall {
-        args: _,
-        def: _,
+        args: these_args,
+        def,
         ret,
         ty: _,
-      } => self.infer_function_call_impl(scope, &ret, args),
+      } => {
+        if let TypedExpr::FunctionDef(func) = self.ty_db.expr(&def) {
+          scope.push_frame();
+          for ((param, _), arg) in func.params.iter().zip(these_args.iter()) {
+            scope.define(param.clone(), *arg);
+          }
+          let result = self.infer_function_call_impl(scope, &ret, args);
+          scope.pop_frame();
+          result
+        } else {
+          unreachable!()
+        }
+      },
       TypedExpr::FunctionDef(FunctionDef {
         name,
         params,
@@ -444,7 +459,7 @@ impl TyCheck {
       params: params.clone(),
       body: body_idx,
       body_hir: *body,
-      closure_scope: scope.clone(),
+      closure_scope: scope.flatten(),
       ty: Ty::Function {
         ret: Some(Box::new(body_ty)),
         params: (0..params.len()).map(|_| Ty::Generic).collect(),
