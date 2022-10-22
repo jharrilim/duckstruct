@@ -163,4 +163,73 @@ mod expressions {
 
     expect_type_for_definition(&tycheck, "", Ty::Number(Some(2.0)));
   }
+
+  #[test]
+  fn tycheck_object_property_accessor_function_call_with_argument() {
+    let code = "
+      let obj = {{ a: 1, b: f(x) = x }};
+      obj.b(2)
+    ";
+    let tycheck = tycheck(code);
+
+    expect_type_for_definition(&tycheck, "", Ty::Number(Some(2.0)));
+  }
+
+  #[test]
+  fn tycheck_empty_array() {
+    let code = "[]";
+    let tycheck = tycheck(code);
+
+    expect_type_for_definition(&tycheck, "", Ty::Array(Some(vec![])));
+  }
+
+  #[test]
+  fn tycheck_array_with_constant_elements() {
+    let code = "[1, 2, 3]";
+    let tycheck = tycheck(code);
+
+    expect_type_for_definition(
+      &tycheck,
+      "",
+      Ty::Array(Some(vec![
+        Ty::Number(Some(1.0)),
+        Ty::Number(Some(2.0)),
+        Ty::Number(Some(3.0)),
+      ])),
+    );
+  }
+
+  #[test]
+  fn tycheck_array_with_function_parameter() {
+    let code = "f(x) { [1, 2, x] }";
+    let tycheck = tycheck(code);
+
+    expect_type_for_definition(
+      &tycheck,
+      "",
+      Ty::Function {
+        params: vec![Ty::Generic],
+        ret: Some(Box::new(Ty::Array(Some(vec![
+          Ty::Number(Some(1.0)),
+          Ty::Number(Some(2.0)),
+          Ty::Generic,
+        ])))),
+      },
+    );
+  }
+
+  #[test]
+  fn tycheck_function_with_argument_plus_string() {
+    let code = "f(x) { x + \"hello\" }";
+    let tycheck = tycheck(code);
+
+    expect_type_for_definition(
+      &tycheck,
+      "",
+      Ty::Function {
+        params: vec![Ty::Generic],
+        ret: Some(Box::new(Ty::String(None))),
+      },
+    );
+  }
 }
