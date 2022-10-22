@@ -232,4 +232,19 @@ mod expressions {
       },
     );
   }
+
+  #[test]
+  fn tycheck_function_with_object_argument() {
+    let code = "f(x) { x.a }";
+    let tycheck = tycheck(code);
+
+    expect_type_for_definition(
+      &tycheck,
+      "",
+      Ty::Function {
+        params: vec![Ty::Object(None)],
+        ret: Some(Box::new(Ty::Generic)),
+      },
+    );
+  }
 }

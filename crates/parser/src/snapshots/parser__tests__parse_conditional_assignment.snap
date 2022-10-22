@@ -19,20 +19,22 @@ Root@0..32
         Boolean@11..16
           Boolean@11..15 "true"
           Whitespace@15..16 " "
-      LeftBrace@16..17 "{"
-      Whitespace@17..18 " "
-      IfCondition@18..20
-        Number@18..20
-          Number@18..19 "1"
-          Whitespace@19..20 " "
-      RightBrace@20..21 "}"
-      Whitespace@21..22 " "
+      IfCondition@16..22
+        BlockExpression@16..22
+          LeftBrace@16..17 "{"
+          Whitespace@17..18 " "
+          Number@18..20
+            Number@18..19 "1"
+            Whitespace@19..20 " "
+          RightBrace@20..21 "}"
+          Whitespace@21..22 " "
       Else@22..26 "else"
       Whitespace@26..27 " "
-      LeftBrace@27..28 "{"
-      Whitespace@28..29 " "
-      ElseCondition@29..31
-        Number@29..31
-          Number@29..30 "2"
-          Whitespace@30..31 " "
-      RightBrace@31..32 "}"
+      ElseCondition@27..32
+        BlockExpression@27..32
+          LeftBrace@27..28 "{"
+          Whitespace@28..29 " "
+          Number@29..31
+            Number@29..30 "2"
+            Whitespace@30..31 " "
+          RightBrace@31..32 "}"

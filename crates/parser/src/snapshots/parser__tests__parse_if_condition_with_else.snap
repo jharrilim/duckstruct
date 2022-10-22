@@ -19,33 +19,35 @@ Root@0..73
         Number@14..16
           Number@14..15 "0"
           Whitespace@15..16 " "
-    LeftBrace@16..17 "{"
-    Whitespace@17..26 "\n        "
-    IfCondition@26..38
-      InfixExpression@26..38
-        VariableReference@26..28
-          Identifier@26..27 "x"
-          Whitespace@27..28 " "
-        Plus@28..29 "+"
-        Whitespace@29..30 " "
-        Number@30..38
-          Number@30..31 "1"
-          Whitespace@31..38 "\n      "
-    RightBrace@38..39 "}"
-    Whitespace@39..40 " "
+    IfCondition@16..40
+      BlockExpression@16..40
+        LeftBrace@16..17 "{"
+        Whitespace@17..26 "\n        "
+        InfixExpression@26..38
+          VariableReference@26..28
+            Identifier@26..27 "x"
+            Whitespace@27..28 " "
+          Plus@28..29 "+"
+          Whitespace@29..30 " "
+          Number@30..38
+            Number@30..31 "1"
+            Whitespace@31..38 "\n      "
+        RightBrace@38..39 "}"
+        Whitespace@39..40 " "
     Else@40..44 "else"
     Whitespace@44..45 " "
-    LeftBrace@45..46 "{"
-    Whitespace@46..55 "\n        "
-    ElseCondition@55..67
-      InfixExpression@55..67
-        VariableReference@55..57
-          Identifier@55..56 "x"
-          Whitespace@56..57 " "
-        Minus@57..58 "-"
-        Whitespace@58..59 " "
-        Number@59..67
-          Number@59..60 "1"
-          Whitespace@60..67 "\n      "
-    RightBrace@67..68 "}"
-    Whitespace@68..73 "\n    "
+    ElseCondition@45..73
+      BlockExpression@45..73
+        LeftBrace@45..46 "{"
+        Whitespace@46..55 "\n        "
+        InfixExpression@55..67
+          VariableReference@55..57
+            Identifier@55..56 "x"
+            Whitespace@56..57 " "
+          Minus@57..58 "-"
+          Whitespace@58..59 " "
+          Number@59..67
+            Number@59..60 "1"
+            Whitespace@60..67 "\n      "
+        RightBrace@67..68 "}"
+        Whitespace@68..73 "\n    "

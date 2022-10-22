@@ -1,0 +1,63 @@
+---
+source: crates/parser/src/lib.rs
+expression: "&parse.debug_tree()"
+info:
+  code: "\n      if x > 0 {\n        let a = x + 1\n        a * 10\n      } else {\n        x\n      }\n    "
+---
+Root@0..92
+  Whitespace@0..7 "\n      "
+  ConditionalExpression@7..92
+    If@7..9 "if"
+    Whitespace@9..10 " "
+    ConditionalPredicate@10..16
+      InfixExpression@10..16
+        VariableReference@10..12
+          Identifier@10..11 "x"
+          Whitespace@11..12 " "
+        GreaterThan@12..13 ">"
+        Whitespace@13..14 " "
+        Number@14..16
+          Number@14..15 "0"
+          Whitespace@15..16 " "
+    IfCondition@16..63
+      BlockExpression@16..63
+        LeftBrace@16..17 "{"
+        Whitespace@17..26 "\n        "
+        LetStatement@26..48
+          Let@26..29 "let"
+          Whitespace@29..30 " "
+          Identifier@30..31 "a"
+          Whitespace@31..32 " "
+          Equals@32..33 "="
+          Whitespace@33..34 " "
+          InfixExpression@34..48
+            VariableReference@34..36
+              Identifier@34..35 "x"
+              Whitespace@35..36 " "
+            Plus@36..37 "+"
+            Whitespace@37..38 " "
+            Number@38..48
+              Number@38..39 "1"
+              Whitespace@39..48 "\n        "
+        InfixExpression@48..61
+          VariableReference@48..50
+            Identifier@48..49 "a"
+            Whitespace@49..50 " "
+          Asterisk@50..51 "*"
+          Whitespace@51..52 " "
+          Number@52..61
+            Number@52..54 "10"
+            Whitespace@54..61 "\n      "
+        RightBrace@61..62 "}"
+        Whitespace@62..63 " "
+    Else@63..67 "else"
+    Whitespace@67..68 " "
+    ElseCondition@68..92
+      BlockExpression@68..92
+        LeftBrace@68..69 "{"
+        Whitespace@69..78 "\n        "
+        VariableReference@78..86
+          Identifier@78..79 "x"
+          Whitespace@79..86 "\n      "
+        RightBrace@86..87 "}"
+        Whitespace@87..92 "\n    "

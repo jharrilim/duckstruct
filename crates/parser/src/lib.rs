@@ -409,6 +409,20 @@ mod tests {
     parse_snapshot!(code);
   }
 
+
+  #[test]
+  fn parse_conditional_with_multiple_statements() {
+    let code = r#"
+      if x > 0 {
+        let a = x + 1
+        a * 10
+      } else {
+        x
+      }
+    "#;
+    parse_snapshot!(code);
+  }
+
   mod error_tests {
     use super::*;
 

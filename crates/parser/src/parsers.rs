@@ -281,35 +281,16 @@ pub(crate) fn conditional_expr(p: &mut Parser) -> CompletedMarker {
     expr(p);
     m.complete(p, SyntaxKind::ConditionalPredicate);
   }
-  match p.peek() {
-    Some(TokenKind::LeftBrace) => {
-      p.bump();
-      let m = p.start();
-      expr(p);
-      m.complete(p, SyntaxKind::IfCondition);
-      p.expect(TokenKind::RightBrace);
-      p.bump();
-    }
-    Some(t) => panic!("expected {{, found {}", t),
-    None => panic!("unexpected end of file"),
-  }
+
+  let m = p.start();
+  expr(p);
+  m.complete(p, SyntaxKind::IfCondition);
+
   if p.peek() == Some(TokenKind::Else) {
     p.bump();
-
-    if p.peek() == Some(TokenKind::LeftBrace) {
-      p.bump();
-
-      let m = p.start();
-      expr(p);
-      m.complete(p, SyntaxKind::ElseCondition);
-
-      p.expect(TokenKind::RightBrace);
-      p.bump();
-    } else {
-      let m = p.start();
-      expr(p);
-      m.complete(p, SyntaxKind::ElseCondition);
-    }
+    let m = p.start();
+    expr(p);
+    m.complete(p, SyntaxKind::ElseCondition);
   }
   conditional_expr_marker.complete(p, SyntaxKind::ConditionalExpression)
 }

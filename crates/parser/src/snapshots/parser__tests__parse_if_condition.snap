@@ -19,17 +19,18 @@ Root@0..44
         Number@14..16
           Number@14..15 "0"
           Whitespace@15..16 " "
-    LeftBrace@16..17 "{"
-    Whitespace@17..26 "\n        "
-    IfCondition@26..38
-      InfixExpression@26..38
-        VariableReference@26..28
-          Identifier@26..27 "x"
-          Whitespace@27..28 " "
-        Plus@28..29 "+"
-        Whitespace@29..30 " "
-        Number@30..38
-          Number@30..31 "1"
-          Whitespace@31..38 "\n      "
-    RightBrace@38..39 "}"
-    Whitespace@39..44 "\n    "
+    IfCondition@16..44
+      BlockExpression@16..44
+        LeftBrace@16..17 "{"
+        Whitespace@17..26 "\n        "
+        InfixExpression@26..38
+          VariableReference@26..28
+            Identifier@26..27 "x"
+            Whitespace@27..28 " "
+          Plus@28..29 "+"
+          Whitespace@29..30 " "
+          Number@30..38
+            Number@30..31 "1"
+            Whitespace@31..38 "\n      "
+        RightBrace@38..39 "}"
+        Whitespace@39..44 "\n    "

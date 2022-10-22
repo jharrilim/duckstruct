@@ -132,11 +132,11 @@ impl Display for Ty {
             write!(f, ", ")?;
           }
         }
-        write!(f, ") -> ")?;
+        write!(f, ") => ")?;
         if let Some(ret) = ret {
           write!(f, "{}", ret)
         } else {
-          write!(f, "???")
+          write!(f, "unknown")
         }
       }
       Ty::Number(None) => write!(f, "number"),
