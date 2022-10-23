@@ -10,9 +10,15 @@ pub enum TargetLang {
 
 pub struct Compiler;
 
+impl Default for Compiler {
+  fn default() -> Self {
+    Self
+  }
+}
+
 impl Compiler {
   pub fn new() -> Self {
-    Self {}
+    Compiler::default()
   }
 
   pub fn compile_js(&self, source: &str) -> Result<String, String> {
@@ -30,11 +36,7 @@ impl Compiler {
     Ok(JsGenerator::new(&tycheck).generate())
   }
 
-  pub fn compile_file(
-    &self,
-    path: std::path::PathBuf,
-    target: TargetLang
-  ) -> Result<(), String> {
+  pub fn compile_file(&self, path: std::path::PathBuf, target: TargetLang) -> Result<(), String> {
     let output_path = path.with_extension("js");
     println!("{} => {}", path.display(), output_path.display());
     let source = match std::fs::read_to_string(path) {

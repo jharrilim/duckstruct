@@ -3,7 +3,7 @@
 /// Generate javascript code from the typed hir
 use tycheck::{
   typed_db::TypedDatabaseIdx,
-  typed_hir::{FunctionDef, TypedExpr, TypedStmt},
+  typed_hir::{FunctionDef, Ty, TypedExpr, TypedStmt},
   TyCheck,
 };
 
@@ -13,7 +13,7 @@ pub struct JsGenerator<'tycheck> {
   tycheck: &'tycheck TyCheck,
 }
 
-impl <'tycheck> CodeGenerator for JsGenerator<'tycheck> {
+impl<'tycheck> CodeGenerator for JsGenerator<'tycheck> {
   fn generate(&self) -> String {
     self.generate_js()
   }
@@ -76,6 +76,7 @@ impl<'tycheck> JsGenerator<'tycheck> {
           var.to_string()
         }
       }
+      TypedExpr::FunctionParameter { name, ty } => name.to_string(),
       TypedExpr::FunctionCall { def, args, ty, ret } => {
         if ty.has_value() {
           format!("{}", ty)
@@ -152,7 +153,7 @@ impl<'tycheck> JsGenerator<'tycheck> {
           let stmts = stmts[..stmts.len() - 1].join("\n return ");
           format!("(() => {{ {} }}())", stmts)
         }
-      },
+      }
       TypedExpr::FunctionDef(FunctionDef {
         name,
         params,
@@ -162,13 +163,19 @@ impl<'tycheck> JsGenerator<'tycheck> {
         closure_scope,
       }) => {
         let params: Vec<String> = params.iter().map(|(k, v)| k.clone()).collect();
-        let params = params.join(", ");
-        let body = self.generate_expr(body);
-        let name = match name {
-          Some(s) => s.clone(),
-          None => "".to_string(),
+        let params_str = if params.len() == 1 {
+          params.join("")
+        } else {
+          format!("({})", params.join(", "))
         };
-        format!("function {}({}) {{ return {}; }}", name, params, body)
+        let params = params.join(", ");
+        let body_str = self.generate_expr(body);
+
+        if let Ty::Object(_) = self.tycheck.ty_db.expr(body).ty() {
+          format!("{} => ({})", params, body_str)
+        } else {
+          format!("{} => {}", params, body_str)
+        }
       }
       TypedExpr::Conditional {
         condition,
@@ -186,16 +193,14 @@ impl<'tycheck> JsGenerator<'tycheck> {
         }
       }
       TypedExpr::Object { fields, ty } => {
-        if ty.has_value() {
-          format!("{}", ty)
-        } else {
-          let fields = fields
-            .iter()
-            .map(|(k, v)| format!("{}: {}", k, self.generate_expr(v)))
-            .collect::<Vec<_>>()
-            .join(", ");
-          format!("{{ {} }}", fields)
-        }
+        println!("fields: {:?}", fields);
+        println!("ty: {:?}", ty);
+        let fields = fields
+          .iter()
+          .map(|(k, v)| format!("{}: {}", k, self.generate_expr(v)))
+          .collect::<Vec<_>>()
+          .join(", ");
+        format!("{{ {} }}", fields)
       }
       TypedExpr::ObjectFieldAccess { object, field, ty } => {
         if ty.has_value() {
@@ -205,7 +210,7 @@ impl<'tycheck> JsGenerator<'tycheck> {
           format!("{}.{}", object, field)
         }
       }
-      TypedExpr::Unresolved => todo!("unresolved"),
+      TypedExpr::Unresolved => todo!(),
       TypedExpr::Error => todo!("typedexpr errorrrr"),
     };
     expr

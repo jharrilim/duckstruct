@@ -409,7 +409,6 @@ mod tests {
     parse_snapshot!(code);
   }
 
-
   #[test]
   fn parse_conditional_with_multiple_statements() {
     let code = r#"
@@ -430,7 +429,6 @@ mod tests {
     fn parse_error_on_incomplete_let_statement() {
       let code = "let x =\nlet y = 1";
       let parsed = parse(code);
-      println!("{:?}", parsed.errors);
       assert_eq!(parsed.errors.len(), 1);
     }
 

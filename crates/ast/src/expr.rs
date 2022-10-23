@@ -58,6 +58,7 @@ impl BinaryExpr {
     self.0.children().filter_map(Expr::cast).nth(1)
   }
 
+  #[rustfmt::skip] // rustfmt makes the matches ugly
   pub fn op(&self) -> Option<SyntaxToken> {
     self
       .0
