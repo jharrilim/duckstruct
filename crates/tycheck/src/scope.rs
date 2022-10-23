@@ -6,6 +6,8 @@ use crate::typed_db::TypedDatabaseIdx;
 /// like blocks, functions, and loops.
 #[derive(Debug, Default, Clone)]
 pub struct Frame {
+  /// Optionally defined for functions to allow for recursion detection.
+  name: Option<String>,
   #[allow(unused)]
   debug_name: String,
   id: usize,
@@ -54,6 +56,23 @@ impl Scope {
     self.frames.push(self.new_frame());
   }
 
+  pub fn push_named_frame(&mut self, name: String) {
+    self.frames.push(self.new_named_frame(name));
+  }
+
+  pub fn new_named_frame(&self, name: String) -> Frame {
+    Frame {
+      name: Some(name),
+      debug_name: format!(
+        "{}#{}",
+        self.current_frame().debug_name,
+        self.frames.len() - 1
+      ),
+      id: self.frames.len() - 1,
+      ..Default::default()
+    }
+  }
+
   fn new_frame(&self) -> Frame {
     Frame {
       debug_name: format!("frame {}", self.frames.len() - 1),
@@ -100,6 +119,16 @@ impl Scope {
 
   pub fn define_args(&mut self, args: &FxIndexMap<String, TypedDatabaseIdx>) {
     self.current_frame_mut().args.extend(args.clone());
+  }
+
+  pub fn is_late_binding(&self, name: &str) -> bool {
+    self.frames.iter().any(|frame| {
+      frame
+        .name
+        .as_ref()
+        .map(|frame_name| frame_name == name)
+        .unwrap_or(false)
+    })
   }
 
   /// Looks up a definition to see if it's in scope.

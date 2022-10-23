@@ -61,12 +61,17 @@ impl TyCheck {
     let hir_db = self.hir_db.clone();
     let expr = hir_db.get_expr(expr_idx);
     let expr = match expr {
-      Expr::VariableRef { var } => match scope.def(var) {
-        Some(t) => TypedExpr::VariableRef {
-          var: var.clone(),
-          ty: self.ty_db.expr(&t).ty(),
-        },
-        None => TypedExpr::Error,
+      Expr::VariableRef { var } => {
+        if scope.is_late_binding(var) {
+          return self.ty_db.alloc(TypedExpr::VariableRef { var: var.clone(), ty: Ty::Generic });
+        }
+        match scope.def(var) {
+          Some(t) => TypedExpr::VariableRef {
+            var: var.clone(),
+            ty: self.ty_db.expr(&t).ty(),
+          },
+          None => TypedExpr::Error,
+        }
       },
       Expr::Number { n } => TypedExpr::Number { val: Some(*n) },
       Expr::String { s } => TypedExpr::String {
@@ -277,13 +282,18 @@ impl TyCheck {
     // result of a function call, the end of a block, or just the function definition itself.
     match lhs_expr.clone() {
       TypedExpr::FunctionParameter { name: _, ty: _ } => *lhs,
-      TypedExpr::VariableRef { var, ty: _ } => match scope.def(&var) {
-        Some(def) => self.infer_function_call_impl(scope, &def, args),
-        None => {
-          self
-            .diagnostics
-            .push_error(format!("Undefined variable `{}`", var));
-          self.ty_db.alloc(TypedExpr::Error)
+      TypedExpr::VariableRef { var, ty: _ } => {
+        if scope.is_late_binding(&var) {
+          return *lhs;
+        }
+        match scope.def(&var) {
+          Some(def) =>self.infer_function_call_impl(scope, &def, args),
+          None => {
+            self
+              .diagnostics
+              .push_error(format!("Undefined variable `{}`", var));
+            self.ty_db.alloc(TypedExpr::Error)
+          }
         }
       },
       TypedExpr::FunctionCall {
@@ -295,6 +305,9 @@ impl TyCheck {
         if let TypedExpr::FunctionDef(func) = self.ty_db.expr(&def) {
           scope.push_frame();
 
+          if these_args.iter().any(|arg| self.ty_db.expr(arg).ty() == Ty::Generic) {
+            return ret;
+          }
           let mut params = FxIndexMap::default();
           for ((param, _), arg) in func.params.iter().zip(these_args.iter()) {
             params.insert(param.clone(), *arg);
@@ -443,8 +456,13 @@ impl TyCheck {
       })
       .collect();
 
-    scope.push_frame();
+    if let Some(name) = name {
+      scope.push_named_frame(name.to_string());
+    } else {
+      scope.push_frame();
+    }
     scope.define_args(&params);
+
     let body_idx = self.infer_expr(scope, body);
     let body_ty = self.ty_db.expr(&body_idx).ty();
     let ty = Ty::Function {
@@ -459,6 +477,7 @@ impl TyCheck {
       closure_scope: scope.flatten(),
       ty,
     });
+
     scope.pop_frame();
     self.ty_db.alloc(expr)
   }
