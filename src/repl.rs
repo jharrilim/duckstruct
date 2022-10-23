@@ -85,6 +85,11 @@ pub fn repl() -> Result<()> {
   let mut rl = rustyline::Editor::new()?;
   rl.set_helper(Option::Some(validator));
 
+  let mut history_path = home::home_dir().unwrap();
+  history_path.push(".duckstruct_history");
+
+  rl.load_history(&history_path).ok();
+
   println!("Duckstruct 🐣 (v0.0.1)");
   println!("Type exit to quit.");
   loop {
@@ -122,5 +127,6 @@ pub fn repl() -> Result<()> {
       }
     }
   }
+  rl.save_history(&history_path).ok();
   Ok(())
 }
