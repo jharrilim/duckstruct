@@ -254,17 +254,21 @@ impl TyCheck {
     &mut self,
     scope: &mut Scope,
     lhs: &DatabaseIdx,
-    args: &Vec<DatabaseIdx>,
+    args: &[DatabaseIdx],
   ) -> TypedDatabaseIdx {
     let lhs = self.infer_expr(scope, lhs);
-    self.infer_function_call_impl(scope, &lhs, args)
+    let args = args
+      .iter()
+      .map(|arg| self.infer_expr(scope, arg))
+      .collect::<Vec<_>>();
+    self.infer_function_call_impl(scope, &lhs, &args)
   }
 
   fn infer_function_call_impl(
     &mut self,
     scope: &mut Scope,
     lhs: &TypedDatabaseIdx,
-    args: &Vec<DatabaseIdx>,
+    args: &Vec<TypedDatabaseIdx>,
   ) -> TypedDatabaseIdx {
     let lhs_expr = self.ty_db.expr(lhs);
 
@@ -272,6 +276,7 @@ impl TyCheck {
     // to invoke. A function definition can be returned from a variable reference, the
     // result of a function call, the end of a block, or just the function definition itself.
     match lhs_expr.clone() {
+      TypedExpr::FunctionParameter { name: _, ty: _ } => *lhs,
       TypedExpr::VariableRef { var, ty: _ } => match scope.def(&var) {
         Some(def) => self.infer_function_call_impl(scope, &def, args),
         None => {
@@ -289,16 +294,19 @@ impl TyCheck {
       } => {
         if let TypedExpr::FunctionDef(func) = self.ty_db.expr(&def) {
           scope.push_frame();
+
+          let mut params = FxIndexMap::default();
           for ((param, _), arg) in func.params.iter().zip(these_args.iter()) {
-            scope.define(param.clone(), *arg);
+            params.insert(param.clone(), *arg);
           }
+          scope.define_args(&params);
           let result = self.infer_function_call_impl(scope, &ret, args);
           scope.pop_frame();
           result
         } else {
           unreachable!()
         }
-      },
+      }
       TypedExpr::FunctionDef(FunctionDef {
         name,
         params,
@@ -316,11 +324,12 @@ impl TyCheck {
           ));
           return self.ty_db.alloc(TypedExpr::Error);
         }
-        let scope = &mut scope.extend_frames(&closure_scope);
-        let args_iter = args.iter().map(|arg| self.infer_expr(scope, arg));
+
+        let scope = &mut closure_scope.extend_frames(scope);
+
         let params: FxIndexMap<String, TypedDatabaseIdx> = params
           .iter()
-          .zip(args_iter)
+          .zip(args.iter().cloned())
           .map(|((name, _), arg)| (name.clone(), arg))
           .collect();
 
@@ -336,22 +345,7 @@ impl TyCheck {
         scope.pop_frame();
         self.ty_db.alloc(expr)
       }
-      TypedExpr::Unresolved => {
-        // TODO: Label the argument as one that must be callable
-        scope.push_frame();
-        let args_iter = args.iter().map(|arg| self.infer_expr(scope, arg));
-        let args: Vec<TypedDatabaseIdx> = args_iter.collect();
-
-        let expr = TypedExpr::FunctionCall {
-          args,
-          ty: Ty::Generic,
-          // This is likely wrong, I feel this should be allocating a new TypedExpr::Unresolved
-          ret: *lhs,
-          def: *lhs,
-        };
-        scope.pop_frame();
-        self.ty_db.alloc(expr)
-      }
+      TypedExpr::Unresolved => *lhs,
       TypedExpr::ObjectFieldAccess {
         object,
         field,
@@ -399,10 +393,7 @@ impl TyCheck {
         }
       },
       TypedExpr::Block { stmts, ty: _ } => {
-        match stmts
-          .last()
-          .map(|s| self.ty_db.expr(s.value()).ty())
-        {
+        match stmts.last().map(|s| self.ty_db.expr(s.value()).ty()) {
           Some(Ty::Function { .. }) => {
             self.infer_function_call_impl(scope, stmts.last().unwrap().value(), args)
           }
@@ -442,9 +433,12 @@ impl TyCheck {
       .map(|name| {
         (
           name.clone(),
-          scope
-            .def(name)
-            .unwrap_or_else(|| self.ty_db.alloc(TypedExpr::Unresolved)),
+          scope.def(name).unwrap_or_else(|| {
+            self.ty_db.alloc(TypedExpr::FunctionParameter {
+              name: name.clone(),
+              ty: Ty::Generic,
+            })
+          }),
         )
       })
       .collect();
@@ -453,17 +447,17 @@ impl TyCheck {
     scope.define_args(&params);
     let body_idx = self.infer_expr(scope, body);
     let body_ty = self.ty_db.expr(&body_idx).ty();
-
+    let ty = Ty::Function {
+      ret: Some(Box::new(body_ty)),
+      params: (0..params.len()).map(|_| Ty::Generic).collect(),
+    };
     let expr = TypedExpr::FunctionDef(FunctionDef {
       name: name.clone(),
-      params: params.clone(),
+      params,
       body: body_idx,
       body_hir: *body,
       closure_scope: scope.flatten(),
-      ty: Ty::Function {
-        ret: Some(Box::new(body_ty)),
-        params: (0..params.len()).map(|_| Ty::Generic).collect(),
-      },
+      ty,
     });
     scope.pop_frame();
     self.ty_db.alloc(expr)

@@ -9,7 +9,7 @@ use rustyline::Result;
 #[command(author, version, about, long_about = None)]
 struct Args {
   #[arg(short, long)]
-   compile: Option<PathBuf>,
+  compile: Option<PathBuf>,
 }
 
 fn main() -> Result<()> {
@@ -18,7 +18,7 @@ fn main() -> Result<()> {
   match args.compile {
     Some(file_path) => {
       match Compiler::new().compile_file(file_path, TargetLang::Javascript) {
-        Ok(()) => {},
+        Ok(()) => {}
         Err(err) => println!("Compilation failed: {}", err),
       };
       Ok(())

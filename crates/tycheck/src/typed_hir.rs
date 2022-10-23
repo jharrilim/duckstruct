@@ -72,6 +72,10 @@ pub enum TypedExpr {
     ret: TypedDatabaseIdx,
     ty: Ty,
   },
+  FunctionParameter {
+    name: String,
+    ty: Ty,
+  },
   Conditional {
     condition: TypedDatabaseIdx,
     then_branch: TypedDatabaseIdx,
@@ -104,6 +108,7 @@ impl TypedExpr {
       Self::Block { ty, .. } => ty.clone(),
       Self::FunctionDef(FunctionDef { ty, .. }) => ty.clone(),
       Self::FunctionCall { ty, .. } => ty.clone(),
+      Self::FunctionParameter { ty, .. } => ty.clone(),
       Self::Conditional { ty, .. } => ty.clone(),
       Self::Object { ty, .. } => ty.clone(),
       Self::ObjectFieldAccess { ty, .. } => ty.clone(),

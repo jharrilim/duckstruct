@@ -25,7 +25,8 @@ impl Ty {
       | Ty::Function {
         params: _,
         ret: Some(_)
-      })
+      }
+      | Ty::Object(Some(_)))
   }
 
   pub fn type_eq(&self, other: &Ty) -> bool {
@@ -115,14 +116,14 @@ impl Display for Ty {
         write!(f, "]")
       }
       Ty::Object(Some(o)) => {
-        write!(f, "{{")?;
+        write!(f, "{{ ")?;
         for (i, (key, ty)) in o.iter().enumerate() {
           write!(f, "{}: {}", key, ty)?;
           if i < o.len() - 1 {
             write!(f, ", ")?;
           }
         }
-        write!(f, "}}")
+        write!(f, " }}")
       }
       Ty::Function { params, ret } => {
         write!(f, "(")?;

@@ -84,7 +84,7 @@ mod literals {
 mod expressions {
   use data_structures::index_map;
 
-use super::*;
+  use super::*;
 
   #[test]
   fn tycheck_conditional() {

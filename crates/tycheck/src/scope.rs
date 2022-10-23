@@ -108,7 +108,7 @@ impl Scope {
       .frames
       .iter()
       .rev()
-      .find_map(|frame| frame.args.get(name).or_else(|| frame.defs.get(name)));
+      .find_map(|frame| frame.defs.get(name).or_else(|| frame.args.get(name)));
     d.copied()
   }
 
@@ -117,24 +117,26 @@ impl Scope {
   /// scope's topmost frame.
   pub fn flatten(&self) -> Scope {
     let mut scope = Scope::default();
+    let mut args = FxIndexMap::default();
     let mut defs = FxIndexMap::default();
     for frame in self.frames.iter() {
-      defs.extend(frame.args.clone());
+      args.extend(frame.args.clone());
       defs.extend(frame.defs.clone());
     }
     let mut frame = scope.current_frame_mut();
     frame.defs = defs;
-    frame.args = self.current_frame().args.clone();
+    frame.args = args;
     scope
   }
 }
 
-
 #[cfg(test)]
 mod tests {
+  use data_structures::index_map;
+
   use crate::{typed_db::TypedDatabase, typed_hir::TypedExpr};
 
-use super::*;
+  use super::*;
 
   fn mock_ty_db() -> TypedDatabase {
     TypedDatabase::default()
@@ -163,6 +165,17 @@ use super::*;
   }
 
   #[test]
+  pub fn test_scope_with_arg() {
+    let mut ty_db = mock_ty_db();
+    let mut scope = Scope::default();
+    let mock_ty = ty_db.mock_ty();
+
+    scope.define_args(&index_map!("x".to_string() => mock_ty));
+
+    assert_eq!(scope.def("x"), Some(mock_ty));
+  }
+
+  #[test]
   pub fn test_scope_with_definition_shadowing() {
     let mut ty_db = mock_ty_db();
     let mut scope = Scope::default();
@@ -174,6 +187,19 @@ use super::*;
     scope.define("x".to_string(), mock_ty2);
 
     assert_eq!(scope.def("x"), Some(mock_ty2));
+  }
+
+  #[test]
+  pub fn test_scope_def_shadowing_arg_in_same_frame() {
+    let mut ty_db = mock_ty_db();
+    let mut scope = Scope::default();
+    let mock_ty = ty_db.mock_ty();
+    let mock_ty2 = ty_db.mock_ty();
+
+    scope.define("x".to_string(), mock_ty);
+    scope.define_args(&index_map!("x".to_string() => mock_ty2));
+
+    assert_eq!(scope.def("x"), Some(mock_ty));
   }
 
   #[test]
