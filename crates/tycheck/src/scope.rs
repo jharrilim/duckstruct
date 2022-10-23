@@ -128,3 +128,67 @@ impl Scope {
     scope
   }
 }
+
+
+#[cfg(test)]
+mod tests {
+  use crate::{typed_db::TypedDatabase, typed_hir::TypedExpr};
+
+use super::*;
+
+  fn mock_ty_db() -> TypedDatabase {
+    TypedDatabase::default()
+  }
+
+  impl TypedDatabase {
+    fn mock_ty(&mut self) -> TypedDatabaseIdx {
+      self.alloc(TypedExpr::Unresolved)
+    }
+  }
+
+  #[test]
+  pub fn test_scope() {
+    Scope::default();
+  }
+
+  #[test]
+  pub fn test_scope_with_definition() {
+    let mut ty_db = mock_ty_db();
+    let mut scope = Scope::default();
+    let mock_ty = ty_db.mock_ty();
+
+    scope.define("x".to_string(), mock_ty);
+
+    assert_eq!(scope.def("x"), Some(mock_ty));
+  }
+
+  #[test]
+  pub fn test_scope_with_definition_shadowing() {
+    let mut ty_db = mock_ty_db();
+    let mut scope = Scope::default();
+    let mock_ty = ty_db.mock_ty();
+    let mock_ty2 = ty_db.mock_ty();
+
+    scope.define("x".to_string(), mock_ty);
+    scope.push_frame();
+    scope.define("x".to_string(), mock_ty2);
+
+    assert_eq!(scope.def("x"), Some(mock_ty2));
+  }
+
+  #[test]
+  pub fn test_scope_flattened_uses_shadowed_definition() {
+    let mut ty_db = mock_ty_db();
+    let mut scope = Scope::default();
+    let mock_ty = ty_db.mock_ty();
+    let mock_ty2 = ty_db.mock_ty();
+
+    scope.define("x".to_string(), mock_ty);
+    scope.push_frame();
+    scope.define("x".to_string(), mock_ty2);
+
+    let flattened = scope.flatten();
+
+    assert_eq!(flattened.def("x"), Some(mock_ty2));
+  }
+}
