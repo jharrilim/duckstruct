@@ -448,4 +448,21 @@ mod expressions {
     println!("{:#?}", expr);
     expect_type_for_definition(&tycheck, "", Ty::Number(Some(1.0)));
   }
+
+  #[test]
+  fn tycheck_factorial() {
+    let code = "
+      f factorial(n) {
+        if n == 1 {
+          1
+        } else {
+          factorial(n - 1) * n
+        }
+      }
+      let a = factorial(5);
+    ";
+    let tycheck = tycheck(code);
+
+    expect_type_for_definition(&tycheck, "a", Ty::Number(Some(120.0)));
+  }
 }
