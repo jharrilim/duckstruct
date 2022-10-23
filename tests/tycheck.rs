@@ -82,7 +82,9 @@ mod literals {
 }
 
 mod expressions {
-  use super::*;
+  use data_structures::index_map;
+
+use super::*;
 
   #[test]
   fn tycheck_conditional() {
@@ -234,6 +236,41 @@ mod expressions {
   }
 
   #[test]
+  fn tycheck_function_named_finger() {
+    let code = "
+      f finger() { {{}} }
+    ";
+    let tycheck = tycheck(code);
+
+    expect_type_for_definition(
+      &tycheck,
+      "finger",
+      Ty::Function {
+        params: vec![],
+        ret: Some(Box::new(Ty::Object(Some(index_map! {})))),
+      },
+    );
+  }
+
+  #[test]
+  fn tycheck_function_reference() {
+    let code = "
+      f add(x, y) { x + y }
+      add
+    ";
+    let tycheck = tycheck(code);
+
+    expect_type_for_definition(
+      &tycheck,
+      "add",
+      Ty::Function {
+        params: vec![Ty::Generic, Ty::Generic],
+        ret: Some(Box::new(Ty::Generic)),
+      },
+    );
+  }
+
+  #[test]
   fn tycheck_function_passing_function_and_calling_it() {
     let code = "
       f a(x) { x() }
@@ -241,11 +278,7 @@ mod expressions {
     ";
     let tycheck = tycheck(code);
 
-    expect_type_for_definition(
-      &tycheck,
-      "",
-      Ty::Number(Some(1.0))
-    );
+    expect_type_for_definition(&tycheck, "", Ty::Number(Some(1.0)));
   }
 
   #[test] /* 🥴 */
@@ -256,10 +289,163 @@ mod expressions {
     ";
     let tycheck = tycheck(code);
 
+    expect_type_for_definition(&tycheck, "", Ty::Number(Some(1.0)));
+  }
+
+  #[test]
+  fn tycheck_function_pass_through_with_arg() {
+    let code = "
+      f a(x) = f(y) = x(y)
+      a(f(x) = x + 1)(1)
+    ";
+    let tycheck = tycheck(code);
+
+    expect_type_for_definition(&tycheck, "", Ty::Number(Some(2.0)));
+  }
+
+  #[test]
+  fn tycheck_function_function_function() {
+    let code = "
+      let a = f(x) = f(y) = y(x);
+      let b = a(\"hello\")(f(x) = x);
+      b
+    ";
+    let tycheck = tycheck(code);
+
+    expect_type_for_definition(&tycheck, "", Ty::String(Some("hello".to_string())));
+  }
+
+  #[test]
+  fn tycheck_function_returning_step_by_step() {
+    let code = "
+      let a = f(x) = f(y) = f(z) = y(x);
+      let b = a(1);
+      let c = b(f(x) = x + 1);
+      let d = c(true);
+    ";
+    let tycheck = tycheck(code);
+
     expect_type_for_definition(
       &tycheck,
-      "",
-      Ty::Number(Some(1.0))
+      "b",
+      Ty::Function {
+        params: vec![Ty::Generic],
+        ret: Some(Box::new(Ty::Function {
+          params: vec![Ty::Generic],
+          ret: Some(Box::new(Ty::Generic)),
+        })),
+      },
     );
+
+    expect_type_for_definition(
+      &tycheck,
+      "c",
+      Ty::Function {
+        params: vec![Ty::Generic],
+        ret: Some(Box::new(Ty::Number(Some(2.0)))),
+      },
+    );
+
+    expect_type_for_definition(&tycheck, "d", Ty::Number(Some(2.0)));
+  }
+
+  #[test]
+  fn tycheck_function_returning_step_by_step_2() {
+    let code = "
+      let a = f(x) = f(y) = f(z) = x(y);
+      let b = a(f(x) = x + 1);
+      let c = b(10);
+      let d = c(true);
+    ";
+    let tycheck = tycheck(code);
+
+    expect_type_for_definition(
+      &tycheck,
+      "b",
+      Ty::Function {
+        params: vec![Ty::Generic],
+        ret: Some(Box::new(Ty::Function {
+          params: vec![Ty::Generic],
+          ret: Some(Box::new(Ty::Number(None))),
+        })),
+      },
+    );
+
+    expect_type_for_definition(
+      &tycheck,
+      "c",
+      Ty::Function {
+        params: vec![Ty::Generic],
+        ret: Some(Box::new(Ty::Number(Some(11.0)))),
+      },
+    );
+
+    expect_type_for_definition(&tycheck, "d", Ty::Number(Some(11.0)));
+  }
+
+  #[test]
+  fn tycheck_function_called_with_itself() {
+    let code = "
+      let I = f(x) = x;
+      I(I)(true)
+    ";
+    let tycheck = tycheck(code);
+
+    expect_type_for_definition(&tycheck, "", Ty::Boolean(Some(true)));
+  }
+
+  #[test]
+  fn tycheck_calling_block_that_returns_a_function() {
+    let code = "
+      {
+        let x = 1;
+        f(y) = y + x
+      }(2)
+    ";
+    let tycheck = tycheck(code);
+
+    expect_type_for_definition(&tycheck, "", Ty::Number(Some(3.0)));
+  }
+
+  #[test]
+  fn tycheck_function_returning_function_returning_argument_from_first_function() {
+    let code = "
+      let TRUE = f(x) = f(y) = x;
+      TRUE(1)(2)
+    ";
+    let tycheck = tycheck(code);
+
+    expect_type_for_definition(&tycheck, "", Ty::Number(Some(1.0)));
+  }
+
+  #[test]
+  fn tycheck_function_returning_function_returning_argument_from_second_function() {
+    let code = "
+      let FALSE = f(x) = f(y) = y;
+      FALSE(1)(2)
+    ";
+    let tycheck = tycheck(code);
+
+    expect_type_for_definition(&tycheck, "", Ty::Number(Some(2.0)));
+  }
+
+  #[test]
+  fn tycheck_lambda_calculus_if() {
+    let code = "
+      let TRUE = f t1(x) = f t2(y) = x;
+      let IF = f a1(p) {
+        f a2(x) {
+          f a3(y) {
+            p(x)(y);
+          }
+        }
+      };
+      IF(TRUE)(1)(2)
+    ";
+    let tycheck = tycheck(code);
+    let v = tycheck.ty_db.definition("").unwrap().value();
+    let expr = tycheck.ty_db.expr(v);
+    println!("{:#?}", expr);
+    expect_type_for_definition(&tycheck, "", Ty::Number(Some(1.0)));
   }
 }
