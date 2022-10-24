@@ -4,7 +4,7 @@ use crate::diagnostics::Diagnostics;
 use crate::scope::Scope;
 use crate::typed_db::{TypedDatabase, TypedDatabaseIdx};
 use crate::typed_hir::{FunctionDef, Ty, TypedExpr, TypedStmt};
-use data_structures::{FxIndexMap, index_map};
+use data_structures::{index_map, FxIndexMap};
 use hir::{expr::Expr, stmt::Stmt, DatabaseIdx};
 
 #[derive(Debug)]
@@ -91,23 +91,20 @@ impl TyCheck {
     self.ty_db.alloc(expr)
   }
 
-  fn infer_variable_ref(
-    &mut self,
-    scope: &mut Scope,
-    var: &String,
-  ) -> TypedDatabaseIdx {
+  fn infer_variable_ref(&mut self, scope: &mut Scope, var: &str) -> TypedDatabaseIdx {
     // Use this as a way to prevent infinite recursion during type inference
     // on a function definition.
     if scope.is_late_binding(var) {
-      return self.ty_db.alloc(TypedExpr::VariableRef { var: var.clone(), ty: Ty::Generic });
+      return self.ty_db.alloc(TypedExpr::VariableRef {
+        var: var.to_string(),
+        ty: Ty::Generic,
+      });
     }
 
     let expr = match scope.def(var) {
-      Some(t) => {
-        TypedExpr::VariableRef {
-          var: var.clone(),
-          ty: self.ty_db.expr(&t).ty(),
-        }
+      Some(t) => TypedExpr::VariableRef {
+        var: var.to_string(),
+        ty: self.ty_db.expr(&t).ty(),
       },
       None => TypedExpr::Error,
     };
@@ -149,11 +146,10 @@ impl TyCheck {
     // need to add the field to the function's type signature.
     match self.ty_db.expr(&object) {
       TypedExpr::VariableRef { var, .. } => {
-        if let Some(param) = scope.param(&var) {
+        if let Some(param) = scope.param(var) {
           if let TypedExpr::FunctionParameter { ty, .. } = self.ty_db.expr_mut(&param) {
             match ty {
-              | Ty::Object(None)
-              | Ty::Generic => {
+              Ty::Object(None) | Ty::Generic => {
                 *ty = Ty::Object(Some(index_map!(field.to_string() => field_ty.clone())));
               }
               Ty::Object(Some(fields)) => {
@@ -328,7 +324,7 @@ impl TyCheck {
           return *lhs;
         }
         match scope.def(&var) {
-          Some(def) =>self.infer_function_call_impl(scope, &def, args),
+          Some(def) => self.infer_function_call_impl(scope, &def, args),
           None => {
             self
               .diagnostics
@@ -336,7 +332,7 @@ impl TyCheck {
             self.ty_db.alloc(TypedExpr::Error)
           }
         }
-      },
+      }
       TypedExpr::FunctionCall {
         args: these_args,
         def,
@@ -346,7 +342,10 @@ impl TyCheck {
         if let TypedExpr::FunctionDef(func) = self.ty_db.expr(&def) {
           scope.push_frame();
 
-          if these_args.iter().any(|arg| self.ty_db.expr(arg).ty() == Ty::Generic) {
+          if these_args
+            .iter()
+            .any(|arg| self.ty_db.expr(arg).ty() == Ty::Generic)
+          {
             return ret;
           }
           let mut params = FxIndexMap::default();
@@ -508,10 +507,13 @@ impl TyCheck {
     let body_ty = self.ty_db.expr(&body_idx).ty();
     let ty = Ty::Function {
       ret: Some(Box::new(body_ty)),
-      params: params.iter().map(|(k, v)| {
-        let ty = self.ty_db.expr(v).ty();
-        ty
-      }).collect(),
+      params: params
+        .iter()
+        .map(|(_, v)| {
+          let ty = self.ty_db.expr(v).ty();
+          ty
+        })
+        .collect(),
     };
     let expr = TypedExpr::FunctionDef(FunctionDef {
       name: name.clone(),
