@@ -4,7 +4,7 @@ use crate::diagnostics::Diagnostics;
 use crate::scope::Scope;
 use crate::typed_db::{TypedDatabase, TypedDatabaseIdx};
 use crate::typed_hir::{FunctionDef, Ty, TypedExpr, TypedStmt};
-use data_structures::FxIndexMap;
+use data_structures::{FxIndexMap, index_map};
 use hir::{expr::Expr, stmt::Stmt, DatabaseIdx};
 
 #[derive(Debug)]
@@ -61,18 +61,7 @@ impl TyCheck {
     let hir_db = self.hir_db.clone();
     let expr = hir_db.get_expr(expr_idx);
     let expr = match expr {
-      Expr::VariableRef { var } => {
-        if scope.is_late_binding(var) {
-          return self.ty_db.alloc(TypedExpr::VariableRef { var: var.clone(), ty: Ty::Generic });
-        }
-        match scope.def(var) {
-          Some(t) => TypedExpr::VariableRef {
-            var: var.clone(),
-            ty: self.ty_db.expr(&t).ty(),
-          },
-          None => TypedExpr::Error,
-        }
-      },
+      Expr::VariableRef { var } => return self.infer_variable_ref(scope, var),
       Expr::Number { n } => TypedExpr::Number { val: Some(*n) },
       Expr::String { s } => TypedExpr::String {
         val: Some(s.clone()),
@@ -102,6 +91,30 @@ impl TyCheck {
     self.ty_db.alloc(expr)
   }
 
+  fn infer_variable_ref(
+    &mut self,
+    scope: &mut Scope,
+    var: &String,
+  ) -> TypedDatabaseIdx {
+    // Use this as a way to prevent infinite recursion during type inference
+    // on a function definition.
+    if scope.is_late_binding(var) {
+      return self.ty_db.alloc(TypedExpr::VariableRef { var: var.clone(), ty: Ty::Generic });
+    }
+
+    let expr = match scope.def(var) {
+      Some(t) => {
+        TypedExpr::VariableRef {
+          var: var.clone(),
+          ty: self.ty_db.expr(&t).ty(),
+        }
+      },
+      None => TypedExpr::Error,
+    };
+
+    self.ty_db.alloc(expr)
+  }
+
   fn infer_object_field_access(
     &mut self,
     scope: &mut Scope,
@@ -109,8 +122,7 @@ impl TyCheck {
     field: &str,
   ) -> TypedDatabaseIdx {
     let object = self.infer_expr(scope, object);
-    let object_ty = self.ty_db.expr(&object).ty();
-    let field_ty = match object_ty {
+    let field_ty = match self.ty_db.expr(&object).ty() {
       Ty::Object(Some(fields)) => match fields.get(field) {
         Some(ty) => ty.clone(),
         None => {
@@ -123,6 +135,7 @@ impl TyCheck {
       Ty::Object(None) => {
         todo!("handle object with unknown fields");
       }
+      Ty::Generic => Ty::Generic,
       _ => {
         self.diagnostics.push_error(format!(
           "Cannot access field `{}` on non-object type",
@@ -131,6 +144,34 @@ impl TyCheck {
         Ty::Error
       }
     };
+
+    // If this is within a function call and the object is an parameter, we
+    // need to add the field to the function's type signature.
+    match self.ty_db.expr(&object) {
+      TypedExpr::VariableRef { var, .. } => {
+        if let Some(param) = scope.param(&var) {
+          if let TypedExpr::FunctionParameter { ty, .. } = self.ty_db.expr_mut(&param) {
+            match ty {
+              | Ty::Object(None)
+              | Ty::Generic => {
+                *ty = Ty::Object(Some(index_map!(field.to_string() => field_ty.clone())));
+              }
+              Ty::Object(Some(fields)) => {
+                fields.insert(field.to_string(), field_ty.clone());
+              }
+              _ => {
+                self.diagnostics.push_error(format!(
+                  "Cannot access field `{}` on non-object type",
+                  field
+                ));
+              }
+            }
+          }
+        }
+      }
+      _ => todo!("This needs to try to ascend the tree to find a function parameter"),
+    };
+
     self.ty_db.alloc(TypedExpr::ObjectFieldAccess {
       object,
       field: field.to_string(),
@@ -467,7 +508,10 @@ impl TyCheck {
     let body_ty = self.ty_db.expr(&body_idx).ty();
     let ty = Ty::Function {
       ret: Some(Box::new(body_ty)),
-      params: (0..params.len()).map(|_| Ty::Generic).collect(),
+      params: params.iter().map(|(k, v)| {
+        let ty = self.ty_db.expr(v).ty();
+        ty
+      }).collect(),
     };
     let expr = TypedExpr::FunctionDef(FunctionDef {
       name: name.clone(),

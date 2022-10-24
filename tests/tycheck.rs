@@ -465,4 +465,38 @@ mod expressions {
 
     expect_type_for_definition(&tycheck, "a", Ty::Number(Some(120.0)));
   }
+
+  #[test]
+  fn tycheck_function_with_object_and_accessing_field_inside() {
+    let code = "
+      let a = f(x) {
+        x.a
+      };
+
+      a({{ a: \"nice\" }})
+    ";
+    let tycheck = tycheck(code);
+
+    expect_type_for_definition(&tycheck, "", Ty::String(Some("nice".to_string())));
+  }
+
+  #[test]
+  fn tycheck_function_with_object_constraint_on_parameter() {
+    let code = "
+    let a = f(x) = x.a;
+
+    a({{ a: \"nice\" }})
+  ";
+    let tycheck = tycheck(code);
+
+    expect_type_for_definition(&tycheck, "", Ty::String(Some("nice".to_string())));
+    expect_type_for_definition(
+      &tycheck,
+      "a",
+      Ty::Function {
+        params: vec![Ty::Object(Some(index_map!("a".to_string() => Ty::Generic)))],
+        ret: Some(Box::new(Ty::Generic)),
+      },
+    );
+  }
 }

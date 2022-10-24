@@ -157,6 +157,10 @@ impl Scope {
     frame.args = args;
     scope
   }
+
+  pub fn param(&self, name: &str) -> Option<TypedDatabaseIdx> {
+    self.current_frame().args.get(name).copied()
+  }
 }
 
 #[cfg(test)]
