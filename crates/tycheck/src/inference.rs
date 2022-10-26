@@ -410,6 +410,9 @@ impl TyCheck {
               let field = *fields.get(&field).unwrap();
               self.infer_function_call_impl(scope, &field, args)
             }
+            TypedExpr::Unresolved => *lhs,
+            TypedExpr::VariableRef { .. } => *lhs,
+            TypedExpr::FunctionParameter { .. } => *lhs,
             _ => {
               self.diagnostics.push_error(format!(
                 "Cannot call field `{}` on non-object type `{}`",
