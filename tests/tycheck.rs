@@ -15,6 +15,7 @@ pub fn tycheck(code: &str) -> TyCheck {
 pub fn expect_type_for_definition(tycheck: &TyCheck, def: &str, ty: Ty) {
   let expr = tycheck.ty_db.definition_expr(def);
 
+  assert!(tycheck.diagnostics.has_errors() == false);
   assert!(expr.is_some());
   let expr = expr.unwrap();
   assert_eq!(expr.ty(), ty);
@@ -464,5 +465,59 @@ mod expressions {
     let tycheck = tycheck(code);
 
     expect_type_for_definition(&tycheck, "a", Ty::Number(Some(120.0)));
+  }
+
+  #[test]
+  fn tycheck_function_with_object_argument() {
+    let code = "
+      let a = f(x) = x.a;
+      a({{ a: 1 }})
+    ";
+    let tycheck = tycheck(code);
+
+    expect_type_for_definition(&tycheck, "", Ty::Number(Some(1.0)));
+  }
+
+  #[test]
+  fn tycheck_function_with_object_argument_returning_new_object() {
+    let code = "
+      let a = f(x) = {{ a: x.a }};
+      a({{ a: 1 }})
+    ";
+    let tycheck = tycheck(code);
+
+    expect_type_for_definition(
+      &tycheck,
+      "",
+      Ty::Object(
+        Some(
+          index_map!(
+            "a".to_string() => Ty::Number(Some(1.0))
+          )
+        )
+      )
+    );
+  }
+
+  #[test]
+  fn tycheck_curried_function_with_object_arguments_returning_new_object() {
+    let code = "
+      let b = f(x) = f(y) = {{ asd: x.a + y.b }};
+      b({{ a: 1 }})({{ b: 2 }})
+    ";
+
+    let tycheck = tycheck(code);
+
+    expect_type_for_definition(
+      &tycheck,
+      "",
+      Ty::Object(
+        Some(
+          index_map!(
+            "asd".to_string() => Ty::Number(Some(3.0))
+          )
+        )
+      )
+    );
   }
 }
