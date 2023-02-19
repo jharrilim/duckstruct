@@ -1,11 +1,3 @@
 # Grammar
 
-todo: incomplete
-
-```
-function = 'f'
-identifier = /(\w|\d)+/
-function-name = <identifier>
-method-invocation = '.'<identifier>
-return = 'return'
-```
+Formalizing the grammar here: https://github.com/jharrilim/tree-sitter-duckstruct.git
