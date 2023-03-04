@@ -1,0 +1,11 @@
+---
+source: tests/compiler.rs
+expression: "&output"
+info:
+  file: lambda_calculus.ds
+---
+const I = x => x;
+const TRUE = x => y => x;
+const FALSE = x => y => y;
+const IF = cond => x => y => cond;
+const hi = 'Hello world';

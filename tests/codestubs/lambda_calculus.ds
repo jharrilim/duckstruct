@@ -1,0 +1,6 @@
+let I = f(x) = x;
+let TRUE = f(x) = f(y) = x;
+let FALSE = f(x) = f(y) = y;
+let IF = f(cond) = f(x) = f(y) = cond(x)(y);
+
+let hi = IF(TRUE)("Hello world")("Goodbye");

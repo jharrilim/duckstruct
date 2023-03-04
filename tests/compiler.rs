@@ -1,10 +1,10 @@
 use std::path::{Path, PathBuf};
 
 use compile::Compiler;
-use serde::Serialize;
 use insta;
+use serde::Serialize;
 
-pub fn codestub(path: &str) -> PathBuf{
+pub fn codestub(path: &str) -> PathBuf {
   let root = env!("CARGO_MANIFEST_DIR");
   Path::new(root).join("tests/codestubs").join(path)
 }
@@ -35,4 +35,15 @@ macro_rules! code_snapshot {
 #[test]
 pub fn compile_simple1() {
   code_snapshot!("simple1.ds");
+}
+
+#[test]
+pub fn compile_factorial() {
+  todo!("currently producing weird output")
+  // code_snapshot!("factorial.ds");
+}
+
+#[test]
+pub fn compile_lambda_calculus() {
+  code_snapshot!("lambda_calculus.ds");
 }
