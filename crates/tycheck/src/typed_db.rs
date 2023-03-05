@@ -1,4 +1,4 @@
-use crate::typed_hir::{TypedExpr, TypedStmt, Ty};
+use crate::typed_hir::{Ty, TypedExpr, TypedStmt};
 use data_structures::arena::{Arena, Idx};
 use data_structures::FxIndexMap;
 

@@ -489,13 +489,9 @@ mod expressions {
     expect_type_for_definition(
       &tycheck,
       "",
-      Ty::Object(
-        Some(
-          index_map!(
-            "a".to_string() => Ty::Number(Some(1.0))
-          )
-        )
-      )
+      Ty::Object(Some(index_map!(
+        "a".to_string() => Ty::Number(Some(1.0))
+      ))),
     );
   }
 
@@ -511,13 +507,9 @@ mod expressions {
     expect_type_for_definition(
       &tycheck,
       "",
-      Ty::Object(
-        Some(
-          index_map!(
-            "asd".to_string() => Ty::Number(Some(3.0))
-          )
-        )
-      )
+      Ty::Object(Some(index_map!(
+        "asd".to_string() => Ty::Number(Some(3.0))
+      ))),
     );
   }
 
@@ -596,7 +588,10 @@ mod expressions {
     expect_type_for_definition(
       &tycheck,
       "a",
-      Ty::Function { params: vec![a_param_type], ret: Some(Box::new(Ty::Generic)) }
+      Ty::Function {
+        params: vec![a_param_type],
+        ret: Some(Box::new(Ty::Generic)),
+      },
     );
     expect_type_for_definition(&tycheck, "", Ty::Number(Some(3.0)));
   }

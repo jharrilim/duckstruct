@@ -2,13 +2,13 @@ use lexer::token::TokenKind;
 use std::fmt;
 use text_size::TextRange;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Expectations {
   Expression,
   Tokens(Vec<TokenKind>),
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ParseError {
   pub(super) expected: Expectations,
   pub(super) found: Option<TokenKind>,

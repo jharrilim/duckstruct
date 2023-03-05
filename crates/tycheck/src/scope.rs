@@ -161,17 +161,18 @@ impl Scope {
 
   /// Tries to find a function parameter in the current scope based on its name.
   pub fn param(&self, name: &str) -> Option<TypedDatabaseIdx> {
-    self.frames.iter().rev().find_map(|frame| frame.args.get(name)).copied()
+    self
+      .frames
+      .iter()
+      .rev()
+      .find_map(|frame| frame.args.get(name))
+      .copied()
   }
 
   pub fn is_param(&self, idx: TypedDatabaseIdx) -> bool {
     println!("current params: {:#?}", self.current_frame().args);
     println!("given: {:#?}", idx);
-    self
-      .current_frame()
-      .args
-      .iter()
-      .any(|(_, &v)| v == idx)
+    self.current_frame().args.iter().any(|(_, &v)| v == idx)
   }
 
   pub fn def_name_similar_to(&self, name: &str) -> Option<String> {

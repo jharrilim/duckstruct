@@ -122,16 +122,14 @@ impl TyCheck {
     let field_ty = match self.ty_db.expr(&typed_object).ty() {
       Ty::Object(Some(fields)) => match fields.get(field) {
         Some(ty) => ty.clone(),
-        None => {
-          Ty::Generic
-        }
+        None => Ty::Generic,
       },
       Ty::Object(None) => {
         todo!("handle object with unknown fields");
       }
       Ty::Generic => Ty::Generic,
       ty => {
-        match self.query_object_name(&object) {
+        match self.query_object_name(object) {
           Some(name) => {
             if let Some(similar_name) = scope.def_name_similar_to(name) {
               self.diagnostics.push_error(format!(
@@ -139,18 +137,16 @@ impl TyCheck {
                 field, name, similar_name
               ));
             } else {
-              self.diagnostics.push_error(format!(
-                "Cannot access field `{}` on {}.",
-                field, name
-              ));
+              self
+                .diagnostics
+                .push_error(format!("Cannot access field `{}` on {}.", field, name));
             }
           }
           None => {
             println!("omg fail");
-            self.diagnostics.push_error(format!(
-              "Cannot access field `{}` on {}.",
-              field, ty
-            ));
+            self
+              .diagnostics
+              .push_error(format!("Cannot access field `{}` on {}.", field, ty));
           }
         }
         Ty::Error
@@ -161,10 +157,11 @@ impl TyCheck {
     match self.ty_db.expr(&typed_object) {
       TypedExpr::VariableRef { var, .. } => {
         if let Some(param_idx) = scope.param(var) {
-          self.ty_db.edit_ty(&param_idx, |original_ty| {
-            let param_ty = match original_ty {
+          self
+            .ty_db
+            .edit_ty(&param_idx, |original_ty| match original_ty {
               Ty::Object(Some(fields)) => {
-                let mut fields = fields.clone();
+                let mut fields = fields;
                 fields.insert(field.to_string(), field_ty.clone());
                 Ty::Object(Some(fields))
               }
@@ -179,14 +176,11 @@ impl TyCheck {
               _ => {
                 self.diagnostics.push_error(format!(
                   "Cannot access field `{}` on non-object type. Type: {:?}",
-                  field,
-                  original_ty
+                  field, original_ty
                 ));
                 Ty::Error
               }
-            };
-            param_ty
-          });
+            });
         }
       }
       _ => {}
@@ -395,7 +389,7 @@ impl TyCheck {
         if args.len() != params.len() {
           self.diagnostics.push_error(format!(
             "function `{}` expected {} arguments, but got {}",
-            name.unwrap_or_else(|| "".to_string()),
+            name.unwrap_or_default(),
             params.len(),
             args.len()
           ));
