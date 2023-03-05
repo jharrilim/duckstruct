@@ -56,6 +56,7 @@ impl Scope {
     self.frames.push(self.new_frame());
   }
 
+  /// Creates a new frame with a name. This is used for named functions.
   pub fn push_named_frame(&mut self, name: String) {
     self.frames.push(self.new_named_frame(name));
   }
@@ -143,7 +144,7 @@ impl Scope {
 
   /// Return a new function scope with all of the frames flattened into one.
   /// Any args defined in the non-topmost frame will become defs in the new
-  /// scope's topmost frame.
+  /// scope's topmost frame. This is useful for closure capture.
   pub fn flatten(&self) -> Scope {
     let mut scope = Scope::default();
     let mut args = FxIndexMap::default();
@@ -158,8 +159,19 @@ impl Scope {
     scope
   }
 
+  /// Tries to find a function parameter in the current scope based on its name.
   pub fn param(&self, name: &str) -> Option<TypedDatabaseIdx> {
-    self.current_frame().args.get(name).copied()
+    self.frames.iter().rev().find_map(|frame| frame.args.get(name)).copied()
+  }
+
+  pub fn is_param(&self, idx: TypedDatabaseIdx) -> bool {
+    println!("current params: {:#?}", self.current_frame().args);
+    println!("given: {:#?}", idx);
+    self
+      .current_frame()
+      .args
+      .iter()
+      .any(|(_, &v)| v == idx)
   }
 }
 

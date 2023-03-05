@@ -554,4 +554,50 @@ mod expressions {
       },
     );
   }
+
+  #[test]
+  fn tycheck_object_literal_immediate_property_access() {
+    let code = "
+      let a = {{ a: 1 }}.a;
+    ";
+    let tycheck = tycheck(code);
+
+    expect_type_for_definition(&tycheck, "a", Ty::Number(Some(1.0)));
+  }
+
+  #[test]
+  fn tycheck_object_literal_nested_property_access() {
+    let code = "
+      let a = {{ a: {{ b: 1 }} }}.a.b;
+    ";
+    let tycheck = tycheck(code);
+
+    expect_type_for_definition(&tycheck, "a", Ty::Number(Some(1.0)));
+  }
+
+  #[test]
+  fn tycheck_function_object_parameter_fields_assigned_to_variables() {
+    let code = "
+      let a = f(x) {
+        let a = x.a;
+        let b = x.b;
+        a + b
+      };
+
+      a({{ a: 1, b: 2 }})
+    ";
+    let tycheck = tycheck(code);
+
+    let a_param_type = Ty::Object(Some(index_map!(
+      "a".to_string() => Ty::Generic,
+      "b".to_string() => Ty::Generic
+    )));
+
+    expect_type_for_definition(
+      &tycheck,
+      "a",
+      Ty::Function { params: vec![a_param_type], ret: Some(Box::new(Ty::Generic)) }
+    );
+    expect_type_for_definition(&tycheck, "", Ty::Number(Some(3.0)));
+  }
 }

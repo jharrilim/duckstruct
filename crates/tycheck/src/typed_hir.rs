@@ -45,7 +45,6 @@ pub enum TypedExpr {
     vals: Option<Vec<TypedDatabaseIdx>>,
     ty: Ty,
   },
-
   Binary {
     op: BinaryOp,
     lhs: TypedDatabaseIdx,
@@ -115,6 +114,31 @@ impl TypedExpr {
       Self::Unresolved => Ty::Generic,
       Self::Error => Ty::Error,
     }
+  }
+
+  pub fn ty_mut(&mut self) -> &mut Ty {
+    match self {
+      Self::Number { val: _ } => unimplemented!(),
+      Self::String { val: _ } => unimplemented!(),
+      Self::Boolean { val: _ } => unimplemented!(),
+      Self::Array { vals: _, ty } => ty,
+      Self::Binary { ty, .. } => ty,
+      Self::Unary { ty, .. } => ty,
+      Self::VariableRef { ty, .. } => ty,
+      Self::Block { ty, .. } => ty,
+      Self::FunctionDef(FunctionDef { ty, .. }) => ty,
+      Self::FunctionCall { ty, .. } => ty,
+      Self::FunctionParameter { ty, .. } => ty,
+      Self::Conditional { ty, .. } => ty,
+      Self::Object { ty, .. } => ty,
+      Self::ObjectFieldAccess { ty, .. } => ty,
+      Self::Unresolved => unimplemented!(),
+      Self::Error => unimplemented!(),
+    }
+  }
+
+  pub fn replace_ty(&mut self, ty: Ty) {
+    *self.ty_mut() = ty;
   }
 }
 

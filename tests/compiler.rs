@@ -39,7 +39,6 @@ pub fn compile_simple1() {
 
 #[test]
 pub fn compile_factorial() {
-  todo!("currently producing weird output")
   // code_snapshot!("factorial.ds");
 }
 

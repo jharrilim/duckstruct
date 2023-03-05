@@ -123,10 +123,7 @@ impl TyCheck {
       Ty::Object(Some(fields)) => match fields.get(field) {
         Some(ty) => ty.clone(),
         None => {
-          self
-            .diagnostics
-            .push_error(format!("Object does not have field `{}`", field));
-          Ty::Error
+          Ty::Generic
         }
       },
       Ty::Object(None) => {
@@ -142,31 +139,40 @@ impl TyCheck {
       }
     };
 
-    // If this is within a function call and the object is an parameter, we
-    // need to add the field to the function's type signature.
+    // Propagate the type of the field to the object.
     match self.ty_db.expr(&object) {
       TypedExpr::VariableRef { var, .. } => {
-        if let Some(param) = scope.param(var) {
-          if let TypedExpr::FunctionParameter { ty, .. } = self.ty_db.expr_mut(&param) {
-            match ty {
-              Ty::Object(None) | Ty::Generic => {
-                *ty = Ty::Object(Some(index_map!(field.to_string() => field_ty.clone())));
-              }
+        if let Some(param_idx) = scope.param(var) {
+          self.ty_db.edit_ty(&param_idx, |original_ty| {
+            let param_ty = match original_ty {
               Ty::Object(Some(fields)) => {
+                let mut fields = fields.clone();
                 fields.insert(field.to_string(), field_ty.clone());
+                Ty::Object(Some(fields))
+              }
+              Ty::Object(None) => {
+                let fields = index_map!(field.to_string() => field_ty.clone());
+                Ty::Object(Some(fields))
+              }
+              Ty::Generic => {
+                let fields = index_map!(field.to_string() => field_ty.clone());
+                Ty::Object(Some(fields))
               }
               _ => {
                 self.diagnostics.push_error(format!(
-                  "Cannot access field `{}` on non-object type",
-                  field
+                  "Cannot access field `{}` on non-object type. Type: {:?}",
+                  field,
+                  original_ty
                 ));
+                Ty::Error
               }
-            }
-          }
+            };
+            param_ty
+          });
         }
       }
-      _ => todo!("This needs to try to ascend the tree to find a function parameter"),
-    };
+      _ => {}
+    }
 
     self.ty_db.alloc(TypedExpr::ObjectFieldAccess {
       object,
@@ -477,6 +483,7 @@ impl TyCheck {
     }
   }
 
+  /// Infers the definition of a function as well as its parameters.
   fn infer_function(
     &mut self,
     scope: &mut Scope,

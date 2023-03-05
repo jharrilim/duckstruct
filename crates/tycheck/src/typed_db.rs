@@ -1,4 +1,4 @@
-use crate::typed_hir::{TypedExpr, TypedStmt};
+use crate::typed_hir::{TypedExpr, TypedStmt, Ty};
 use data_structures::arena::{Arena, Idx};
 use data_structures::FxIndexMap;
 
@@ -54,5 +54,11 @@ impl TypedDatabase {
   pub fn defs_iter(&self) -> Vec<(&String, &TypedStmt)> {
     let vec: Vec<(&String, &TypedStmt)> = self.defs.iter().collect();
     vec
+  }
+
+  pub fn edit_ty(&mut self, idx: &TypedDatabaseIdx, mut edit_fn: impl FnMut(Ty) -> Ty) {
+    let expr = self.expr_mut(idx);
+    let ty = edit_fn(expr.ty());
+    expr.replace_ty(ty);
   }
 }

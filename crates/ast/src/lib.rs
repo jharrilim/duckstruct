@@ -10,7 +10,7 @@ pub use stmt::Stmt;
 
 use syntax::{SyntaxKind, SyntaxNode};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Root(SyntaxNode);
 
 impl Root {

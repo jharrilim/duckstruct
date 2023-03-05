@@ -36,7 +36,9 @@ impl ReplSession {
           self.code()
         } else {
           let mut lines = self.statements.clone();
-          lines.push(line.clone());
+          if !line.eq(".ast") {
+            lines.push(line.clone());
+          }
           lines.into_iter().collect::<Vec<String>>().join("\n")
         }
       }
@@ -46,7 +48,7 @@ impl ReplSession {
     let parse = parse(&lines);
     let root = ast::Root::cast(parse.syntax()).unwrap();
 
-    let hir_db = hir::lower(root);
+    let hir_db = hir::lower(root.clone());
     let mut tycheck = TyCheck::new(hir_db);
 
     tycheck.infer();
@@ -63,9 +65,13 @@ impl ReplSession {
       return;
     }
 
-    if line.is_some() && line.unwrap().eq(".js") {
-      let js = JsGenerator::new(&tycheck).generate_js();
-      println!("---\njavascript\n---\n{}", js);
+    if let Some(line) = line {
+      if line.eq(".js") {
+        let js = JsGenerator::new(&tycheck).generate_js();
+        println!("---\njavascript\n---\n{}", js);
+      } else if line.eq(".ast") {
+        println!("---\nast\n---\n{:#?}", root);
+      }
     }
 
     if let Some(def) = tycheck.ty_db.definition("") {
