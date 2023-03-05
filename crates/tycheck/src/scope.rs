@@ -173,6 +173,17 @@ impl Scope {
       .iter()
       .any(|(_, &v)| v == idx)
   }
+
+  pub fn def_name_similar_to(&self, name: &str) -> Option<String> {
+    self.frames.iter().rev().find_map(|frame| {
+      frame
+        .defs
+        .iter()
+        .chain(frame.args.iter())
+        .find(|(def_name, _)| distance::levenshtein(name, def_name) < 3)
+        .map(|(s, _)| s.to_string())
+    })
+  }
 }
 
 #[cfg(test)]

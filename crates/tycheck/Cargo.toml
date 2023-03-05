@@ -8,3 +8,5 @@ edition = "2021"
 [dependencies]
 data-structures = { path = "../data-structures" }
 hir = { path = "../hir" }
+
+distance = "0.4.0"

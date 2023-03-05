@@ -118,8 +118,8 @@ impl TyCheck {
     object: &DatabaseIdx,
     field: &str,
   ) -> TypedDatabaseIdx {
-    let object = self.infer_expr(scope, object);
-    let field_ty = match self.ty_db.expr(&object).ty() {
+    let typed_object = self.infer_expr(scope, object);
+    let field_ty = match self.ty_db.expr(&typed_object).ty() {
       Ty::Object(Some(fields)) => match fields.get(field) {
         Some(ty) => ty.clone(),
         None => {
@@ -130,17 +130,35 @@ impl TyCheck {
         todo!("handle object with unknown fields");
       }
       Ty::Generic => Ty::Generic,
-      _ => {
-        self.diagnostics.push_error(format!(
-          "Cannot access field `{}` on non-object type",
-          field
-        ));
+      ty => {
+        match self.query_object_name(&object) {
+          Some(name) => {
+            if let Some(similar_name) = scope.def_name_similar_to(name) {
+              self.diagnostics.push_error(format!(
+                "Cannot access field `{}` on {}. Did you mean `{}`?",
+                field, name, similar_name
+              ));
+            } else {
+              self.diagnostics.push_error(format!(
+                "Cannot access field `{}` on {}.",
+                field, name
+              ));
+            }
+          }
+          None => {
+            println!("omg fail");
+            self.diagnostics.push_error(format!(
+              "Cannot access field `{}` on {}.",
+              field, ty
+            ));
+          }
+        }
         Ty::Error
       }
     };
 
     // Propagate the type of the field to the object.
-    match self.ty_db.expr(&object) {
+    match self.ty_db.expr(&typed_object) {
       TypedExpr::VariableRef { var, .. } => {
         if let Some(param_idx) = scope.param(var) {
           self.ty_db.edit_ty(&param_idx, |original_ty| {
@@ -175,7 +193,7 @@ impl TyCheck {
     }
 
     self.ty_db.alloc(TypedExpr::ObjectFieldAccess {
-      object,
+      object: typed_object,
       field: field.to_string(),
       ty: field_ty,
     })
@@ -712,5 +730,16 @@ impl TyCheck {
     };
     scope.pop_frame();
     self.ty_db.alloc(TypedExpr::Block { stmts, ty })
+  }
+
+  fn query_object_name(&self, idx: &DatabaseIdx) -> Option<&str> {
+    let expr = self.hir_db.get_expr(idx);
+    let name = match expr {
+      Expr::VariableRef { var, .. } => var,
+      Expr::Object { .. } => "<anonymous>",
+      _ => return None,
+    };
+    println!("name: {}", name);
+    Some(name)
   }
 }
