@@ -3,9 +3,19 @@ use num_derive::{FromPrimitive, ToPrimitive};
 use std::fmt;
 use std::hash::Hash;
 
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Extras {
+  /// The start of each line in the source code.
+  /// The vec size is the number of lines in the source code, and the value at
+  /// each index is the index of the first column in that line.
+  pub line_heads: Vec<usize>,
+}
+
 #[derive(
   Logos, Debug, PartialEq, Clone, Copy, FromPrimitive, ToPrimitive, PartialOrd, Ord, Eq, Hash,
 )]
+#[logos(extras = Extras)]
 pub enum TokenKind {
   #[token("f")]
   Function,
@@ -24,6 +34,9 @@ pub enum TokenKind {
 
   #[token("else")]
   Else,
+
+  #[token("for")]
+  For,
 
   #[token("while")]
   While,
@@ -117,7 +130,12 @@ pub enum TokenKind {
   #[regex(r"[a-zA-Z_][a-zA-Z\d_]*")]
   Identifier,
 
-  #[regex(r"[\s]+")]
+  #[token("\n", |lex| {
+    lex.extras.line_heads.push(
+      lex.span().start
+    );
+  })]
+  #[regex(r"[ \f\t]")]
   Whitespace,
 
   #[regex("//.*")]
@@ -143,6 +161,7 @@ impl fmt::Display for TokenKind {
       Self::Let => "'let'",
       Self::If => "'if'",
       Self::Else => "'else'",
+      Self::For => "'for'",
       Self::While => "'while'",
       Self::Identifier => "identifier",
       Self::Period => "'.'",

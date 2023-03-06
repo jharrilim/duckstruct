@@ -13,6 +13,7 @@ pub struct ParseError {
   pub(super) expected: Expectations,
   pub(super) found: Option<TokenKind>,
   pub(super) range: TextRange,
+  pub(super) line: usize,
 }
 
 impl fmt::Display for ParseError {
@@ -20,7 +21,8 @@ impl fmt::Display for ParseError {
     match &self.expected {
       Expectations::Expression => write!(
         f,
-        "error at {}..{}: expected expression, but found {}",
+        "error at line {}, col {}..{}: expected expression, but found {}",
+        self.line,
         u32::from(self.range.start()),
         u32::from(self.range.end()),
         self.found.unwrap()
@@ -28,7 +30,8 @@ impl fmt::Display for ParseError {
       Expectations::Tokens(tokens) => {
         write!(
           f,
-          "error at {}..{}: expected ",
+          "error at line {}, col {}..{}: expected ",
+          self.line,
           u32::from(self.range.start()),
           u32::from(self.range.end()),
         )?;
@@ -71,6 +74,7 @@ mod tests {
         let end = range.end.into();
         TextRange::new(start, end)
       },
+      line: 0,
     };
 
     assert_eq!(format!("{}", error), output);
@@ -82,7 +86,7 @@ mod tests {
       vec![TokenKind::Equals],
       Some(TokenKind::Identifier),
       10..20,
-      "error at 10..20: expected '=', but found identifier",
+      "error at line 0, col 10..20: expected '=', but found identifier",
     );
   }
 
@@ -92,7 +96,7 @@ mod tests {
       vec![TokenKind::RightParenthesis],
       None,
       5..6,
-      "error at 5..6: expected ')'",
+      "error at line 0, col 5..6: expected ')'",
     );
   }
 
@@ -102,7 +106,7 @@ mod tests {
       vec![TokenKind::Plus, TokenKind::Minus],
       Some(TokenKind::Equals),
       0..1,
-      "error at 0..1: expected '+' or '-', but found '='",
+      "error at line 0, col 0..1: expected '+' or '-', but found '='",
     );
   }
 
@@ -117,7 +121,7 @@ mod tests {
       ],
       Some(TokenKind::Let),
       100..105,
-      "error at 100..105: expected number, identifier, '-' or '(', but found 'let'",
+      "error at line 0, col 100..105: expected number, identifier, '-' or '(', but found 'let'",
     );
   }
 }

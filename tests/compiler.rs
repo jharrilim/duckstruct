@@ -39,6 +39,7 @@ pub fn compile_simple1() {
 
 #[test]
 pub fn compile_factorial() {
+  // TODO: Codegen for the recursive function is broken, but the output value is ok
   // code_snapshot!("factorial.ds");
 }
 

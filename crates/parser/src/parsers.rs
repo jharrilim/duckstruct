@@ -182,7 +182,10 @@ pub(super) fn function_definition(p: &mut Parser) -> CompletedMarker {
   match p.peek() {
     Some(TokenKind::Identifier) => named_f(p, m),
     Some(TokenKind::LeftParenthesis) => anonymous_f(p, m),
-    _ => panic!("press f"),
+    _ => {
+      p.error_expected_one_of(&[TokenKind::Identifier, TokenKind::LeftParenthesis]);
+      m.complete(p, SyntaxKind::Error)
+    },
   }
 }
 
