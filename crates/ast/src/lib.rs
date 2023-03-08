@@ -4,6 +4,7 @@
 // lib.rs
 pub mod expr;
 pub mod stmt;
+pub mod pat;
 
 pub use expr::Expr;
 pub use stmt::Stmt;

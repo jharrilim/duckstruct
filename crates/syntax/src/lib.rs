@@ -5,6 +5,7 @@ use rowan::Language;
 
 #[derive(Debug, Copy, Clone, PartialEq, FromPrimitive, ToPrimitive, Eq, PartialOrd, Ord, Hash)]
 pub enum SyntaxKind {
+  // Literals
   Whitespace,
   Function, // the keyword
   Boolean,  // true or false
@@ -46,19 +47,19 @@ pub enum SyntaxKind {
   Comment,
   Error,
   Root,
+
+  // Statements
+  LetStatement,
+
+  // Expressions
   InfixExpression,
   ParenExpression,
   UnaryExpression,
-  LetStatement,
   ConditionalExpression,
   ConditionalPredicate,
   IfCondition,
   ElseCondition,
   VariableReference,
-  Pattern,
-  StructPattern,
-  ArrayPattern,
-  ArgumentList,
   AnonymousFunction,
   AnonymousFunctionExpression,
   NamedFunction,
@@ -67,10 +68,20 @@ pub enum SyntaxKind {
   BlockExpression,
   ArrayExpression,
   ObjectExpression,
+  // Objects
   ObjectField,
   ObjectFieldKey,
   ObjectFieldValue,
   ObjectFieldAccessExpression,
+  // Loops
+  ForExpression,
+
+  // Patterns
+  Pattern,
+  StructPattern,
+  ArrayPattern,
+  RestPattern,
+  ArgumentList,
 }
 
 impl From<SyntaxKind> for rowan::SyntaxKind {

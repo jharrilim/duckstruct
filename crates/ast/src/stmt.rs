@@ -1,4 +1,4 @@
-use crate::expr::{Expr, Function};
+use crate::{expr::{Expr, Function}, pat::Pat};
 use syntax::{SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 
 #[derive(Debug)]
@@ -40,6 +40,11 @@ impl VariableDef {
       .filter_map(SyntaxElement::into_token)
       .find(|token| token.kind() == SyntaxKind::Identifier)
   }
+
+  pub fn pattern(&self) -> Option<Pat> {
+    self.0.children().find_map(Pat::cast)
+  }
+
 
   pub fn value(&self) -> Option<Expr> {
     self.0.children().find_map(Expr::cast)
