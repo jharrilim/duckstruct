@@ -166,6 +166,18 @@ impl TyCheck {
   ) {
     // Propagate the type of the field to the object.
     match self.ty_db.expr(object) {
+      TypedExpr::ObjectFieldAccess { object, field: inner_field, .. } => {
+        match self.ty_db.expr(object) {
+          TypedExpr::Object { fields, .. } => {
+            if let Some(field_expr) = fields.get(inner_field) {
+              self.propogate_object_field_constraint(scope, &field_expr.clone(), field, field_ty)
+            } else {
+              todo!("Doesn't seem possible?")
+            }
+          }
+          _ => todo!("Doesn't seem possible?")
+        }
+      }
       TypedExpr::FunctionCall { ret, .. } => {
         self.propogate_object_field_constraint(scope, &ret.clone(), field, field_ty)
       }
