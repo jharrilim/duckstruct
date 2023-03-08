@@ -1,6 +1,9 @@
 use codegen::js::JsGenerator;
 use parser::parse;
-use rustyline::{self, error::ReadlineError, validate::MatchingBracketValidator, Result};
+use rustyline::{
+  self, error::ReadlineError, highlight::MatchingBracketHighlighter,
+  validate::MatchingBracketValidator, Result,
+};
 use rustyline_derive::*;
 use tycheck::TyCheck;
 
@@ -8,6 +11,8 @@ use tycheck::TyCheck;
 struct InputValidator {
   #[rustyline(Validator)]
   pub brackets: MatchingBracketValidator,
+  #[rustyline(Highlighter)]
+  pub bracket_highlighter: MatchingBracketHighlighter,
 }
 
 #[derive(Debug, Default)]
@@ -87,6 +92,7 @@ pub fn repl() -> Result<()> {
   };
   let validator = InputValidator {
     brackets: MatchingBracketValidator::new(),
+    bracket_highlighter: MatchingBracketHighlighter::new(),
   };
   let mut rl = rustyline::Editor::new()?;
   rl.set_helper(Option::Some(validator));
