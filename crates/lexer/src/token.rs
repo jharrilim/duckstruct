@@ -135,7 +135,7 @@ pub enum TokenKind {
       lex.span().start
     );
   })]
-  #[regex(r"[ \f\t]")]
+  #[regex(r"[ \n\f\t]+")]
   Whitespace,
 
   #[regex("//.*")]
@@ -211,8 +211,13 @@ mod tests {
   }
 
   #[test]
-  fn lex_spaces_and_newlines() {
-    check("  \n ", TokenKind::Whitespace);
+  fn lex_space() {
+    check(" ", TokenKind::Whitespace);
+  }
+
+  #[test]
+  fn lex_newline() {
+    check("\n", TokenKind::Whitespace);
   }
 
   #[test]

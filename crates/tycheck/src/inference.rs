@@ -58,8 +58,9 @@ impl TyCheck {
   }
 
   pub fn infer_expr(&mut self, scope: &mut Scope, expr_idx: &DatabaseIdx) -> TypedDatabaseIdx {
-    let hir_db = self.hir_db.clone();
+    let hir_db = Rc::clone(&self.hir_db);
     let expr = hir_db.get_expr(expr_idx);
+
     let expr = match expr {
       Expr::VariableRef { var } => return self.infer_variable_ref(scope, var),
       Expr::Number { n } => TypedExpr::Number { val: Some(*n) },
@@ -101,15 +102,10 @@ impl TyCheck {
       });
     }
 
-    let expr = match scope.def(var) {
-      Some(t) => TypedExpr::VariableRef {
-        var: var.to_string(),
-        ty: self.ty_db.expr(&t).ty(),
-      },
-      None => TypedExpr::Error,
-    };
-
-    self.ty_db.alloc(expr)
+    match scope.def(var) {
+      Some(t) => t,
+      None => self.ty_db.alloc(TypedExpr::Error),
+    }
   }
 
   fn infer_object_field_access(
@@ -143,7 +139,6 @@ impl TyCheck {
             }
           }
           None => {
-            println!("omg fail");
             self
               .diagnostics
               .push_error(format!("Cannot access field `{}` on {}.", field, ty));
@@ -153,10 +148,27 @@ impl TyCheck {
       }
     };
 
+    self.propogate_object_field_constraint(scope, &typed_object, field, &field_ty);
+
+    self.ty_db.alloc(TypedExpr::ObjectFieldAccess {
+      object: typed_object,
+      field: field.to_string(),
+      ty: field_ty,
+    })
+  }
+
+  fn propogate_object_field_constraint(
+    &mut self,
+    scope: &mut Scope,
+    object: &TypedDatabaseIdx,
+    field: &str,
+    field_ty: &Ty,
+  ) {
     // Propagate the type of the field to the object.
-    match self.ty_db.expr(&typed_object) {
+    match self.ty_db.expr(&object) {
+      TypedExpr::FunctionParameter { name: var, .. } |
       TypedExpr::VariableRef { var, .. } => {
-        if let Some(param_idx) = scope.param(var) {
+        if let Some(param_idx) = scope.def(var) {
           self
             .ty_db
             .edit_ty(&param_idx, |original_ty| match original_ty {
@@ -185,12 +197,6 @@ impl TyCheck {
       }
       _ => {}
     }
-
-    self.ty_db.alloc(TypedExpr::ObjectFieldAccess {
-      object: typed_object,
-      field: field.to_string(),
-      ty: field_ty,
-    })
   }
 
   fn infer_object(

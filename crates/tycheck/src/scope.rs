@@ -132,7 +132,8 @@ impl Scope {
     })
   }
 
-  /// Looks up a definition to see if it's in scope.
+  /// Looks up a definition to see if it's in scope. Definitions are anything defined by "let",
+  /// or function parameters.
   pub fn def(&self, name: &str) -> Option<TypedDatabaseIdx> {
     let d = self
       .frames

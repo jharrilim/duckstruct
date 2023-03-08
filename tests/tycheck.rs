@@ -548,6 +548,29 @@ mod expressions {
   }
 
   #[test]
+  fn tycheck_function_with_object_constraint_on_parameter_through_let_rebinding() {
+    let code = "
+      f add(pos) {
+        let p = pos;
+        p.x + p.y
+      }
+    ";
+    let tycheck = tycheck(code);
+
+    expect_type_for_definition(
+      &tycheck,
+      "add",
+      Ty::Function {
+        params: vec![Ty::Object(Some(index_map!(
+          "x".to_string() => Ty::Generic,
+          "y".to_string() => Ty::Generic
+        )))],
+        ret: Some(Box::new(Ty::Generic)),
+      },
+    );
+  }
+
+  #[test]
   fn tycheck_object_literal_immediate_property_access() {
     let code = "
       let a = {{ a: 1 }}.a;
@@ -594,5 +617,18 @@ mod expressions {
       },
     );
     expect_type_for_definition(&tycheck, "", Ty::Number(Some(3.0)));
+  }
+
+  #[test]
+  fn tycheck_reassignment_holds_ref_to_original() {
+    let code = "
+      let a = 1;
+      let b = a;
+      a = 2;
+      b
+    ";
+    let tycheck = tycheck(code);
+
+    expect_type_for_definition(&tycheck, "b", Ty::Number(Some(1.0)));
   }
 }
