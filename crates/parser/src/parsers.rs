@@ -185,7 +185,7 @@ pub(super) fn function_definition(p: &mut Parser) -> CompletedMarker {
     _ => {
       p.error_expected_one_of(&[TokenKind::Identifier, TokenKind::LeftParenthesis]);
       m.complete(p, SyntaxKind::Error)
-    },
+    }
   }
 }
 

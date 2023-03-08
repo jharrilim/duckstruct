@@ -1,5 +1,4 @@
-use syntax::{SyntaxNode, SyntaxKind};
-
+use syntax::{SyntaxKind, SyntaxNode};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Pat {

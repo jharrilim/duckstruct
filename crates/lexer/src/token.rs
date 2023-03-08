@@ -3,7 +3,6 @@ use num_derive::{FromPrimitive, ToPrimitive};
 use std::fmt;
 use std::hash::Hash;
 
-
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Extras {
   /// The start of each line in the source code.

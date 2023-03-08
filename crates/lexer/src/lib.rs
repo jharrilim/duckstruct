@@ -38,7 +38,12 @@ impl<'a> Iterator for Lexer<'a> {
       TextRange::new(start, end)
     };
 
-    Some(Self::Item { kind, text, range, line })
+    Some(Self::Item {
+      kind,
+      text,
+      range,
+      line,
+    })
   }
 }
 
