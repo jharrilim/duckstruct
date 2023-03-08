@@ -166,6 +166,14 @@ impl TyCheck {
   ) {
     // Propagate the type of the field to the object.
     match self.ty_db.expr(&object) {
+      TypedExpr::FunctionCall { ret, .. } => {
+        self.propogate_object_field_constraint(scope, &ret.clone(), field, field_ty)
+      }
+      TypedExpr::Block { stmts, .. } => {
+        if let Some(last_typed_stmt) = stmts.last() {
+          self.propogate_object_field_constraint(scope, &last_typed_stmt.value().clone(), field, field_ty);
+        }
+      },
       TypedExpr::FunctionParameter { name: var, .. } |
       TypedExpr::VariableRef { var, .. } => {
         if let Some(param_idx) = scope.def(var) {
