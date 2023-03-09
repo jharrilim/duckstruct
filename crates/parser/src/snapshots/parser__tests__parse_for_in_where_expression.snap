@@ -1,0 +1,41 @@
+---
+source: crates/parser/src/lib.rs
+expression: "&parse.debug_tree()"
+info:
+  code: "\n      for x in xs where x > 0 {\n        x\n      }\n    "
+---
+Root@0..55
+  Whitespace@0..7 "\n      "
+  ForExpression@7..55
+    For@7..10 "for"
+    Whitespace@10..11 " "
+    ForPattern@11..13
+      Identifier@11..12 "x"
+      Whitespace@12..13 " "
+    ForInExpression@13..19
+      In@13..15 "in"
+      Whitespace@15..16 " "
+      VariableReference@16..19
+        Identifier@16..18 "xs"
+        Whitespace@18..19 " "
+    ForWhereCondition@19..31
+      Where@19..24 "where"
+      Whitespace@24..25 " "
+      InfixExpression@25..31
+        VariableReference@25..27
+          Identifier@25..26 "x"
+          Whitespace@26..27 " "
+        GreaterThan@27..28 ">"
+        Whitespace@28..29 " "
+        Number@29..31
+          Number@29..30 "0"
+          Whitespace@30..31 " "
+    ForBody@31..55
+      BlockExpression@31..55
+        LeftBrace@31..32 "{"
+        Whitespace@32..41 "\n        "
+        VariableReference@41..49
+          Identifier@41..42 "x"
+          Whitespace@42..49 "\n      "
+        RightBrace@49..50 "}"
+        Whitespace@50..55 "\n    "

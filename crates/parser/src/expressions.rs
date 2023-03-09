@@ -85,6 +85,7 @@ fn lhs(p: &mut Parser) -> Option<CompletedMarker> {
     Some(TokenKind::LeftParenthesis) => parsers::paren_expr(p),
     Some(TokenKind::If) => parsers::conditional_expr(p),
     Some(TokenKind::Function) => parsers::function_definition(p),
+    Some(TokenKind::For) => parsers::for_expr(p),
     None => return None,
     Some(TokenKind::Let) => return None, // handled in a parslet
     _ => {

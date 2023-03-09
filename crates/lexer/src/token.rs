@@ -37,6 +37,12 @@ pub enum TokenKind {
   #[token("for")]
   For,
 
+  #[token("in")]
+  In,
+
+  #[token("where")]
+  Where,
+
   #[token("while")]
   While,
 
@@ -126,6 +132,9 @@ pub enum TokenKind {
   #[token(";")]
   Semicolon,
 
+  #[token("|")]
+  Pipe,
+
   #[regex(r"[a-zA-Z_][a-zA-Z\d_]*")]
   Identifier,
 
@@ -161,6 +170,8 @@ impl fmt::Display for TokenKind {
       Self::If => "'if'",
       Self::Else => "'else'",
       Self::For => "'for'",
+      Self::In => "'in'",
+      Self::Where => "'where'",
       Self::While => "'while'",
       Self::Identifier => "identifier",
       Self::Period => "'.'",
@@ -190,6 +201,7 @@ impl fmt::Display for TokenKind {
       Self::RightBrace => "'}'",
       Self::LeftBracket => "'['",
       Self::RightBracket => "']'",
+      Self::Pipe => "|",
       Self::String => "string",
       Self::Comment => "comment",
       Self::Error => "an unrecognized token",

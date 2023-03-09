@@ -360,3 +360,51 @@ fn object_field(p: &mut Parser) -> CompletedMarker {
   }
   m.complete(p, SyntaxKind::ObjectField)
 }
+
+pub(crate) fn for_expr(p: &mut Parser) -> CompletedMarker {
+  p.expect(TokenKind::For);
+  let m = p.start();
+  p.bump();
+
+  {
+    let m = p.start();
+    p.expect(TokenKind::Identifier); // TODO: Allow other patterns
+    p.bump();
+    m.complete(p, SyntaxKind::ForPattern);
+  }
+
+  p.expect(TokenKind::In);
+  {
+    let m = p.start();
+    p.bump();
+    expr(p);
+    m.complete(p, SyntaxKind::ForInExpression);
+  }
+
+  if p.at(TokenKind::Where) {
+    let m = p.start();
+    p.bump();
+    expr(p);
+    m.complete(p, SyntaxKind::ForWhereCondition);
+  }
+
+  if p.at(TokenKind::Pipe) {
+    let m = p.start();
+    p.bump();
+
+    expr(p);
+
+    p.expect(TokenKind::Pipe);
+    p.bump();
+
+    m.complete(p, SyntaxKind::ForPipePattern);
+  }
+
+  {
+    let m = p.start();
+    expr(p);
+    m.complete(p, SyntaxKind::ForBody);
+  }
+
+  m.complete(p, SyntaxKind::ForExpression)
+}

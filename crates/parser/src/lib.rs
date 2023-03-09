@@ -422,6 +422,36 @@ mod tests {
     parse_snapshot!(code);
   }
 
+  #[test]
+  fn parse_for_in_where_expression() {
+    let code = r#"
+      for x in xs where x > 0 {
+        x
+      }
+    "#;
+    parse_snapshot!(code);
+  }
+
+  #[test]
+  fn parse_for_expression_with_accumulator() {
+    let code = r#"
+      for x in xs |acc| {
+        acc + x
+      }
+    "#;
+    parse_snapshot!(code);
+  }
+
+  #[test]
+  fn parse_for_in_where_expression_with_accumulator() {
+    let code = r#"
+      for x in xs where x > 0 |acc| {
+        acc + x
+      }
+    "#;
+    parse_snapshot!(code);
+  }
+
   mod error_tests {
     use super::*;
 
