@@ -100,10 +100,10 @@ pub(super) fn let_stmt(p: &mut Parser) -> CompletedMarker {
   match p.peek() {
     Some(TokenKind::Identifier) => p.bump(),
     Some(TokenKind::LeftBrace) => {
-      struct_pattern_expr(p);
+      struct_pattern(p);
     }
     Some(TokenKind::LeftBracket) => {
-      array_pattern_expr(p);
+      array_pattern(p);
     }
     None | Some(_) => {
       p.error_expected_one_of(&[
@@ -124,20 +124,20 @@ pub(super) fn let_stmt(p: &mut Parser) -> CompletedMarker {
   m.complete(p, SyntaxKind::LetStatement)
 }
 
-pub(crate) fn struct_pattern_expr(p: &mut Parser) -> CompletedMarker {
+pub(crate) fn struct_pattern(p: &mut Parser) -> CompletedMarker {
   let m = p.start();
   p.bump();
   loop {
     match p.peek() {
       Some(TokenKind::LeftBrace) => {
-        struct_pattern_expr(p);
+        struct_pattern(p); // A nested struct pattern
       }
       Some(TokenKind::RightBrace) => {
         p.bump();
         break m.complete(p, SyntaxKind::StructPattern);
       }
       Some(TokenKind::LeftBracket) => {
-        array_pattern_expr(p);
+        array_pattern(p);
       }
       Some(TokenKind::Identifier) => p.bump(),
       Some(TokenKind::Comma) => p.bump(),
@@ -152,7 +152,7 @@ pub(crate) fn struct_pattern_expr(p: &mut Parser) -> CompletedMarker {
 }
 
 /// array_pattern = [ ident|struct_pattern|array_pattern ,* ]
-pub(crate) fn array_pattern_expr(p: &mut Parser) -> CompletedMarker {
+pub(crate) fn array_pattern(p: &mut Parser) -> CompletedMarker {
   p.expect(TokenKind::LeftBracket);
   let m = p.start();
   p.bump();
@@ -164,7 +164,7 @@ pub(crate) fn array_pattern_expr(p: &mut Parser) -> CompletedMarker {
         break m.complete(p, SyntaxKind::ArrayPattern);
       }
       Some(TokenKind::LeftBrace) => {
-        struct_pattern_expr(p);
+        struct_pattern(p);
       }
       Some(TokenKind::Identifier) => p.bump(),
       Some(TokenKind::Comma) => p.bump(),

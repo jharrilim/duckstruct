@@ -1,6 +1,6 @@
 use data_structures::{arena::Idx, FxIndexMap};
 
-use crate::Stmt;
+use crate::{Stmt, pat::Pat};
 
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -51,6 +51,13 @@ pub enum Expr {
   ObjectFieldAccess {
     object: Idx<Self>,
     field: String,
+  },
+  For {
+    binding: Pat,
+    iterable: Idx<Self>,
+    where_clause: Idx<Self>,
+    body: Idx<Self>,
+    pipe_pattern: Pat,
   },
   Missing,
 }

@@ -1,6 +1,6 @@
 use syntax::{SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 
-use crate::{stmt::FunctionDef, Stmt};
+use crate::{pat::Pat, stmt::FunctionDef, Stmt};
 
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -18,6 +18,7 @@ pub enum Expr {
   Object(Object),
   ObjectFieldAccess(ObjectFieldAccess),
   Conditional(Conditional),
+  ForExpression(ForExpression),
 }
 
 impl Expr {
@@ -40,6 +41,7 @@ impl Expr {
       SyntaxKind::ConditionalExpression => Self::Conditional(Conditional(node)),
       SyntaxKind::ObjectExpression => Self::Object(Object(node)),
       SyntaxKind::ObjectFieldAccessExpression => Self::ObjectFieldAccess(ObjectFieldAccess(node)),
+      SyntaxKind::ForExpression => Self::ForExpression(ForExpression(node)),
       _ => return None,
     };
 
@@ -308,5 +310,55 @@ impl ObjectFieldAccess {
       .unwrap()
       .text()
       .to_string()
+  }
+}
+
+#[derive(Debug, Clone)]
+pub struct ForExpression(SyntaxNode);
+impl ForExpression {
+  pub fn binding_pattern(&self) -> Option<Pat> {
+    // TODO: support patterns
+    self
+      .0
+      .children()
+      .find(|c| c.kind() == SyntaxKind::ForPattern)
+      .and_then(|c| c.first_child())
+      .and_then(Pat::cast)
+  }
+
+  pub fn iterable(&self) -> Option<Expr> {
+    self
+      .0
+      .children()
+      .find(|c| c.kind() == SyntaxKind::ForInExpression)
+      .and_then(|c| c.first_child())
+      .and_then(Expr::cast)
+  }
+
+  pub fn body(&self) -> Option<Expr> {
+    self
+      .0
+      .children()
+      .find(|c| c.kind() == SyntaxKind::ForBody)
+      .and_then(|c| c.first_child())
+      .and_then(Expr::cast)
+  }
+
+  pub fn where_clause(&self) -> Option<Expr> {
+    self
+      .0
+      .children()
+      .find(|c| c.kind() == SyntaxKind::ForWhereCondition)
+      .and_then(|c| c.first_child())
+      .and_then(Expr::cast)
+  }
+
+  pub fn pipe_pattern(&self) -> Option<Pat> {
+    self
+      .0
+      .children()
+      .find(|c| c.kind() == SyntaxKind::ForPipePattern)
+      .and_then(|c| c.first_child())
+      .and_then(Pat::cast)
   }
 }

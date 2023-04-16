@@ -8,6 +8,7 @@ pub mod stmt;
 
 pub use expr::Expr;
 pub use stmt::Stmt;
+pub use pat::Pat;
 
 use syntax::{SyntaxKind, SyntaxNode};
 

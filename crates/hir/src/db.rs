@@ -1,5 +1,6 @@
 use crate::{
   expr::{BinaryOp, Expr, UnaryOp},
+  pat::Pat,
   stmt::Stmt,
   DatabaseIdx,
 };
@@ -67,6 +68,25 @@ impl Database {
     Some(result)
   }
 
+  pub(crate) fn lower_pat(&mut self, ast: Option<ast::Pat>) -> Pat {
+    if let Some(ast) = ast {
+      match ast {
+        ast::Pat::Ident(ast) => Pat::Ident { name: ast.name },
+        ast::Pat::Array(ast) => Pat::Array {
+          items: ast
+            .items
+            .iter()
+            .map(|p| self.lower_pat(Some(p.clone())))
+            .collect(),
+        },
+        ast::Pat::Object(ast) => todo!("object pattern"),
+        ast::Pat::Rest(ast) => todo!("rest pattern"),
+      }
+    } else {
+      Pat::None
+    }
+  }
+
   pub(crate) fn lower_expr(&mut self, ast: Option<ast::Expr>) -> DatabaseIdx {
     if let Some(ast) = ast {
       match ast {
@@ -84,10 +104,26 @@ impl Database {
         ast::Expr::Conditional(ast) => self.lower_conditional(ast),
         ast::Expr::Object(ast) => self.lower_object(ast),
         ast::Expr::ObjectFieldAccess(ast) => self.lower_object_field_access(ast),
+        ast::Expr::ForExpression(ast) => self.lower_for_expression(ast),
       }
     } else {
       self.exprs.alloc(Expr::Missing)
     }
+  }
+
+  fn lower_for_expression(&mut self, ast: ast::expr::ForExpression) -> DatabaseIdx {
+    let iterable = self.lower_expr(ast.iterable());
+    let body = self.lower_expr(ast.body());
+    let binding = self.lower_pat(ast.binding_pattern());
+    let where_clause = self.lower_expr(ast.where_clause());
+    let pipe_pattern = self.lower_pat(ast.pipe_pattern());
+    self.exprs.alloc(Expr::For {
+      binding,
+      iterable,
+      body,
+      where_clause,
+      pipe_pattern,
+    })
   }
 
   fn lower_object_field_access(&mut self, ast: ast::expr::ObjectFieldAccess) -> DatabaseIdx {

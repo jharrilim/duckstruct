@@ -45,15 +45,15 @@ pub struct Ident {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Array {
-  items: Vec<Pat>,
+  pub items: Vec<Pat>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Object {
-  items: Vec<(String, Pat)>,
+  pub items: Vec<(String, Pat)>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Rest {
-  name: String,
+  pub name: String,
 }
