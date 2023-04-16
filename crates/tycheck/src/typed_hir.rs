@@ -90,6 +90,13 @@ pub enum TypedExpr {
     field: String,
     ty: Ty,
   },
+  For {
+    binding: String,
+    iterable: TypedDatabaseIdx,
+    where_clause: Option<TypedDatabaseIdx>,
+    body: TypedDatabaseIdx,
+    ty: Ty,
+  },
   Unresolved,
   Error,
 }
@@ -111,6 +118,7 @@ impl TypedExpr {
       Self::Conditional { ty, .. } => ty.clone(),
       Self::Object { ty, .. } => ty.clone(),
       Self::ObjectFieldAccess { ty, .. } => ty.clone(),
+      Self::For { ty, .. } => ty.clone(),
       Self::Unresolved => Ty::Generic,
       Self::Error => Ty::Error,
     }
@@ -132,6 +140,7 @@ impl TypedExpr {
       Self::Conditional { ty, .. } => ty,
       Self::Object { ty, .. } => ty,
       Self::ObjectFieldAccess { ty, .. } => ty,
+      Self::For { ty, ..} => ty,
       Self::Unresolved => unimplemented!(),
       Self::Error => unimplemented!(),
     }
