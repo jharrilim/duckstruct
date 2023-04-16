@@ -1,0 +1,103 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "scopeName": "source.duckstruct",
+  "patterns": [
+    { "include": "#keyword" },
+    { "include": "#comment" },
+    { "include": "#object" },
+    { "include": "#object-property"},
+    { "include": "#boolean" },
+    { "include": "#string" },
+    { "include": "#number" },
+    { "include": "#function-def" },
+    { "include": "#local-def" },
+    { "include": "#parameter-def" },
+    { "include": "#generic-identifier" },
+    { "include": "#punctuation" },
+    { "include": "#operator" }
+  ],
+  "repository": {
+    "keyword": {
+      "match": "\\b(f|let)\\b",
+      "name": "keyword.duckstruct"
+    },
+    "comment": {
+      "match": "//.*",
+      "name": "comment.duckstruct"
+    },
+    "boolean": {
+      "match": "\\b(true|false)\\b",
+      "name": "constant.language.duckstruct"
+    },
+    "object": {
+      "begin": "{{",
+      "end": "}}",
+      "patterns": [
+        {
+          "include": "#object-property"
+        }
+      ],
+      "name": "constant.language.duckstruct"
+    },
+    "object-property": {
+      "begin": "(?<=\\w+:)",
+      "end": "(?=,|\\})",
+      "patterns": [
+        {
+          "include": "#string"
+        },
+        {
+          "include": "#number"
+        },
+        {
+          "include": "#object"
+        },
+        {
+          "include": "#generic-identifier"
+        }
+      ]
+    },
+    "string": {
+      "match": "\".*\"",
+      "name": "string.duckstruct"
+    },
+    "number": {
+      "match": "\\b[0-9]+\\b",
+      "name": "constant.numeric.duckstruct"
+    },
+    "function-def": {
+      "begin": "\\b(f)\\s+([a-zA-Z_][a-zA-Z0-9_]*)",
+      "end": "[\\{;]",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.other.fn.duckstruct"
+        },
+        "2": {
+          "name": "entity.name.function.duckstruct"
+        }
+      },
+      "name": "entity.name.function.duckstruct"
+    },
+    "local-def": {
+      "match": "(?<=let\\s*)[a-zA-Z][a-zA-Z0-9_]*",
+      "name": "entity.name.variable.duckstruct"
+    },
+    "parameter-def": {
+      "match": "[a-zA-Z][a-zA-Z0-9_]*(?=:)",
+      "name": "variable.parameter.duckstruct"
+    },
+    "generic-identifier": {
+      "match": "[a-zA-Z][a-zA-Z0-9_]*",
+      "name": "variable.duckstruct"
+    },
+    "punctuation": {
+      "match": "(\\.|=|{|}|:|,|->|;)",
+      "name": "punctuation.duckstruct"
+    },
+    "operator": {
+      "match": "(\\+|-|\\*|/|\\^|&&|\\|\\||&|\\||!|>|<|>=|<=|==|!=|\\?)",
+      "name": "keyword.operator.duckstruct"
+    }
+  },
+  "fileTypes": ["ds"]
+}
