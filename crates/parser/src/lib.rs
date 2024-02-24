@@ -423,6 +423,17 @@ mod tests {
   }
 
   #[test]
+  fn parse_for_expression() {
+    let code = r#"
+      for x in xs {
+        let asd = 1;
+        x + asd
+      }
+    "#;
+    parse_snapshot!(code);
+  }
+
+  #[test]
   fn parse_for_in_where_expression() {
     let code = r#"
       for x in xs where x > 0 {

@@ -1,0 +1,46 @@
+---
+source: crates/parser/src/lib.rs
+expression: "&parse.debug_tree()"
+info:
+  code: "\n      for x in xs {\n        let asd = 1;\n        x + asd\n      }\n    "
+---
+Root@0..70
+  Whitespace@0..7 "\n      "
+  ForExpression@7..70
+    For@7..10 "for"
+    Whitespace@10..11 " "
+    ForPattern@11..13
+      Identifier@11..12 "x"
+      Whitespace@12..13 " "
+    ForInExpression@13..19
+      In@13..15 "in"
+      Whitespace@15..16 " "
+      VariableReference@16..19
+        Identifier@16..18 "xs"
+        Whitespace@18..19 " "
+    ForBody@19..70
+      BlockExpression@19..70
+        LeftBrace@19..20 "{"
+        Whitespace@20..29 "\n        "
+        LetStatement@29..40
+          Let@29..32 "let"
+          Whitespace@32..33 " "
+          Identifier@33..36 "asd"
+          Whitespace@36..37 " "
+          Equals@37..38 "="
+          Whitespace@38..39 " "
+          Number@39..40
+            Number@39..40 "1"
+        Semicolon@40..41 ";"
+        Whitespace@41..50 "\n        "
+        InfixExpression@50..64
+          VariableReference@50..52
+            Identifier@50..51 "x"
+            Whitespace@51..52 " "
+          Plus@52..53 "+"
+          Whitespace@53..54 " "
+          VariableReference@54..64
+            Identifier@54..57 "asd"
+            Whitespace@57..64 "\n      "
+        RightBrace@64..65 "}"
+        Whitespace@65..70 "\n    "
