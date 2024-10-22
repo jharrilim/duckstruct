@@ -154,7 +154,7 @@ impl Scope {
       args.extend(frame.args.clone());
       defs.extend(frame.defs.clone());
     }
-    let mut frame = scope.current_frame_mut();
+    let frame = scope.current_frame_mut();
     frame.defs = defs;
     frame.args = args;
     scope

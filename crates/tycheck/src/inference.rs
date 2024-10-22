@@ -88,6 +88,7 @@ impl TyCheck {
       Expr::Missing => {
         todo!("Handle expression missing: {:?}", expr);
       }
+      Expr::For { .. } => todo!(),
     };
     self.ty_db.alloc(expr)
   }

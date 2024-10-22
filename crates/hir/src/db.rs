@@ -79,8 +79,8 @@ impl Database {
             .map(|p| self.lower_pat(Some(p.clone())))
             .collect(),
         },
-        ast::Pat::Object(ast) => todo!("object pattern"),
-        ast::Pat::Rest(ast) => todo!("rest pattern"),
+        ast::Pat::Object(_ast) => todo!("object pattern"),
+        ast::Pat::Rest(_ast) => todo!("rest pattern"),
       }
     } else {
       Pat::None

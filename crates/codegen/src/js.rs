@@ -210,6 +210,7 @@ impl<'tycheck> JsGenerator<'tycheck> {
           format!("{}.{}", object, field)
         }
       }
+      TypedExpr::For { .. } => todo!("Implement codegen for for loops"),
       TypedExpr::Unresolved => todo!(),
       TypedExpr::Error => todo!("typedexpr errorrrr"),
     };
