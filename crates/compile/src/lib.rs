@@ -56,4 +56,24 @@ impl Compiler {
       Err(err) => Err(format!("Failed to write to file: {}", err)),
     }
   }
+
+  pub fn eval(&self, source: &str) -> Result<String, String> {
+    let parse = parse(source);
+    if !parse.errors.is_empty() {
+      return Err(format!("{:?}", parse.errors));
+    }
+    let ast = match Root::cast(parse.syntax()) {
+      Some(ast) => ast,
+      None => return Err("Failed to generate AST from source".to_string()),
+    };
+    let hir = lower(ast);
+    let mut tycheck = TyCheck::new(hir);
+    tycheck.infer();
+    if let Some(def) = tycheck.ty_db.definition("") {
+      let val = tycheck.ty_db.expr(def.value());
+      Ok(val.ty().to_string())
+    } else {
+      Err("No value to evaluate".to_string())
+    }
+  }
 }
