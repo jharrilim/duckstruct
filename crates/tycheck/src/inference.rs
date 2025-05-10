@@ -62,27 +62,28 @@ impl TyCheck {
     let expr = hir_db.get_expr(expr_idx);
 
     let expr = match expr {
-      Expr::VariableRef { var } => return self.infer_variable_ref(scope, var),
-      Expr::Number { n } => TypedExpr::Number { val: Some(*n) },
-      Expr::String { s } => TypedExpr::String {
+      Expr::VariableRef { var, .. } => return self.infer_variable_ref(scope, var),
+      Expr::Number { n, .. } => TypedExpr::Number { val: Some(*n) },
+      Expr::String { s, .. } => TypedExpr::String {
         val: Some(s.clone()),
       },
-      Expr::Block { stmts } => return self.infer_block(scope, stmts),
-      Expr::Boolean { b } => TypedExpr::Boolean { val: Some(*b) },
-      Expr::Binary { op, lhs, rhs } => return self.infer_binary(scope, op, lhs, rhs),
-      Expr::Unary { op, expr } => return self.infer_unary(scope, op, expr),
-      Expr::Function { name, params, body } => {
-        return self.infer_function(scope, name, params, body)
-      }
-      Expr::FunctionCall { args, func } => return self.infer_function_call(scope, func, args),
-      Expr::Array { vals } => return self.infer_array(scope, vals),
+      Expr::Block { stmts, .. } => return self.infer_block(scope, stmts),
+      Expr::Boolean { b, .. } => TypedExpr::Boolean { val: Some(*b) },
+      Expr::Binary { op, lhs, rhs, .. } => return self.infer_binary(scope, op, lhs, rhs),
+      Expr::Unary { op, expr, .. } => return self.infer_unary(scope, op, expr),
+      Expr::Function {
+        name, params, body, ..
+      } => return self.infer_function(scope, name, params, body),
+      Expr::FunctionCall { args, func, .. } => return self.infer_function_call(scope, func, args),
+      Expr::Array { vals, .. } => return self.infer_array(scope, vals),
       Expr::Conditional {
         condition,
         then_branch,
         else_branch,
+        ..
       } => return self.infer_conditional(scope, condition, then_branch, else_branch),
-      Expr::Object { fields } => return self.infer_object(scope, fields),
-      Expr::ObjectFieldAccess { object, field } => {
+      Expr::Object { fields, .. } => return self.infer_object(scope, fields),
+      Expr::ObjectFieldAccess { object, field, .. } => {
         return self.infer_object_field_access(scope, object, field)
       }
       Expr::Missing => {
@@ -167,18 +168,20 @@ impl TyCheck {
   ) {
     // Propagate the type of the field to the object.
     match self.ty_db.expr(object) {
-      TypedExpr::ObjectFieldAccess { object, field: inner_field, .. } => {
-        match self.ty_db.expr(object) {
-          TypedExpr::Object { fields, .. } => {
-            if let Some(field_expr) = fields.get(inner_field) {
-              self.propogate_object_field_constraint(scope, &field_expr.clone(), field, field_ty)
-            } else {
-              todo!("Doesn't seem possible?")
-            }
+      TypedExpr::ObjectFieldAccess {
+        object,
+        field: inner_field,
+        ..
+      } => match self.ty_db.expr(object) {
+        TypedExpr::Object { fields, .. } => {
+          if let Some(field_expr) = fields.get(inner_field) {
+            self.propogate_object_field_constraint(scope, &field_expr.clone(), field, field_ty)
+          } else {
+            todo!("Doesn't seem possible?")
           }
-          _ => todo!("Doesn't seem possible?")
         }
-      }
+        _ => todo!("Doesn't seem possible?"),
+      },
       TypedExpr::FunctionCall { ret, .. } => {
         self.propogate_object_field_constraint(scope, &ret.clone(), field, field_ty)
       }
@@ -328,6 +331,7 @@ impl TyCheck {
         name: _,
         params,
         body,
+        ..
       } => (params, body),
       _ => unreachable!("Function definition must be a function"),
     };

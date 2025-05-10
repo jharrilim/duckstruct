@@ -4,8 +4,8 @@ pub use stmt::Stmt;
 
 mod db;
 pub mod expr;
-pub mod stmt;
 pub mod pat;
+pub mod stmt;
 
 pub type DatabaseIdx = data_structures::arena::Idx<Expr>;
 

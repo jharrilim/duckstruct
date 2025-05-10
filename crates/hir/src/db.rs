@@ -90,10 +90,22 @@ impl Database {
   pub(crate) fn lower_expr(&mut self, ast: Option<ast::Expr>) -> DatabaseIdx {
     if let Some(ast) = ast {
       match ast {
-        ast::Expr::NumberLit(ast) => self.exprs.alloc(Expr::Number { n: ast.parse() }),
-        ast::Expr::StringLit(ast) => self.exprs.alloc(Expr::String { s: ast.parse() }),
-        ast::Expr::BooleanLit(ast) => self.exprs.alloc(Expr::Boolean { b: ast.parse() }),
-        ast::Expr::VariableRef(ast) => self.exprs.alloc(Expr::VariableRef { var: ast.name() }),
+        ast::Expr::NumberLit(ast) => self.exprs.alloc(Expr::Number {
+          n: ast.parse(),
+          ast: ast,
+        }),
+        ast::Expr::StringLit(ast) => self.exprs.alloc(Expr::String {
+          s: ast.parse(),
+          ast: ast,
+        }),
+        ast::Expr::BooleanLit(ast) => self.exprs.alloc(Expr::Boolean {
+          b: ast.parse(),
+          ast: ast,
+        }),
+        ast::Expr::VariableRef(ast) => self.exprs.alloc(Expr::VariableRef {
+          var: ast.name(),
+          ast: ast,
+        }),
         ast::Expr::BinaryExpr(ast) => self.lower_binary(ast),
         ast::Expr::ParenExpr(ast) => self.lower_expr(ast.expr()),
         ast::Expr::UnaryExpr(ast) => self.lower_unary(ast),
@@ -123,6 +135,7 @@ impl Database {
       body,
       where_clause,
       pipe_pattern,
+      ast,
     })
   }
 
@@ -131,6 +144,7 @@ impl Database {
     self.exprs.alloc(Expr::ObjectFieldAccess {
       object,
       field: ast.field(),
+      ast,
     })
   }
 
@@ -140,7 +154,7 @@ impl Database {
       let value = self.lower_expr(value);
       fields.insert(key, value);
     }
-    self.exprs.alloc(Expr::Object { fields })
+    self.exprs.alloc(Expr::Object { fields, ast })
   }
 
   fn lower_conditional(&mut self, ast: ast::expr::Conditional) -> DatabaseIdx {
@@ -151,6 +165,7 @@ impl Database {
       condition,
       then_branch,
       else_branch,
+      ast,
     })
   }
 
@@ -159,7 +174,7 @@ impl Database {
       .elements()
       .map(|val| self.lower_expr(Some(val)))
       .collect::<Vec<_>>();
-    self.exprs.alloc(Expr::Array { vals })
+    self.exprs.alloc(Expr::Array { vals, ast })
   }
 
   fn lower_block(&mut self, ast: ast::expr::Block) -> DatabaseIdx {
@@ -167,7 +182,7 @@ impl Database {
       .stmts()
       .filter_map(|stmt| self.lower_stmt(stmt))
       .collect();
-    self.exprs.alloc(Expr::Block { stmts })
+    self.exprs.alloc(Expr::Block { stmts, ast })
   }
 
   fn lower_function_call(&mut self, ast: ast::expr::FunctionCall) -> DatabaseIdx {
@@ -182,6 +197,7 @@ impl Database {
         let expr = Expr::FunctionCall {
           func: self.lower_expr(Some(func)),
           args,
+          ast,
         };
         self.exprs.alloc(expr)
       }
@@ -195,6 +211,7 @@ impl Database {
       body: self.lower_expr(ast.body()),
       name,
       params: ast.params().map(|param| param.text().to_string()).collect(),
+      ast,
     };
     self.exprs.alloc(expr)
   }
@@ -215,7 +232,7 @@ impl Database {
     };
     let lhs = self.lower_expr(ast.lhs());
     let rhs = self.lower_expr(ast.rhs());
-    let expr = Expr::Binary { op, lhs, rhs };
+    let expr = Expr::Binary { op, lhs, rhs, ast };
     self.exprs.alloc(expr)
   }
 
@@ -229,6 +246,7 @@ impl Database {
     let expr = Expr::Unary {
       op,
       expr: self.lower_expr(ast.expr()),
+      ast,
     };
     self.exprs.alloc(expr)
   }

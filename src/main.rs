@@ -20,9 +20,9 @@ fn main() -> Result<()> {
 
   if let Some(file_path) = args.compile {
     match Compiler::new().compile_file(file_path, TargetLang::Javascript) {
-        Ok(()) => {}
-        Err(err) => println!("Compilation failed: {}", err),
-      };
+      Ok(()) => {}
+      Err(err) => println!("Compilation failed: {}", err),
+    };
     return Ok(());
   }
 

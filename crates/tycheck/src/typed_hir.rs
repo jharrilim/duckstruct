@@ -140,7 +140,7 @@ impl TypedExpr {
       Self::Conditional { ty, .. } => ty,
       Self::Object { ty, .. } => ty,
       Self::ObjectFieldAccess { ty, .. } => ty,
-      Self::For { ty, ..} => ty,
+      Self::For { ty, .. } => ty,
       Self::Unresolved => unimplemented!(),
       Self::Error => unimplemented!(),
     }
