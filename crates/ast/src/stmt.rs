@@ -26,7 +26,7 @@ impl Stmt {
   pub fn expr(&self) -> Option<Expr> {
     match self {
       Stmt::VariableDef(def) => def.value(),
-      Stmt::FunctionDef(def) => def.body(),
+      Stmt::FunctionDef(def) => def.func(),
       Stmt::Expr(expr) => Some(expr.clone()),
     }
   }
@@ -78,7 +78,11 @@ impl FunctionDef {
   }
 
   pub fn body(&self) -> Option<Expr> {
-    self.0.children().find_map(Expr::cast)
+    self.0.children().find_map(|e| Expr::cast(e))
+  }
+
+  pub fn func(&self) -> Option<Expr> {
+    Expr::cast(self.0.clone())
   }
 }
 

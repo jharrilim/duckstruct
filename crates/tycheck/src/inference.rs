@@ -70,21 +70,26 @@ impl TyCheck {
       Expr::Block { stmts, .. } => return self.infer_block(scope, stmts),
       Expr::Boolean { b, .. } => TypedExpr::Boolean { val: Some(*b) },
       Expr::Binary { op, lhs, rhs, .. } => return self.infer_binary(scope, op, lhs, rhs),
-      Expr::Unary { op, expr, .. } => return self.infer_unary(scope, op, expr),
+      Expr::Unary { op, expr, ast } => return self.infer_unary(scope, op, expr, ast),
       Expr::Function {
-        name, params, body, ..
-      } => return self.infer_function(scope, name, params, body),
-      Expr::FunctionCall { args, func, .. } => return self.infer_function_call(scope, func, args),
+        name,
+        params,
+        body,
+        ast,
+      } => return self.infer_function(scope, name, params, body, ast),
+      Expr::FunctionCall { args, func, ast } => {
+        return self.infer_function_call(scope, func, args, ast)
+      }
       Expr::Array { vals, .. } => return self.infer_array(scope, vals),
       Expr::Conditional {
         condition,
         then_branch,
         else_branch,
-        ..
-      } => return self.infer_conditional(scope, condition, then_branch, else_branch),
+        ast,
+      } => return self.infer_conditional(scope, condition, then_branch, else_branch, ast),
       Expr::Object { fields, .. } => return self.infer_object(scope, fields),
-      Expr::ObjectFieldAccess { object, field, .. } => {
-        return self.infer_object_field_access(scope, object, field)
+      Expr::ObjectFieldAccess { object, field, ast } => {
+        return self.infer_object_field_access(scope, object, field, ast)
       }
       Expr::Missing => {
         todo!("Handle expression missing: {:?}", expr);
@@ -115,6 +120,7 @@ impl TyCheck {
     scope: &mut Scope,
     object: &DatabaseIdx,
     field: &str,
+    ast: &ast::expr::ObjectFieldAccess,
   ) -> TypedDatabaseIdx {
     let typed_object = self.infer_expr(scope, object);
     let field_ty = match self.ty_db.expr(&typed_object).ty() {
@@ -130,27 +136,32 @@ impl TyCheck {
         match self.query_object_name(object) {
           Some(name) => {
             if let Some(similar_name) = scope.def_name_similar_to(name) {
-              self.diagnostics.push_error(format!(
-                "Cannot access field `{}` on {}. Did you mean `{}`?",
-                field, name, similar_name
-              ));
+              self.diagnostics.push_error(
+                format!(
+                  "Cannot access field `{}` on {}. Did you mean `{}`?",
+                  field, name, similar_name
+                ),
+                ast.span(),
+              );
             } else {
-              self
-                .diagnostics
-                .push_error(format!("Cannot access field `{}` on {}.", field, name));
+              self.diagnostics.push_error(
+                format!("Cannot access field `{}` on {}.", field, name),
+                ast.span(),
+              );
             }
           }
           None => {
-            self
-              .diagnostics
-              .push_error(format!("Cannot access field `{}` on {}.", field, ty));
+            self.diagnostics.push_error(
+              format!("Cannot access field `{}` on {}.", field, ty),
+              ast.span(),
+            );
           }
         }
         Ty::Error
       }
     };
 
-    self.propogate_object_field_constraint(scope, &typed_object, field, &field_ty);
+    self.propogate_object_field_constraint(scope, &typed_object, field, &field_ty, ast);
 
     self.ty_db.alloc(TypedExpr::ObjectFieldAccess {
       object: typed_object,
@@ -165,6 +176,7 @@ impl TyCheck {
     object: &TypedDatabaseIdx,
     field: &str,
     field_ty: &Ty,
+    ast: &ast::expr::ObjectFieldAccess,
   ) {
     // Propagate the type of the field to the object.
     match self.ty_db.expr(object) {
@@ -175,7 +187,7 @@ impl TyCheck {
       } => match self.ty_db.expr(object) {
         TypedExpr::Object { fields, .. } => {
           if let Some(field_expr) = fields.get(inner_field) {
-            self.propogate_object_field_constraint(scope, &field_expr.clone(), field, field_ty)
+            self.propogate_object_field_constraint(scope, &field_expr.clone(), field, field_ty, ast)
           } else {
             todo!("Doesn't seem possible?")
           }
@@ -183,7 +195,7 @@ impl TyCheck {
         _ => todo!("Doesn't seem possible?"),
       },
       TypedExpr::FunctionCall { ret, .. } => {
-        self.propogate_object_field_constraint(scope, &ret.clone(), field, field_ty)
+        self.propogate_object_field_constraint(scope, &ret.clone(), field, field_ty, ast)
       }
       TypedExpr::Block { stmts, .. } => {
         if let Some(last_typed_stmt) = stmts.last() {
@@ -192,6 +204,7 @@ impl TyCheck {
             &last_typed_stmt.value().clone(),
             field,
             field_ty,
+            ast,
           );
         }
       }
@@ -214,10 +227,13 @@ impl TyCheck {
                 Ty::Object(Some(fields))
               }
               _ => {
-                self.diagnostics.push_error(format!(
-                  "Cannot access field `{}` on non-object type. Type: {:?}",
-                  field, original_ty
-                ));
+                self.diagnostics.push_error(
+                  format!(
+                    "Cannot access field `{}` on non-object type. Type: {:?}",
+                    field, original_ty
+                  ),
+                  ast.span(),
+                );
                 Ty::Error
               }
             });
@@ -254,6 +270,7 @@ impl TyCheck {
     condition: &DatabaseIdx,
     then_branch: &DatabaseIdx,
     else_branch: &DatabaseIdx,
+    ast: &ast::expr::Conditional,
   ) -> TypedDatabaseIdx {
     let condition = self.infer_expr(scope, condition);
     match self.ty_db.expr(&condition).ty() {
@@ -271,10 +288,13 @@ impl TyCheck {
         let else_ty = self.ty_db.expr(&else_branch).ty();
 
         if !then_ty.type_eq(&else_ty) {
-          self.diagnostics.push_error(format!(
-            "Type mismatch in conditional expression: {} and {}",
-            then_ty, else_ty
-          ));
+          self.diagnostics.push_error(
+            format!(
+              "Type mismatch in conditional expression: {} and {}",
+              then_ty, else_ty
+            ),
+            ast.span(),
+          );
         }
 
         let ty = then_ty.deconst();
@@ -289,7 +309,7 @@ impl TyCheck {
       _ => {
         self
           .diagnostics
-          .push_error("Condition must be a boolean".to_string());
+          .push_error("Condition must be a boolean".to_string(), ast.span());
         let then_branch = self.ty_db.alloc(TypedExpr::Error);
         let else_branch = self.ty_db.alloc(TypedExpr::Error);
         self.ty_db.alloc(TypedExpr::Conditional {
@@ -326,17 +346,17 @@ impl TyCheck {
     name: &str,
     value: &DatabaseIdx,
   ) -> TypedStmt {
-    let (params, body) = match self.hir_db.get_expr(value).clone() {
+    let (params, body, ast) = match self.hir_db.get_expr(value).clone() {
       Expr::Function {
         name: _,
         params,
         body,
-        ..
-      } => (params, body),
+        ast,
+      } => (params, body, ast),
       _ => unreachable!("Function definition must be a function"),
     };
 
-    let func_value = self.infer_function(scope, &Some(name.to_string()), &params, &body);
+    let func_value = self.infer_function(scope, &Some(name.to_string()), &params, &body, &ast);
     scope.define(name.to_string(), func_value);
 
     TypedStmt::FunctionDef {
@@ -350,13 +370,14 @@ impl TyCheck {
     scope: &mut Scope,
     lhs: &DatabaseIdx,
     args: &[DatabaseIdx],
+    ast: &ast::expr::FunctionCall,
   ) -> TypedDatabaseIdx {
     let lhs = self.infer_expr(scope, lhs);
     let args = args
       .iter()
       .map(|arg| self.infer_expr(scope, arg))
       .collect::<Vec<_>>();
-    self.infer_function_call_impl(scope, &lhs, &args)
+    self.infer_function_call_impl(scope, &lhs, &args, &ast)
   }
 
   fn infer_function_call_impl(
@@ -364,6 +385,7 @@ impl TyCheck {
     scope: &mut Scope,
     lhs: &TypedDatabaseIdx,
     args: &Vec<TypedDatabaseIdx>,
+    ast: &ast::expr::FunctionCall,
   ) -> TypedDatabaseIdx {
     let lhs_expr = self.ty_db.expr(lhs);
 
@@ -377,11 +399,11 @@ impl TyCheck {
           return *lhs;
         }
         match scope.def(&var) {
-          Some(def) => self.infer_function_call_impl(scope, &def, args),
+          Some(def) => self.infer_function_call_impl(scope, &def, args, ast),
           None => {
             self
               .diagnostics
-              .push_error(format!("Undefined variable `{}`", var));
+              .push_error(format!("Undefined variable `{}`", var), ast.span());
             self.ty_db.alloc(TypedExpr::Error)
           }
         }
@@ -406,7 +428,7 @@ impl TyCheck {
             params.insert(param.clone(), *arg);
           }
           scope.define_args(&params);
-          let result = self.infer_function_call_impl(scope, &ret, args);
+          let result = self.infer_function_call_impl(scope, &ret, args, ast);
           scope.pop_frame();
           result
         } else {
@@ -422,12 +444,15 @@ impl TyCheck {
         closure_scope,
       }) => {
         if args.len() != params.len() {
-          self.diagnostics.push_error(format!(
-            "function `{}` expected {} arguments, but got {}",
-            name.unwrap_or_default(),
-            params.len(),
-            args.len()
-          ));
+          self.diagnostics.push_error(
+            format!(
+              "function `{}` expected {} arguments, but got {}",
+              name.unwrap_or_default(),
+              params.len(),
+              args.len()
+            ),
+            ast.span(),
+          );
           return self.ty_db.alloc(TypedExpr::Error);
         }
 
@@ -461,70 +486,77 @@ impl TyCheck {
           Some(def) => match self.ty_db.expr(&def) {
             TypedExpr::Object { fields, ty: _ } => {
               let field = *fields.get(&field).unwrap();
-              self.infer_function_call_impl(scope, &field, args)
+              self.infer_function_call_impl(scope, &field, args, ast)
             }
             TypedExpr::Unresolved => *lhs,
             TypedExpr::VariableRef { .. } => *lhs,
             TypedExpr::FunctionParameter { .. } => *lhs,
             _ => {
-              self.diagnostics.push_error(format!(
-                "Cannot call field `{}` on non-object type `{}`",
-                field, ty
-              ));
+              self.diagnostics.push_error(
+                format!("Cannot call field `{}` on non-object type `{}`", field, ty),
+                ast.span(),
+              );
               self.ty_db.alloc(TypedExpr::Error)
             }
           },
           None => {
             self
               .diagnostics
-              .push_error(format!("Undefined variable `{}`", var));
+              .push_error(format!("Undefined variable `{}`", var), ast.span());
             self.ty_db.alloc(TypedExpr::Error)
           }
         },
         TypedExpr::Object { fields, ty: _ } => match fields.get(&field) {
           Some(field) => {
             let field = *field;
-            self.infer_function_call_impl(scope, &field, args)
+            self.infer_function_call_impl(scope, &field, args, ast)
           }
           None => {
-            self
-              .diagnostics
-              .push_error(format!("Object does not have field `{}`", field));
+            self.diagnostics.push_error(
+              format!("Object does not have field `{}`", field),
+              ast.span(),
+            );
             self.ty_db.alloc(TypedExpr::Error)
           }
         },
         _ => {
-          self.diagnostics.push_error(format!(
-            "Cannot call function on non-object. {} {:#?}",
-            field, object
-          ));
+          self.diagnostics.push_error(
+            format!(
+              "Cannot call function on non-object. {} {:#?}",
+              field, object
+            ),
+            ast.span(),
+          );
           self.ty_db.alloc(TypedExpr::Error)
         }
       },
       TypedExpr::Block { stmts, ty: _ } => {
         match stmts.last().map(|s| self.ty_db.expr(s.value()).ty()) {
           Some(Ty::Function { .. }) => {
-            self.infer_function_call_impl(scope, stmts.last().unwrap().value(), args)
+            self.infer_function_call_impl(scope, stmts.last().unwrap().value(), args, ast)
           }
           _ => {
-            self
-              .diagnostics
-              .push_error("Cannot call `block` that does not return a function".to_string());
+            self.diagnostics.push_error(
+              "Cannot call `block` that does not return a function".to_string(),
+              ast.span(),
+            );
             self.ty_db.alloc(TypedExpr::Error)
           }
         }
       }
       // An error here means the user probably typo'd
       TypedExpr::Error => {
-        self
-          .diagnostics
-          .push_error(format!("Cannot call `{:?}`", self.ty_db.expr(lhs)));
+        self.diagnostics.push_error(
+          format!("Cannot call `{:?}`", self.ty_db.expr(lhs)),
+          ast.span(),
+        );
         self.ty_db.alloc(TypedExpr::Error)
       }
       _ => {
-        self
-          .diagnostics
-          .push_error(format!("Cannot call `{:?}`", self.ty_db.expr(lhs)));
+        self.diagnostics.push_error(
+          format!("Cannot call `{:?}`", self.ty_db.expr(lhs)),
+          ast.span(),
+        );
         self.ty_db.alloc(TypedExpr::Error)
       }
     }
@@ -537,6 +569,7 @@ impl TyCheck {
     name: &Option<String>,
     params: &[String],
     body: &DatabaseIdx,
+    ast: &ast::expr::Function,
   ) -> TypedDatabaseIdx {
     let params: FxIndexMap<String, TypedDatabaseIdx> = params
       .iter()
@@ -590,6 +623,7 @@ impl TyCheck {
     scope: &mut Scope,
     op: &hir::UnaryOp,
     expr: &DatabaseIdx,
+    ast: &ast::expr::UnaryExpr,
   ) -> TypedDatabaseIdx {
     let expr = self.infer_expr(scope, expr);
     let expr_ty = self.ty_db.expr(&expr).ty();
@@ -598,10 +632,10 @@ impl TyCheck {
         Ty::Number(Some(n)) => Ty::Number(Some(-n)),
         Ty::Number(None) => Ty::Number(None),
         _ => {
-          self.diagnostics.push_error(format!(
-            "cannot apply unary operator `-` to type `{}`",
-            expr_ty
-          ));
+          self.diagnostics.push_error(
+            format!("cannot apply unary operator `-` to type `{}`", expr_ty),
+            ast.span(),
+          );
           Ty::Error
         }
       },
@@ -616,10 +650,10 @@ impl TyCheck {
         Ty::Object(_) => Ty::Boolean(Some(false)),
         Ty::Generic => Ty::Boolean(None),
         _ => {
-          self.diagnostics.push_error(format!(
-            "cannot apply unary operator `!` to type `{}`",
-            expr_ty
-          ));
+          self.diagnostics.push_error(
+            format!("cannot apply unary operator `!` to type `{}`", expr_ty),
+            ast.span(),
+          );
           Ty::Error
         }
       },
@@ -768,7 +802,6 @@ impl TyCheck {
       Expr::Object { .. } => "<anonymous>",
       _ => return None,
     };
-    println!("name: {}", name);
     Some(name)
   }
 }

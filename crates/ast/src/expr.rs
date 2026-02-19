@@ -1,4 +1,4 @@
-use syntax::{SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
+use syntax::{SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken, TextRange};
 
 use crate::{pat::Pat, stmt::FunctionDef, Stmt};
 
@@ -47,6 +47,26 @@ impl Expr {
 
     Some(result)
   }
+
+  pub fn span(&self) -> TextRange {
+    match self {
+      Self::BinaryExpr(expr) => expr.span(),
+      Self::NumberLit(expr) => expr.span(),
+      Self::StringLit(expr) => expr.span(),
+      Self::BooleanLit(expr) => expr.span(),
+      Self::ParenExpr(expr) => expr.span(),
+      Self::UnaryExpr(expr) => expr.span(),
+      Self::VariableRef(expr) => expr.span(),
+      Self::Function(expr) => expr.span(),
+      Self::FunctionCall(expr) => expr.span(),
+      Self::Block(expr) => expr.span(),
+      Self::Array(expr) => expr.span(),
+      Self::Object(expr) => expr.span(),
+      Self::ObjectFieldAccess(expr) => expr.span(),
+      Self::Conditional(expr) => expr.span(),
+      Self::ForExpression(expr) => expr.span(),
+    }
+  }
 }
 
 #[derive(Debug, Clone)]
@@ -82,6 +102,10 @@ impl BinaryExpr {
         )
       })
   }
+
+  pub fn span(&self) -> TextRange {
+    self.0.text_range()
+  }
 }
 
 #[derive(Debug, Clone)]
@@ -89,6 +113,10 @@ pub struct Number(SyntaxNode);
 impl Number {
   pub fn parse(&self) -> f64 {
     self.0.first_token().unwrap().text().parse().unwrap()
+  }
+
+  pub fn span(&self) -> TextRange {
+    self.0.text_range()
   }
 }
 
@@ -107,6 +135,10 @@ impl Str {
       .unwrap()
       .to_string()
   }
+
+  pub fn span(&self) -> TextRange {
+    self.0.text_range()
+  }
 }
 
 #[derive(Debug, Clone)]
@@ -115,6 +147,10 @@ impl Boolean {
   pub fn parse(&self) -> bool {
     self.0.first_token().unwrap().text().parse().unwrap()
   }
+
+  pub fn span(&self) -> TextRange {
+    self.0.text_range()
+  }
 }
 
 #[derive(Debug, Clone)]
@@ -122,6 +158,10 @@ pub struct ParenExpr(SyntaxNode);
 impl ParenExpr {
   pub fn expr(&self) -> Option<Expr> {
     self.0.children().find_map(Expr::cast)
+  }
+
+  pub fn span(&self) -> TextRange {
+    self.0.text_range()
   }
 }
 
@@ -139,6 +179,10 @@ impl UnaryExpr {
       .filter_map(SyntaxElement::into_token)
       .find(|token| matches!(token.kind(), SyntaxKind::Minus | SyntaxKind::Bang))
   }
+
+  pub fn span(&self) -> TextRange {
+    self.0.text_range()
+  }
 }
 
 #[derive(Debug, Clone)]
@@ -147,6 +191,10 @@ impl VariableRef {
   pub fn name(&self) -> String {
     // First token should be Identifier
     self.0.first_token().unwrap().text().to_string()
+  }
+
+  pub fn span(&self) -> TextRange {
+    self.0.text_range()
   }
 }
 
@@ -177,6 +225,10 @@ impl Function {
   pub fn body(&self) -> Option<Expr> {
     self.0.children().find_map(Expr::cast)
   }
+
+  pub fn span(&self) -> TextRange {
+    self.0.text_range()
+  }
 }
 
 impl From<FunctionDef> for Function {
@@ -203,6 +255,10 @@ impl FunctionCall {
       .children()
       .filter_map(Expr::cast)
   }
+
+  pub fn span(&self) -> TextRange {
+    self.0.text_range()
+  }
 }
 
 #[derive(Debug, Clone)]
@@ -211,6 +267,10 @@ impl Block {
   pub fn stmts(&self) -> impl Iterator<Item = Stmt> {
     self.0.children().filter_map(Stmt::cast)
   }
+
+  pub fn span(&self) -> TextRange {
+    self.0.text_range()
+  }
 }
 
 #[derive(Debug, Clone)]
@@ -218,6 +278,10 @@ pub struct Array(SyntaxNode);
 impl Array {
   pub fn elements(&self) -> impl Iterator<Item = Expr> {
     self.0.children().filter_map(Expr::cast)
+  }
+
+  pub fn span(&self) -> TextRange {
+    self.0.text_range()
   }
 }
 
@@ -249,6 +313,10 @@ impl Conditional {
       .find(|t| t.kind() == SyntaxKind::ElseCondition)
       .and_then(|t| t.first_child())
       .and_then(Expr::cast)
+  }
+
+  pub fn span(&self) -> TextRange {
+    self.0.text_range()
   }
 }
 
@@ -285,6 +353,10 @@ impl Object {
       .and_then(|c| c.first_child())
       .and_then(Expr::cast)
   }
+
+  pub fn span(&self) -> TextRange {
+    self.0.text_range()
+  }
 }
 
 /// ObjectFieldAccessExpression@0..3
@@ -310,6 +382,10 @@ impl ObjectFieldAccess {
       .unwrap()
       .text()
       .to_string()
+  }
+
+  pub fn span(&self) -> TextRange {
+    self.0.text_range()
   }
 }
 
@@ -360,5 +436,9 @@ impl ForExpression {
       .find(|c| c.kind() == SyntaxKind::ForPipePattern)
       .and_then(|c| c.first_child())
       .and_then(Pat::cast)
+  }
+
+  pub fn span(&self) -> TextRange {
+    self.0.text_range()
   }
 }

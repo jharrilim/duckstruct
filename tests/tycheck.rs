@@ -632,3 +632,42 @@ mod expressions {
     expect_type_for_definition(&tycheck, "b", Ty::Number(Some(1.0)));
   }
 }
+
+mod diagnostics {
+  use super::*;
+
+  #[test]
+  fn invalid_code_reports_error_with_message() {
+    let code = "x()";
+    let tycheck = tycheck(code);
+
+    assert!(tycheck.diagnostics.has_errors(), "expected type error for invalid code");
+    let first = tycheck.diagnostics.errors.first().unwrap();
+    assert!(
+      first.message().contains("Undefined variable") || first.message().contains("Cannot call"),
+      "expected error message, got: {}",
+      first.message()
+    );
+  }
+
+  #[test]
+  fn error_format_includes_line_and_message_when_source_provided() {
+    let code = "x()";
+    let tycheck = tycheck(code);
+
+    assert!(tycheck.diagnostics.has_errors());
+    let formatted = tycheck.diagnostics.format_errors_with_source(code);
+    assert!(!formatted.is_empty());
+    let output = formatted.join("\n");
+    assert!(
+      output.contains("line 1"),
+      "formatted error should include line number, got: {}",
+      output
+    );
+    assert!(
+      output.contains("error at") && output.contains("column"),
+      "formatted error should include location prefix, got: {}",
+      output
+    );
+  }
+}

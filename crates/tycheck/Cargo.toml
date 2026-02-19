@@ -6,7 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+ast = { path = "../ast" }
 data-structures = { path = "../data-structures" }
 hir = { path = "../hir" }
-
+syntax = { path = "../syntax" }
 distance = "0.4.0"

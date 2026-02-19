@@ -2,6 +2,7 @@ use lexer::token::TokenKind;
 use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::{FromPrimitive, ToPrimitive};
 use rowan::Language;
+pub use rowan::TextRange;
 
 #[derive(Debug, Copy, Clone, PartialEq, FromPrimitive, ToPrimitive, Eq, PartialOrd, Ord, Hash)]
 pub enum SyntaxKind {

@@ -1,5 +1,6 @@
 use ast::Root;
 use parser::parse;
+use syntax::TextRange;
 
 fn ast(code: &str) -> Root {
   Root::cast(parse(code).syntax()).unwrap()
@@ -96,4 +97,23 @@ fn ast_object_field_access() {
 
   assert!(field_access.object().is_some());
   assert_eq!(field_access.field(), "a");
+}
+
+
+#[test]
+fn ast_function_span() {
+  let ast = ast("f foo(x) { x }");
+  assert_eq!(ast.stmts().count(), 1);
+
+  let stmt = ast.stmts().next();
+  assert!(stmt.is_some());
+
+  let stmt = stmt.unwrap();
+  assert!(stmt.expr().is_some());
+
+  let expr = stmt.expr().unwrap();
+
+  let span = expr.span();
+  assert_eq!(span.start(), 0.into(), "function expr span covers full node");
+  assert_eq!(span.end(), 14.into(), "f foo(x) {{ x }} is 14 bytes");
 }
