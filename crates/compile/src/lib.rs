@@ -9,11 +9,30 @@ use hir::lower;
 use parser::parse;
 use tycheck::TyCheck;
 
+#[cfg(feature = "llvm")]
+use codegen::llvm::LlvmGenerator;
+
 pub enum TargetLang {
   Javascript,
+  Llvm,
+}
+
+impl From<manifest::Backend> for TargetLang {
+  fn from(b: manifest::Backend) -> Self {
+    match b {
+      manifest::Backend::Js => TargetLang::Javascript,
+      manifest::Backend::Llvm => TargetLang::Llvm,
+    }
+  }
 }
 
 pub struct Compiler;
+
+/// Resolve the target (backend) from the project manifest. Use when compiling with a project root.
+pub fn target_from_manifest_dir(manifest_dir: &Path) -> Result<TargetLang, String> {
+  let m = manifest::load_manifest(manifest_dir)?;
+  Ok(m.backend().into())
+}
 
 /// Resolve the entry file path and optional project root from a path (file or directory).
 /// When `path` is a directory, looks for `duckstruct.toml` and uses its `entrypoint`; returns error if no manifest.
@@ -22,18 +41,17 @@ pub fn resolve_entry_and_project_root(
   path: &Path,
 ) -> Result<(std::path::PathBuf, Option<std::path::PathBuf>), String> {
   if path.is_dir() {
-    let root = manifest::find_manifest_dir(path).ok_or_else(|| {
+    let root = manifest::find_manifest_dir(path).map_err(|e| {
       format!(
-        "No {} found in {} or any parent directory. When compiling a directory, a manifest is required.",
-        manifest::MANIFEST_FILENAME,
-        path.display()
+        "{}. When compiling a directory, a manifest is required.",
+        e
       )
     })?;
     let m = manifest::load_manifest(&root)?;
     let entry = root.join(&m.entrypoint);
     Ok((entry, Some(root)))
   } else {
-    let root = manifest::find_manifest_dir(path);
+    let root = manifest::find_manifest_dir(path).ok();
     Ok((path.to_path_buf(), root))
   }
 }
@@ -64,9 +82,25 @@ impl Compiler {
     Ok(JsGenerator::new(&tycheck).generate())
   }
 
+  #[cfg(feature = "llvm")]
+  pub fn compile_llvm(&self, source: &str) -> Result<String, String> {
+    let parse = parse(source);
+    if !parse.errors.is_empty() {
+      return Err(format!("{:?}", parse.errors));
+    }
+    let ast = match Root::cast(parse.syntax()) {
+      Some(ast) => ast,
+      None => return Err("Failed to generate AST from source".to_string()),
+    };
+    let hir = lower(ast);
+    let mut tycheck = TyCheck::new(hir);
+    tycheck.infer();
+    LlvmGenerator::new(&tycheck).generate_llvm()
+  }
+
   /// Compile the file at `entry_path`. `project_root` is used to resolve `use root::...` imports;
   /// when `None`, any `root::` use is an error. When `project_root` is set, output goes to
-  /// &lt;output_dir&gt;/js/index.js (output_dir from manifest `output` key, default "output").
+  /// &lt;output_dir&gt;/js/index.js or &lt;output_dir&gt;/llvm/index.ll (output_dir from manifest `output` key, default "output").
   pub fn compile_file(
     &self,
     entry_path: std::path::PathBuf,
@@ -82,9 +116,13 @@ impl Compiler {
           .unwrap_or(manifest::DEFAULT_OUTPUT_DIR);
         match target {
           TargetLang::Javascript => root.join(output_dir).join("js").join("index.js"),
+          TargetLang::Llvm => root.join(output_dir).join("llvm").join("index.ll"),
         }
       }
-      None => entry_path.with_extension("js"),
+      None => match target {
+        TargetLang::Javascript => entry_path.with_extension("js"),
+        TargetLang::Llvm => entry_path.with_extension("ll"),
+      },
     };
     if let Some(parent) = output_path.parent() {
       std::fs::create_dir_all(parent)
@@ -105,6 +143,12 @@ impl Compiler {
     let code = if modules::collect_use_deps(&ast).is_empty() {
       match target {
         TargetLang::Javascript => self.compile_js(&source)?,
+        TargetLang::Llvm => {
+          #[cfg(not(feature = "llvm"))]
+          return Err("LLVM backend requires building with --features llvm and having LLVM installed".to_string());
+          #[cfg(feature = "llvm")]
+          self.compile_llvm(&source)?
+        }
       }
     } else {
       let (entry_hir, deps) =
@@ -169,6 +213,9 @@ impl Compiler {
 
       match target {
         TargetLang::Javascript => bundle,
+        TargetLang::Llvm => {
+          return Err("LLVM backend does not support multi-module projects yet".to_string());
+        }
       }
     };
 

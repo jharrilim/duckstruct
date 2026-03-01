@@ -21,8 +21,12 @@ fn main() -> Result<()> {
   if let Some(path) = args.compile {
     match compile::resolve_entry_and_project_root(&path) {
       Ok((entry_path, project_root)) => {
+        let target = match &project_root {
+          Some(root) => compile::target_from_manifest_dir(root).unwrap_or(TargetLang::Javascript),
+          None => TargetLang::Javascript,
+        };
         if let Err(err) =
-          Compiler::new().compile_file(entry_path, project_root, TargetLang::Javascript)
+          Compiler::new().compile_file(entry_path, project_root, target)
         {
           println!("Compilation failed: {}", err);
         }

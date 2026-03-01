@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use compile::{resolve_entry_and_project_root, Compiler, TargetLang};
+use compile::{resolve_entry_and_project_root, target_from_manifest_dir, Compiler, TargetLang};
 use insta;
 use serde::Serialize;
 
@@ -124,4 +124,85 @@ output = "dist"
   assert!(result.is_ok(), "compile failed: {:?}", result.err());
   let js_path = root.join("dist").join("js").join("index.js");
   assert!(js_path.is_file(), "output should be at dist/js/index.js");
+}
+
+#[test]
+fn compile_project_with_manifest_backend_js_explicit() {
+  let dir = tempfile::tempdir().expect("temp dir");
+  let root = dir.path();
+  fs::write(
+    root.join("duckstruct.toml"),
+    r#"entrypoint = "src/main.ds"
+
+[target]
+backend = "js"
+"#,
+  )
+  .expect("write manifest");
+  fs::create_dir_all(root.join("src")).expect("create src");
+  fs::write(root.join("src").join("main.ds"), "let x = 1; x")
+    .expect("write main.ds");
+
+  let target = target_from_manifest_dir(root).expect("load manifest");
+  assert!(matches!(target, TargetLang::Javascript));
+  let (entry_path, project_root) =
+    resolve_entry_and_project_root(root).expect("resolve");
+  let result = Compiler::new().compile_file(
+    entry_path,
+    project_root,
+    target,
+  );
+  assert!(result.is_ok(), "compile failed: {:?}", result.err());
+  let js_path = root.join("output").join("js").join("index.js");
+  assert!(js_path.is_file(), "output should be at output/js/index.js");
+}
+
+#[test]
+fn compile_project_with_manifest_backend_llvm() {
+  let dir = tempfile::tempdir().expect("temp dir");
+  let root = dir.path();
+  fs::write(
+    root.join("duckstruct.toml"),
+    r#"entrypoint = "src/main.ds"
+
+[target]
+backend = "llvm"
+"#,
+  )
+  .expect("write manifest");
+  fs::create_dir_all(root.join("src")).expect("create src");
+  fs::write(
+    root.join("src").join("main.ds"),
+    "let x = 1 + 2; x",
+  )
+  .expect("write main.ds");
+
+  let target = target_from_manifest_dir(root).expect("load manifest");
+  assert!(matches!(target, TargetLang::Llvm));
+  let (entry_path, project_root) =
+    resolve_entry_and_project_root(root).expect("resolve");
+  let result = Compiler::new().compile_file(entry_path, project_root, target);
+
+  #[cfg(feature = "llvm")]
+  {
+    assert!(result.is_ok(), "compile failed: {:?}", result.err());
+    let ll_path = root.join("output").join("llvm").join("index.ll");
+    assert!(ll_path.is_file(), "output should be at output/llvm/index.ll");
+    let ir = fs::read_to_string(&ll_path).expect("read LLVM IR");
+    assert!(
+      ir.contains("define") || ir.contains("declare"),
+      "LLVM IR should contain define or declare: {}",
+      ir
+    );
+  }
+
+  #[cfg(not(feature = "llvm"))]
+  {
+    let err = result.expect_err("without llvm feature, compile_file should fail");
+    assert!(
+      err.contains("LLVM backend requires"),
+      "error should mention LLVM backend requirement: {}",
+      err
+    );
+  }
 }
