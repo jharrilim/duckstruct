@@ -65,14 +65,31 @@ impl Compiler {
   }
 
   /// Compile the file at `entry_path`. `project_root` is used to resolve `use root::...` imports;
-  /// when `None`, any `root::` use is an error.
+  /// when `None`, any `root::` use is an error. When `project_root` is set, output goes to
+  /// &lt;output_dir&gt;/js/index.js (output_dir from manifest `output` key, default "output").
   pub fn compile_file(
     &self,
     entry_path: std::path::PathBuf,
     project_root: Option<std::path::PathBuf>,
     target: TargetLang,
   ) -> Result<(), String> {
-    let output_path = entry_path.with_extension("js");
+    let output_path = match &project_root {
+      Some(root) => {
+        let m = manifest::load_manifest(root)?;
+        let output_dir = m
+          .output
+          .as_deref()
+          .unwrap_or(manifest::DEFAULT_OUTPUT_DIR);
+        match target {
+          TargetLang::Javascript => root.join(output_dir).join("js").join("index.js"),
+        }
+      }
+      None => entry_path.with_extension("js"),
+    };
+    if let Some(parent) = output_path.parent() {
+      std::fs::create_dir_all(parent)
+        .map_err(|e| format!("Failed to create output directory {}: {}", parent.display(), e))?;
+    }
     println!("{} => {}", entry_path.display(), output_path.display());
     let source = match std::fs::read_to_string(&entry_path) {
       Ok(source) => source,
@@ -121,7 +138,7 @@ impl Compiler {
             }
           })
           .collect();
-        let prefix = format!("__{}__", dep.name);
+        let prefix = format!("__{}__", dep.name.replace("::", "__"));
         let dep_js = JsGenerator::new(&dep.tycheck)
           .with_prefix(&prefix, pub_names)
           .generate_js();
@@ -139,7 +156,7 @@ impl Compiler {
             .as_deref()
             .unwrap_or_else(|| path.last().unwrap())
             .to_string();
-          let mod_name = path[0..path.len() - 1].join("::");
+          let mod_name = path[0..path.len() - 1].join("__");
           let export = path.last().unwrap().clone();
           (bind, (mod_name, export))
         })

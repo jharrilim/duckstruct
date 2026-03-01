@@ -4,11 +4,17 @@ use std::path::{Path, PathBuf};
 
 pub const MANIFEST_FILENAME: &str = "duckstruct.toml";
 
-/// Manifest schema. First property is `entrypoint`.
+/// Default output directory relative to project root when `output` is not set.
+pub const DEFAULT_OUTPUT_DIR: &str = "output";
+
+/// Manifest schema. First property is `entrypoint`. Optional `output` configures the output directory.
 #[derive(Debug, serde::Deserialize)]
 pub struct Manifest {
   /// Entry point path relative to the directory containing the manifest.
   pub entrypoint: String,
+  /// Output directory relative to project root (e.g. "output" → emit JS to output/js/index.js). Default: "output".
+  #[serde(default)]
+  pub output: Option<String>,
 }
 
 /// Walk up from the given path (file or directory) until we find `duckstruct.toml`.
@@ -54,6 +60,23 @@ mod tests {
     .expect("write manifest");
     let m = load_manifest(root).expect("parse");
     assert_eq!(m.entrypoint, "src/main.ds");
+    assert_eq!(m.output, None);
+  }
+
+  #[test]
+  fn test_parse_manifest_with_output() {
+    let dir = tempfile::tempdir().expect("temp dir");
+    let root = dir.path();
+    fs::write(
+      root.join(MANIFEST_FILENAME),
+      r#"entrypoint = "src/main.ds"
+output = "dist"
+"#,
+    )
+    .expect("write manifest");
+    let m = load_manifest(root).expect("parse");
+    assert_eq!(m.entrypoint, "src/main.ds");
+    assert_eq!(m.output.as_deref(), Some("dist"));
   }
 
   #[test]

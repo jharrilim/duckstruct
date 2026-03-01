@@ -51,11 +51,16 @@ pub fn compile_lambda_calculus() {
 
 #[test]
 pub fn compile_with_use_bundles_deps() {
-  let entry = codestub("main_use.ds");
+  let dir = tempfile::tempdir().expect("temp dir");
+  let root = dir.path();
+  fs::write(root.join("main_use.ds"), fs::read_to_string(codestub("main_use.ds")).unwrap())
+    .expect("write main_use.ds");
+  fs::write(root.join("helper.ds"), fs::read_to_string(codestub("helper.ds")).unwrap())
+    .expect("write helper.ds");
+  let entry = root.join("main_use.ds");
   let result = Compiler::new().compile_file(entry, None, TargetLang::Javascript);
   assert!(result.is_ok(), "{:?}", result.err());
-  let out_path = codestub("main_use.js");
-  let js = std::fs::read_to_string(&out_path).unwrap();
+  let js = fs::read_to_string(root.join("main_use.js")).expect("read output");
   assert!(
     js.contains("__helper__ONE"),
     "bundled output should contain prefixed dep name: {}",
@@ -66,41 +71,15 @@ pub fn compile_with_use_bundles_deps() {
     "bundled output should contain prefixed dep function: {}",
     js
   );
-  let _ = std::fs::remove_file(out_path);
 }
 
 #[test]
 fn compile_project_with_manifest_and_root_import() {
-  let dir = tempfile::tempdir().expect("temp dir");
-  let root = dir.path();
-  fs::write(
-    root.join("duckstruct.toml"),
-    r#"entrypoint = "src/main.ds"
-"#,
-  )
-  .expect("write manifest");
-  fs::create_dir_all(root.join("src")).expect("create src");
-  fs::create_dir_all(root.join("lib")).expect("create lib");
-  fs::write(
-    root.join("src").join("main.ds"),
-    r#"
-use root::lib::util::{VAL};
-VAL
-"#,
-  )
-  .expect("write main.ds");
-  fs::write(
-    root.join("lib").join("util.ds"),
-    r#"
-pub let VAL = 42;
-"#,
-  )
-  .expect("write lib/util.ds");
-
+  let root = codestub("project_with_manifest");
   let (entry_path, project_root) =
-    resolve_entry_and_project_root(root).expect("resolve entry and root");
+    resolve_entry_and_project_root(&root).expect("resolve entry and root");
   assert_eq!(entry_path, root.join("src").join("main.ds"));
-  assert_eq!(project_root, Some(root.to_path_buf()));
+  assert_eq!(project_root, Some(root.clone()));
 
   let result = Compiler::new().compile_file(
     entry_path,
@@ -108,11 +87,41 @@ pub let VAL = 42;
     TargetLang::Javascript,
   );
   assert!(result.is_ok(), "compile failed: {:?}", result.err());
-  let js_path = root.join("src").join("main.js");
+  let js_path = root.join("output").join("js").join("index.js");
   let js = fs::read_to_string(&js_path).expect("read output");
   assert!(
-    js.contains("__root::lib::util__VAL") || js.contains("VAL"),
+    js.contains("__root__lib__util__VAL") || js.contains("VAL"),
     "bundled output should reference VAL: {}",
     js
   );
+}
+
+#[test]
+fn compile_project_uses_custom_output_dir_from_manifest() {
+  let dir = tempfile::tempdir().expect("temp dir");
+  let root = dir.path();
+  fs::write(
+    root.join("duckstruct.toml"),
+    r#"entrypoint = "src/main.ds"
+output = "dist"
+"#,
+  )
+  .expect("write manifest");
+  fs::create_dir_all(root.join("src")).expect("create src");
+  fs::write(
+    root.join("src").join("main.ds"),
+    "let x = 1; x",
+  )
+  .expect("write main.ds");
+
+  let (entry_path, project_root) =
+    resolve_entry_and_project_root(root).expect("resolve");
+  let result = Compiler::new().compile_file(
+    entry_path,
+    project_root,
+    TargetLang::Javascript,
+  );
+  assert!(result.is_ok(), "compile failed: {:?}", result.err());
+  let js_path = root.join("dist").join("js").join("index.js");
+  assert!(js_path.is_file(), "output should be at dist/js/index.js");
 }
