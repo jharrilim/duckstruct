@@ -1,0 +1,11 @@
+---
+source: crates/parser/src/lib.rs
+expression: "& parse.debug_tree()"
+info:
+  code: "foo::bar"
+---
+Root@0..8
+  PathExpression@0..8
+    Identifier@0..3 "foo"
+    DoubleColon@3..5 "::"
+    Identifier@5..8 "bar"

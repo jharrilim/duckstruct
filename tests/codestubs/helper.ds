@@ -1,0 +1,2 @@
+pub let ONE = 1;
+pub f double(x) { x + x }

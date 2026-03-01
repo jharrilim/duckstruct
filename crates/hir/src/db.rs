@@ -12,6 +12,8 @@ use syntax::SyntaxKind;
 pub struct Database {
   exprs: Arena<Expr>,
   defs: FxIndexMap<String, Stmt>,
+  /// Use statements (path segments, optional alias). Processed by tycheck with module map.
+  pub uses: Vec<(Vec<String>, Option<String>)>,
 }
 
 impl Database {
@@ -36,17 +38,18 @@ impl Database {
       .filter_map(|stmt| self.lower_stmt(stmt))
       .collect();
     for stmt in stmts.into_iter() {
-      match stmt {
-        Stmt::VariableDef { ref name, value: _ } => {
+      match &stmt {
+        Stmt::VariableDef { name, .. } => {
           self.defs.insert(name.clone(), stmt);
         }
-        Stmt::FunctionDef { name, value } => {
-          self
-            .defs
-            .insert(name.clone(), Stmt::FunctionDef { name, value });
+        Stmt::FunctionDef { name, .. } => {
+          self.defs.insert(name.clone(), stmt);
         }
         Stmt::Expr(expr) => {
-          self.defs.insert("".to_string(), Stmt::Expr(expr));
+          self.defs.insert("".to_string(), Stmt::Expr(*expr));
+        }
+        Stmt::Use { path, alias } => {
+          self.uses.push((path.clone(), alias.clone()));
         }
       }
     }
@@ -57,11 +60,23 @@ impl Database {
       ast::Stmt::VariableDef(ast) => Stmt::VariableDef {
         name: ast.name()?.text().to_string(),
         value: self.lower_expr(ast.value()),
+        pub_vis: ast.is_pub(),
       },
-      ast::Stmt::FunctionDef(ast) => Stmt::FunctionDef {
-        name: ast.name()?.text().to_string(),
-        value: self.lower_function(ast.into()),
-      },
+      ast::Stmt::FunctionDef(ast) => {
+        let pub_vis = ast.is_pub();
+        Stmt::FunctionDef {
+          name: ast.name()?.text().to_string(),
+          value: self.lower_function(ast.into()),
+          pub_vis,
+        }
+      }
+      ast::Stmt::Use(ast) => {
+        let path = ast.path().map(|p| p.segments()).unwrap_or_default();
+        let alias = ast
+          .alias()
+          .map(|t| t.text().to_string());
+        Stmt::Use { path, alias }
+      }
       ast::Stmt::Expr(ast) => Stmt::Expr(self.lower_expr(Some(ast))),
     };
 
@@ -104,7 +119,11 @@ impl Database {
         }),
         ast::Expr::VariableRef(ast) => self.exprs.alloc(Expr::VariableRef {
           var: ast.name(),
-          ast: ast,
+          ast,
+        }),
+        ast::Expr::PathExpr(ast) => self.exprs.alloc(Expr::PathRef {
+          path: ast.segments(),
+          ast,
         }),
         ast::Expr::BinaryExpr(ast) => self.lower_binary(ast),
         ast::Expr::ParenExpr(ast) => self.lower_expr(ast.expr()),

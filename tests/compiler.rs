@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use compile::Compiler;
+use compile::{Compiler, TargetLang};
 use insta;
 use serde::Serialize;
 
@@ -46,4 +46,24 @@ pub fn compile_factorial() {
 #[test]
 pub fn compile_lambda_calculus() {
   code_snapshot!("lambda_calculus.ds");
+}
+
+#[test]
+pub fn compile_with_use_bundles_deps() {
+  let entry = codestub("main_use.ds");
+  let result = Compiler::new().compile_file(entry, TargetLang::Javascript);
+  assert!(result.is_ok(), "{:?}", result.err());
+  let out_path = codestub("main_use.js");
+  let js = std::fs::read_to_string(&out_path).unwrap();
+  assert!(
+    js.contains("__helper__ONE"),
+    "bundled output should contain prefixed dep name: {}",
+    js
+  );
+  assert!(
+    js.contains("__helper__double"),
+    "bundled output should contain prefixed dep function: {}",
+    js
+  );
+  let _ = std::fs::remove_file(out_path);
 }

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::diagnostics::Diagnostics;
@@ -6,6 +7,9 @@ use crate::typed_db::{TypedDatabase, TypedDatabaseIdx};
 use crate::typed_hir::{FunctionDef, Ty, TypedExpr, TypedStmt};
 use data_structures::{index_map, FxIndexMap};
 use hir::{expr::Expr, stmt::Stmt, DatabaseIdx};
+
+/// Map from module name to its type-checked state (for resolving `foo::bar` and use bindings).
+pub type ModuleMap<'a> = HashMap<String, &'a TyCheck>;
 
 #[derive(Debug)]
 pub enum Either<A, B> {
@@ -32,32 +36,77 @@ impl TyCheck {
 
   /// Infers types for all statements in the HIR database.
   pub fn infer(&mut self) {
+    self.infer_with_modules(None);
+  }
+
+  /// Infers types with an optional module map for resolving imports and path refs.
+  pub fn infer_with_modules(&mut self, module_map: Option<&ModuleMap<'_>>) {
     let mut scope = Scope::default();
+    if let Some(map) = module_map {
+      for (path, alias) in self.hir_db.uses.iter() {
+        if path.len() >= 2 {
+          if let Some(dep) = map.get(&path[0]) {
+            let item_name = path.last().unwrap();
+            if let Some(typed_stmt) = dep.ty_db.definition(item_name) {
+              let is_pub = match typed_stmt {
+                TypedStmt::VariableDef { pub_vis, .. } | TypedStmt::FunctionDef { pub_vis, .. } => {
+                  *pub_vis
+                }
+                _ => false,
+              };
+              if is_pub {
+                let ty = dep.ty_db.expr(typed_stmt.value()).ty().clone();
+                let idx = self.ty_db.alloc(TypedExpr::VariableRef {
+                  var: item_name.clone(),
+                  ty,
+                });
+                let bind_name = alias.as_deref().unwrap_or(item_name);
+                scope.define(bind_name.to_string(), idx);
+              }
+            }
+          }
+        }
+      }
+    }
     for (stmt_ident, statement) in self.hir_db.clone().defs_iter() {
-      let typed_stmt = self.infer_stmt(&mut scope, Either::Left(statement));
+      let typed_stmt = self.infer_stmt(&mut scope, Either::Left(statement), module_map);
       self.ty_db.define(stmt_ident.clone(), typed_stmt);
     }
   }
 
-  pub fn infer_stmt(&mut self, scope: &mut Scope, stmt: Either<&Stmt, &DatabaseIdx>) -> TypedStmt {
+  pub fn infer_stmt(
+    &mut self,
+    scope: &mut Scope,
+    stmt: Either<&Stmt, &DatabaseIdx>,
+    module_map: Option<&ModuleMap<'_>>,
+  ) -> TypedStmt {
     match stmt {
       Either::Left(stmt) => match stmt {
-        Stmt::VariableDef { name, value } => {
-          let value = self.infer_expr(scope, value);
+        Stmt::VariableDef { name, value, pub_vis } => {
+          let value = self.infer_expr(scope, value, module_map);
           scope.define(name.clone(), value);
           TypedStmt::VariableDef {
             name: name.clone(),
             value,
+            pub_vis: *pub_vis,
           }
         }
-        Stmt::FunctionDef { name, value } => self.infer_function_def(scope, name, value),
-        Stmt::Expr(expr_idx) => TypedStmt::Expr(self.infer_expr(scope, expr_idx)),
+        Stmt::FunctionDef { name, value, pub_vis } => {
+          self.infer_function_def(scope, name, value, *pub_vis, module_map)
+        }
+        Stmt::Expr(expr_idx) => TypedStmt::Expr(self.infer_expr(scope, expr_idx, module_map)),
+        Stmt::Use { .. } => todo!("use statements are resolved in infer_with_modules"),
       },
-      Either::Right(expr_idx) => TypedStmt::Expr(self.infer_expr(scope, expr_idx)),
+      Either::Right(expr_idx) => TypedStmt::Expr(self.infer_expr(scope, expr_idx, module_map)),
     }
   }
 
-  pub fn infer_expr(&mut self, scope: &mut Scope, expr_idx: &DatabaseIdx) -> TypedDatabaseIdx {
+  pub fn infer_expr(
+    &mut self,
+    scope: &mut Scope,
+    expr_idx: &DatabaseIdx,
+    module_map: Option<&ModuleMap<'_>>,
+  ) -> TypedDatabaseIdx {
     let hir_db = Rc::clone(&self.hir_db);
     let expr = hir_db.get_expr(expr_idx);
 
@@ -67,36 +116,81 @@ impl TyCheck {
       Expr::String { s, .. } => TypedExpr::String {
         val: Some(s.clone()),
       },
-      Expr::Block { stmts, .. } => return self.infer_block(scope, stmts),
+      Expr::Block { stmts, .. } => return self.infer_block(scope, stmts, module_map),
       Expr::Boolean { b, .. } => TypedExpr::Boolean { val: Some(*b) },
-      Expr::Binary { op, lhs, rhs, .. } => return self.infer_binary(scope, op, lhs, rhs),
-      Expr::Unary { op, expr, ast } => return self.infer_unary(scope, op, expr, ast),
+      Expr::Binary { op, lhs, rhs, .. } => {
+        return self.infer_binary(scope, op, lhs, rhs, module_map)
+      }
+      Expr::Unary { op, expr, ast } => {
+        return self.infer_unary(scope, op, expr, ast, module_map)
+      }
       Expr::Function {
         name,
         params,
         body,
         ast,
-      } => return self.infer_function(scope, name, params, body, ast),
+      } => return self.infer_function(scope, name, params, body, ast, module_map),
       Expr::FunctionCall { args, func, ast } => {
-        return self.infer_function_call(scope, func, args, ast)
+        return self.infer_function_call(scope, func, args, ast, module_map)
       }
-      Expr::Array { vals, .. } => return self.infer_array(scope, vals),
+      Expr::Array { vals, .. } => return self.infer_array(scope, vals, module_map),
       Expr::Conditional {
         condition,
         then_branch,
         else_branch,
         ast,
-      } => return self.infer_conditional(scope, condition, then_branch, else_branch, ast),
-      Expr::Object { fields, .. } => return self.infer_object(scope, fields),
+      } => return self.infer_conditional(
+        scope,
+        condition,
+        then_branch,
+        else_branch,
+        ast,
+        module_map,
+      ),
+      Expr::Object { fields, .. } => return self.infer_object(scope, fields, module_map),
       Expr::ObjectFieldAccess { object, field, ast } => {
-        return self.infer_object_field_access(scope, object, field, ast)
+        return self.infer_object_field_access(scope, object, field, ast, module_map)
       }
+      Expr::PathRef { path, .. } => return self.infer_path_ref(scope, path, module_map),
       Expr::Missing => {
         todo!("Handle expression missing: {:?}", expr);
       }
       Expr::For { .. } => todo!(),
     };
     self.ty_db.alloc(expr)
+  }
+
+  fn infer_path_ref(
+    &mut self,
+    scope: &mut Scope,
+    path: &[String],
+    module_map: Option<&ModuleMap<'_>>,
+  ) -> TypedDatabaseIdx {
+    if path.is_empty() {
+      return self.ty_db.alloc(TypedExpr::Error);
+    }
+    if path.len() == 1 {
+      return self.infer_variable_ref(scope, &path[0]);
+    }
+    if let Some(map) = module_map {
+      if let Some(dep) = map.get(&path[0]) {
+        let item_name = path.last().unwrap();
+        if let Some(typed_stmt) = dep.ty_db.definition(item_name) {
+          let is_pub = match typed_stmt {
+            TypedStmt::VariableDef { pub_vis, .. } | TypedStmt::FunctionDef { pub_vis, .. } => *pub_vis,
+            _ => false,
+          };
+          if is_pub {
+            let ty = dep.ty_db.expr(typed_stmt.value()).ty().clone();
+            return self.ty_db.alloc(TypedExpr::VariableRef {
+              var: item_name.clone(),
+              ty,
+            });
+          }
+        }
+      }
+    }
+    self.ty_db.alloc(TypedExpr::Error)
   }
 
   fn infer_variable_ref(&mut self, scope: &mut Scope, var: &str) -> TypedDatabaseIdx {
@@ -121,8 +215,9 @@ impl TyCheck {
     object: &DatabaseIdx,
     field: &str,
     ast: &ast::expr::ObjectFieldAccess,
+    module_map: Option<&ModuleMap<'_>>,
   ) -> TypedDatabaseIdx {
-    let typed_object = self.infer_expr(scope, object);
+    let typed_object = self.infer_expr(scope, object, module_map);
     let field_ty = match self.ty_db.expr(&typed_object).ty() {
       Ty::Object(Some(fields)) => match fields.get(field) {
         Some(ty) => ty.clone(),
@@ -247,12 +342,13 @@ impl TyCheck {
     &mut self,
     scope: &mut Scope,
     fields: &FxIndexMap<String, DatabaseIdx>,
+    module_map: Option<&ModuleMap<'_>>,
   ) -> TypedDatabaseIdx {
     let mut tys: FxIndexMap<String, Ty> = FxIndexMap::default();
     let mut typed_fields: FxIndexMap<String, TypedDatabaseIdx> = FxIndexMap::default();
 
     for (field, expr) in fields.iter() {
-      let expr = self.infer_expr(scope, expr);
+      let expr = self.infer_expr(scope, expr, module_map);
       let ty = self.ty_db.expr(&expr).ty();
 
       tys.insert(field.clone(), ty);
@@ -271,19 +367,20 @@ impl TyCheck {
     then_branch: &DatabaseIdx,
     else_branch: &DatabaseIdx,
     ast: &ast::expr::Conditional,
+    module_map: Option<&ModuleMap<'_>>,
   ) -> TypedDatabaseIdx {
-    let condition = self.infer_expr(scope, condition);
+    let condition = self.infer_expr(scope, condition, module_map);
     match self.ty_db.expr(&condition).ty() {
       Ty::Boolean(Some(boolean)) => {
         if boolean {
-          self.infer_expr(scope, then_branch)
+          self.infer_expr(scope, then_branch, module_map)
         } else {
-          self.infer_expr(scope, else_branch)
+          self.infer_expr(scope, else_branch, module_map)
         }
       }
       Ty::Boolean(None) => {
-        let then_branch = self.infer_expr(scope, then_branch);
-        let else_branch = self.infer_expr(scope, else_branch);
+        let then_branch = self.infer_expr(scope, then_branch, module_map);
+        let else_branch = self.infer_expr(scope, else_branch, module_map);
         let then_ty = self.ty_db.expr(&then_branch).ty();
         let else_ty = self.ty_db.expr(&else_branch).ty();
 
@@ -322,11 +419,16 @@ impl TyCheck {
     }
   }
 
-  fn infer_array(&mut self, scope: &mut Scope, vals: &[DatabaseIdx]) -> TypedDatabaseIdx {
+  fn infer_array(
+    &mut self,
+    scope: &mut Scope,
+    vals: &[DatabaseIdx],
+    module_map: Option<&ModuleMap<'_>>,
+  ) -> TypedDatabaseIdx {
     let (vals, tys): (Vec<TypedDatabaseIdx>, Vec<Ty>) = vals
       .iter()
       .map(|val| {
-        let val = self.infer_expr(scope, val);
+        let val = self.infer_expr(scope, val, module_map);
         let val_ty = self.ty_db.expr(&val).ty();
         (val, val_ty)
       })
@@ -345,6 +447,8 @@ impl TyCheck {
     scope: &mut Scope,
     name: &str,
     value: &DatabaseIdx,
+    pub_vis: bool,
+    module_map: Option<&ModuleMap<'_>>,
   ) -> TypedStmt {
     let (params, body, ast) = match self.hir_db.get_expr(value).clone() {
       Expr::Function {
@@ -356,12 +460,14 @@ impl TyCheck {
       _ => unreachable!("Function definition must be a function"),
     };
 
-    let func_value = self.infer_function(scope, &Some(name.to_string()), &params, &body, &ast);
+    let func_value =
+      self.infer_function(scope, &Some(name.to_string()), &params, &body, &ast, module_map);
     scope.define(name.to_string(), func_value);
 
     TypedStmt::FunctionDef {
       name: name.to_string(),
       value: func_value,
+      pub_vis,
     }
   }
 
@@ -371,13 +477,14 @@ impl TyCheck {
     lhs: &DatabaseIdx,
     args: &[DatabaseIdx],
     ast: &ast::expr::FunctionCall,
+    module_map: Option<&ModuleMap<'_>>,
   ) -> TypedDatabaseIdx {
-    let lhs = self.infer_expr(scope, lhs);
+    let lhs = self.infer_expr(scope, lhs, module_map);
     let args = args
       .iter()
-      .map(|arg| self.infer_expr(scope, arg))
+      .map(|arg| self.infer_expr(scope, arg, module_map))
       .collect::<Vec<_>>();
-    self.infer_function_call_impl(scope, &lhs, &args, &ast)
+    self.infer_function_call_impl(scope, &lhs, &args, &ast, module_map)
   }
 
   fn infer_function_call_impl(
@@ -386,6 +493,7 @@ impl TyCheck {
     lhs: &TypedDatabaseIdx,
     args: &Vec<TypedDatabaseIdx>,
     ast: &ast::expr::FunctionCall,
+    module_map: Option<&ModuleMap<'_>>,
   ) -> TypedDatabaseIdx {
     let lhs_expr = self.ty_db.expr(lhs);
 
@@ -394,12 +502,41 @@ impl TyCheck {
     // result of a function call, the end of a block, or just the function definition itself.
     match lhs_expr.clone() {
       TypedExpr::FunctionParameter { name: _, ty: _ } => *lhs,
-      TypedExpr::VariableRef { var, ty: _ } => {
+      TypedExpr::VariableRef { var, ty } => {
         if scope.is_late_binding(&var) {
           return *lhs;
         }
         match scope.def(&var) {
-          Some(def) => self.infer_function_call_impl(scope, &def, args, ast),
+          Some(def) if def == *lhs => {
+            // Imported proxy (same idx): type the call from the variable's function type to avoid infinite recursion.
+            if let Ty::Function { ret, params, .. } = ty {
+              if args.len() != params.len() {
+                self.diagnostics.push_error(
+                  format!(
+                    "function expected {} arguments, but got {}",
+                    params.len(),
+                    args.len()
+                  ),
+                  ast.span(),
+                );
+                return self.ty_db.alloc(TypedExpr::Error);
+              }
+              let ret_ty = ret.as_ref().map(|t| (**t).clone()).unwrap_or(Ty::Generic);
+              let ret_idx = self.ty_db.alloc(TypedExpr::VariableRef {
+                var: var.clone(),
+                ty: ret_ty.clone(),
+              });
+              self.ty_db.alloc(TypedExpr::FunctionCall {
+                args: args.clone(),
+                def: *lhs,
+                ret: ret_idx,
+                ty: ret_ty,
+              })
+            } else {
+              self.ty_db.alloc(TypedExpr::Error)
+            }
+          }
+          Some(def) => self.infer_function_call_impl(scope, &def, args, ast, module_map),
           None => {
             self
               .diagnostics
@@ -428,7 +565,7 @@ impl TyCheck {
             params.insert(param.clone(), *arg);
           }
           scope.define_args(&params);
-          let result = self.infer_function_call_impl(scope, &ret, args, ast);
+          let result = self.infer_function_call_impl(scope, &ret, args, ast, module_map);
           scope.pop_frame();
           result
         } else {
@@ -466,7 +603,7 @@ impl TyCheck {
 
         scope.push_frame();
         scope.define_args(&params);
-        let body = self.infer_expr(scope, &body_hir);
+        let body = self.infer_expr(scope, &body_hir, module_map);
         let expr = TypedExpr::FunctionCall {
           args: params.clone().values().copied().collect(),
           ty: self.ty_db.expr(&body).ty(),
@@ -486,7 +623,7 @@ impl TyCheck {
           Some(def) => match self.ty_db.expr(&def) {
             TypedExpr::Object { fields, ty: _ } => {
               let field = *fields.get(&field).unwrap();
-              self.infer_function_call_impl(scope, &field, args, ast)
+              self.infer_function_call_impl(scope, &field, args, ast, module_map)
             }
             TypedExpr::Unresolved => *lhs,
             TypedExpr::VariableRef { .. } => *lhs,
@@ -509,7 +646,7 @@ impl TyCheck {
         TypedExpr::Object { fields, ty: _ } => match fields.get(&field) {
           Some(field) => {
             let field = *field;
-            self.infer_function_call_impl(scope, &field, args, ast)
+            self.infer_function_call_impl(scope, &field, args, ast, module_map)
           }
           None => {
             self.diagnostics.push_error(
@@ -532,9 +669,13 @@ impl TyCheck {
       },
       TypedExpr::Block { stmts, ty: _ } => {
         match stmts.last().map(|s| self.ty_db.expr(s.value()).ty()) {
-          Some(Ty::Function { .. }) => {
-            self.infer_function_call_impl(scope, stmts.last().unwrap().value(), args, ast)
-          }
+          Some(Ty::Function { .. }) => self.infer_function_call_impl(
+            scope,
+            stmts.last().unwrap().value(),
+            args,
+            ast,
+            module_map,
+          ),
           _ => {
             self.diagnostics.push_error(
               "Cannot call `block` that does not return a function".to_string(),
@@ -570,6 +711,7 @@ impl TyCheck {
     params: &[String],
     body: &DatabaseIdx,
     ast: &ast::expr::Function,
+    module_map: Option<&ModuleMap<'_>>,
   ) -> TypedDatabaseIdx {
     let params: FxIndexMap<String, TypedDatabaseIdx> = params
       .iter()
@@ -593,7 +735,7 @@ impl TyCheck {
     }
     scope.define_args(&params);
 
-    let body_idx = self.infer_expr(scope, body);
+    let body_idx = self.infer_expr(scope, body, module_map);
     let body_ty = self.ty_db.expr(&body_idx).ty();
     let ty = Ty::Function {
       ret: Some(Box::new(body_ty)),
@@ -624,8 +766,9 @@ impl TyCheck {
     op: &hir::UnaryOp,
     expr: &DatabaseIdx,
     ast: &ast::expr::UnaryExpr,
+    module_map: Option<&ModuleMap<'_>>,
   ) -> TypedDatabaseIdx {
-    let expr = self.infer_expr(scope, expr);
+    let expr = self.infer_expr(scope, expr, module_map);
     let expr_ty = self.ty_db.expr(&expr).ty();
     let ty = match op {
       hir::UnaryOp::Neg => match expr_ty {
@@ -677,9 +820,10 @@ impl TyCheck {
     op: &hir::BinaryOp,
     lhs_idx: &DatabaseIdx,
     rhs_idx: &DatabaseIdx,
+    module_map: Option<&ModuleMap<'_>>,
   ) -> TypedDatabaseIdx {
-    let lhs_idx = self.infer_expr(scope, lhs_idx);
-    let rhs_idx = self.infer_expr(scope, rhs_idx);
+    let lhs_idx = self.infer_expr(scope, lhs_idx, module_map);
+    let rhs_idx = self.infer_expr(scope, rhs_idx, module_map);
 
     let (lhs, rhs) = self.ty_db.exprs2(&lhs_idx, &rhs_idx);
 
@@ -780,11 +924,16 @@ impl TyCheck {
     self.ty_db.alloc(TypedExpr::Binary { op: op.into(), lhs: lhs_idx, rhs: rhs_idx, ty })
   }
 
-  fn infer_block(&mut self, scope: &mut Scope, stmts: &[Stmt]) -> TypedDatabaseIdx {
+  fn infer_block(
+    &mut self,
+    scope: &mut Scope,
+    stmts: &[Stmt],
+    module_map: Option<&ModuleMap<'_>>,
+  ) -> TypedDatabaseIdx {
     scope.push_frame();
     let stmts = stmts
       .iter()
-      .map(|stmt| self.infer_stmt(scope, Either::Left(stmt)))
+      .map(|stmt| self.infer_stmt(scope, Either::Left(stmt), module_map))
       .collect::<Vec<_>>();
     let ty = if let Some(last) = stmts.last() {
       self.ty_db.expr(last.value()).ty()

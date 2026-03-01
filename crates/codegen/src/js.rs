@@ -1,6 +1,8 @@
 #![allow(dead_code, unused)]
 
 /// Generate javascript code from the typed hir
+use std::collections::HashMap;
+
 use tycheck::{
   typed_db::TypedDatabaseIdx,
   typed_hir::{FunctionDef, Ty, TypedExpr, TypedStmt},
@@ -11,6 +13,12 @@ use crate::CodeGenerator;
 
 pub struct JsGenerator<'tycheck> {
   tycheck: &'tycheck TyCheck,
+  /// When generating a dependency module's bundle, prefix for top-level names and refs.
+  prefix: Option<String>,
+  /// When set with prefix, only emit these (pub) def names; and VariableRef to these get prefixed.
+  module_pub_names: Option<std::collections::HashSet<String>>,
+  /// When generating entry with imports: map local name -> (module_name, export_name) for prefixed emit.
+  import_map: Option<HashMap<String, (String, String)>>,
 }
 
 impl<'tycheck> CodeGenerator for JsGenerator<'tycheck> {
@@ -21,42 +29,85 @@ impl<'tycheck> CodeGenerator for JsGenerator<'tycheck> {
 
 impl<'tycheck> JsGenerator<'tycheck> {
   pub fn new(tycheck: &'tycheck TyCheck) -> Self {
-    Self { tycheck }
+    Self {
+      tycheck,
+      prefix: None,
+      module_pub_names: None,
+      import_map: None,
+    }
+  }
+
+  /// Configure generator to emit a dependency module's pub defs with a prefix (for bundling).
+  pub fn with_prefix(
+    mut self,
+    prefix: &str,
+    pub_names: std::collections::HashSet<String>,
+  ) -> Self {
+    self.prefix = Some(prefix.to_string());
+    self.module_pub_names = Some(pub_names);
+    self
+  }
+
+  /// Configure generator to use prefixed names for imported refs (for bundling entry).
+  pub fn with_import_map(mut self, map: HashMap<String, (String, String)>) -> Self {
+    self.import_map = Some(map);
+    self
+  }
+
+  fn prefixed_var(&self, var: &str) -> String {
+    if let Some(map) = &self.import_map {
+      if let Some((mod_name, export)) = map.get(var) {
+        return format!("__{}__{}", mod_name, export);
+      }
+    }
+    if let (Some(prefix), Some(pub_names)) = (&self.prefix, &self.module_pub_names) {
+      if pub_names.contains(var) {
+        return format!("{}{}", prefix, var);
+      }
+    }
+    var.to_string()
   }
 
   pub fn generate_js(&self) -> String {
     let mut stmts: Vec<String> = Vec::new();
-    for (name, stmt) in self.tycheck.ty_db.defs_iter() {
-      stmts.push(self.generate_stmt(name, stmt));
+    let defs = self.tycheck.ty_db.defs_iter();
+    for (name, stmt) in defs {
+      if let (Some(_), Some(pub_names)) = (&self.prefix, &self.module_pub_names) {
+        if !pub_names.contains(name) {
+          continue;
+        }
+      }
+      let emit_name = if let Some(ref p) = self.prefix {
+        format!("{}{}", p, name)
+      } else {
+        name.clone()
+      };
+      stmts.push(self.generate_stmt(&emit_name, stmt));
     }
     stmts.join("\n")
   }
 
   pub fn generate_stmt(&self, name: &str, stmt: &TypedStmt) -> String {
     match stmt {
-      TypedStmt::VariableDef { name, value } => {
+      TypedStmt::VariableDef { value, pub_vis: _, .. } => {
         let value = self.generate_expr(value);
         format!("const {} = {};", name, value)
       }
-      TypedStmt::FunctionDef { name, value } => {
-        let (name, params, body, body_hir, ty) = match self.tycheck.ty_db.expr(value) {
+      TypedStmt::FunctionDef { value, pub_vis: _, .. } => {
+        let (_stmt_name, params, body, _body_hir, _ty) = match self.tycheck.ty_db.expr(value) {
           TypedExpr::FunctionDef(FunctionDef {
-            name,
+            name: n,
             params,
             body,
             body_hir,
             ty,
             closure_scope: _,
-          }) => (name, params, body, body_hir, ty),
+          }) => (n, params, body, body_hir, ty),
           _ => unreachable!(),
         };
-        let params: Vec<String> = params.iter().map(|(k, v)| k.clone()).collect();
+        let params: Vec<String> = params.iter().map(|(k, _v)| k.clone()).collect();
         let params = params.join(", ");
         let body = self.generate_expr(body);
-        let name = match name {
-          Some(s) => s.clone(),
-          None => "".to_string(),
-        };
         format!("function {}({}) {{ return {}; }}", name, params, body)
       }
       TypedStmt::Expr(expr) => {
@@ -73,7 +124,7 @@ impl<'tycheck> JsGenerator<'tycheck> {
         if ty.has_value() {
           format!("{}", ty)
         } else {
-          var.to_string()
+          self.prefixed_var(var)
         }
       }
       TypedExpr::FunctionParameter { name, ty } => name.to_string(),

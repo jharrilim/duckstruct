@@ -1,0 +1,19 @@
+---
+source: crates/parser/src/lib.rs
+expression: "& parse.debug_tree()"
+info:
+  code: pub let x = 1;
+---
+Root@0..14
+  LetStatement@0..13
+    Pub@0..3 "pub"
+    Whitespace@3..4 " "
+    Let@4..7 "let"
+    Whitespace@7..8 " "
+    Identifier@8..9 "x"
+    Whitespace@9..10 " "
+    Equals@10..11 "="
+    Whitespace@11..12 " "
+    Number@12..13
+      Number@12..13 "1"
+  Semicolon@13..14 ";"

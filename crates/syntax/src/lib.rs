@@ -18,6 +18,11 @@ pub enum SyntaxKind {
   In,
   Where,
   While,
+  Use,
+  As,
+  Pub,
+  Mod,
+  DoubleColon,
   Identifier,
   Number,
   Plus,
@@ -54,8 +59,11 @@ pub enum SyntaxKind {
 
   // Statements
   LetStatement,
+  UseStatement,
+  UsePath,
 
   // Expressions
+  PathExpression,
   InfixExpression,
   ParenExpression,
   UnaryExpression,
@@ -112,6 +120,11 @@ impl From<TokenKind> for SyntaxKind {
       TokenKind::In => Self::In,
       TokenKind::Where => Self::Where,
       TokenKind::While => Self::While,
+      TokenKind::Use => Self::Use,
+      TokenKind::As => Self::As,
+      TokenKind::Pub => Self::Pub,
+      TokenKind::Mod => Self::Mod,
+      TokenKind::DoubleColon => Self::DoubleColon,
       TokenKind::Identifier => Self::Identifier,
       TokenKind::Number => Self::Number,
       TokenKind::Plus => Self::Plus,

@@ -11,6 +11,7 @@ pub enum Expr {
   ParenExpr(ParenExpr),
   UnaryExpr(UnaryExpr),
   VariableRef(VariableRef),
+  PathExpr(PathExpr),
   Function(Function),
   FunctionCall(FunctionCall),
   Block(Block),
@@ -31,6 +32,7 @@ impl Expr {
       SyntaxKind::ParenExpression => Self::ParenExpr(ParenExpr(node)),
       SyntaxKind::UnaryExpression => Self::UnaryExpr(UnaryExpr(node)),
       SyntaxKind::VariableReference => Self::VariableRef(VariableRef(node)),
+      SyntaxKind::PathExpression => Self::PathExpr(PathExpr(node)),
       SyntaxKind::AnonymousFunction => Self::Function(Function(node)),
       SyntaxKind::AnonymousFunctionExpression => Self::Function(Function(node)),
       SyntaxKind::NamedFunction => Self::Function(Function(node)),
@@ -57,6 +59,7 @@ impl Expr {
       Self::ParenExpr(expr) => expr.span(),
       Self::UnaryExpr(expr) => expr.span(),
       Self::VariableRef(expr) => expr.span(),
+      Self::PathExpr(expr) => expr.span(),
       Self::Function(expr) => expr.span(),
       Self::FunctionCall(expr) => expr.span(),
       Self::Block(expr) => expr.span(),
@@ -191,6 +194,25 @@ impl VariableRef {
   pub fn name(&self) -> String {
     // First token should be Identifier
     self.0.first_token().unwrap().text().to_string()
+  }
+
+  pub fn span(&self) -> TextRange {
+    self.0.text_range()
+  }
+}
+
+#[derive(Debug, Clone)]
+pub struct PathExpr(SyntaxNode);
+impl PathExpr {
+  /// Path segments (e.g. `foo::bar::baz` => `["foo", "bar", "baz"]`).
+  pub fn segments(&self) -> Vec<String> {
+    self
+      .0
+      .children_with_tokens()
+      .filter_map(SyntaxElement::into_token)
+      .filter(|t| t.kind() == SyntaxKind::Identifier)
+      .map(|t| t.text().to_string())
+      .collect()
   }
 
   pub fn span(&self) -> TextRange {

@@ -1,0 +1,43 @@
+---
+source: crates/parser/src/lib.rs
+expression: "& parse.debug_tree()"
+info:
+  code: "\n      use foo::bar;\n      pub let one = 1;\n      let two = bar::quux;\n    "
+---
+Root@0..75
+  Whitespace@0..7 "\n      "
+  UseStatement@7..27
+    Use@7..10 "use"
+    Whitespace@10..11 " "
+    UsePath@11..19
+      Identifier@11..14 "foo"
+      DoubleColon@14..16 "::"
+      Identifier@16..19 "bar"
+    Semicolon@19..20 ";"
+    Whitespace@20..27 "\n      "
+  LetStatement@27..42
+    Pub@27..30 "pub"
+    Whitespace@30..31 " "
+    Let@31..34 "let"
+    Whitespace@34..35 " "
+    Identifier@35..38 "one"
+    Whitespace@38..39 " "
+    Equals@39..40 "="
+    Whitespace@40..41 " "
+    Number@41..42
+      Number@41..42 "1"
+  Semicolon@42..43 ";"
+  Whitespace@43..50 "\n      "
+  LetStatement@50..69
+    Let@50..53 "let"
+    Whitespace@53..54 " "
+    Identifier@54..57 "two"
+    Whitespace@57..58 " "
+    Equals@58..59 "="
+    Whitespace@59..60 " "
+    PathExpression@60..69
+      Identifier@60..63 "bar"
+      DoubleColon@63..65 "::"
+      Identifier@65..69 "quux"
+  Semicolon@69..70 ";"
+  Whitespace@70..75 "\n    "

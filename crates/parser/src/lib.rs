@@ -463,6 +463,90 @@ mod tests {
     parse_snapshot!(code);
   }
 
+  // Module / import syntax
+  #[test]
+  fn parse_use_single_segment() {
+    let code = "use foo;";
+    parse_snapshot!(code);
+  }
+
+  #[test]
+  fn parse_use_path_two_segments() {
+    let code = "use foo::bar;";
+    parse_snapshot!(code);
+  }
+
+  #[test]
+  fn parse_use_path_three_segments() {
+    let code = "use std::collections::map;";
+    parse_snapshot!(code);
+  }
+
+  #[test]
+  fn parse_use_as_alias() {
+    let code = "use foo::bar as baz;";
+    parse_snapshot!(code);
+  }
+
+  #[test]
+  fn parse_pub_let() {
+    let code = "pub let x = 1;";
+    parse_snapshot!(code);
+  }
+
+  #[test]
+  fn parse_pub_function_expression() {
+    let code = "pub f double(x) = x + x;";
+    parse_snapshot!(code);
+  }
+
+  #[test]
+  fn parse_pub_function_block() {
+    let code = r#"
+      pub f greet(x) {
+        x + 1
+      }
+    "#;
+    parse_snapshot!(code);
+  }
+
+  #[test]
+  fn parse_path_expression_two_segments() {
+    let code = "foo::bar";
+    parse_snapshot!(code);
+  }
+
+  #[test]
+  fn parse_path_expression_three_segments() {
+    let code = "foo::bar::baz";
+    parse_snapshot!(code);
+  }
+
+  #[test]
+  fn parse_path_expression_in_function_call() {
+    let code = "foo::bar(1)";
+    parse_snapshot!(code);
+  }
+
+  #[test]
+  fn parse_use_then_let() {
+    let code = r#"
+      use helper;
+      let x = 1;
+    "#;
+    parse_snapshot!(code);
+  }
+
+  #[test]
+  fn parse_use_and_pub_let_together() {
+    let code = r#"
+      use foo::bar;
+      pub let one = 1;
+      let two = bar::quux;
+    "#;
+    parse_snapshot!(code);
+  }
+
   mod error_tests {
     use super::*;
 

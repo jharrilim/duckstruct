@@ -1,0 +1,17 @@
+---
+source: crates/parser/src/lib.rs
+expression: "& parse.debug_tree()"
+info:
+  code: "use std::collections::map;"
+---
+Root@0..26
+  UseStatement@0..26
+    Use@0..3 "use"
+    Whitespace@3..4 " "
+    UsePath@4..25
+      Identifier@4..7 "std"
+      DoubleColon@7..9 "::"
+      Identifier@9..20 "collections"
+      DoubleColon@20..22 "::"
+      Identifier@22..25 "map"
+    Semicolon@25..26 ";"

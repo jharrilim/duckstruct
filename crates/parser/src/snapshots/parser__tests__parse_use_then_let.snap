@@ -1,0 +1,26 @@
+---
+source: crates/parser/src/lib.rs
+expression: "& parse.debug_tree()"
+info:
+  code: "\n      use helper;\n      let x = 1;\n    "
+---
+Root@0..40
+  Whitespace@0..7 "\n      "
+  UseStatement@7..25
+    Use@7..10 "use"
+    Whitespace@10..11 " "
+    UsePath@11..17
+      Identifier@11..17 "helper"
+    Semicolon@17..18 ";"
+    Whitespace@18..25 "\n      "
+  LetStatement@25..34
+    Let@25..28 "let"
+    Whitespace@28..29 " "
+    Identifier@29..30 "x"
+    Whitespace@30..31 " "
+    Equals@31..32 "="
+    Whitespace@32..33 " "
+    Number@33..34
+      Number@33..34 "1"
+  Semicolon@34..35 ";"
+  Whitespace@35..40 "\n    "

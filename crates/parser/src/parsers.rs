@@ -35,10 +35,30 @@ pub(super) fn boolean_literal(p: &mut Parser) -> CompletedMarker {
 
 pub(super) fn variable_ref(p: &mut Parser) -> CompletedMarker {
   p.expect(TokenKind::Identifier);
-
   let m = p.start();
   p.bump();
   m.complete(p, SyntaxKind::VariableReference)
+}
+
+/// Parse a path expression (e.g. `foo::bar::baz`) or single variable reference.
+/// Produces PathExpression when there are two or more segments, else VariableReference.
+pub(super) fn path_or_variable_ref(p: &mut Parser) -> CompletedMarker {
+  p.expect(TokenKind::Identifier);
+  let m = p.start();
+  p.bump();
+  let mut segment_count = 1;
+  while p.at(TokenKind::DoubleColon) {
+    p.bump();
+    p.expect(TokenKind::Identifier);
+    p.bump();
+    segment_count += 1;
+  }
+  let kind = if segment_count > 1 {
+    SyntaxKind::PathExpression
+  } else {
+    SyntaxKind::VariableReference
+  };
+  m.complete(p, kind)
 }
 
 pub(super) fn negation_expr(p: &mut Parser) -> CompletedMarker {
@@ -90,11 +110,44 @@ pub(super) fn paren_expr(p: &mut Parser) -> CompletedMarker {
   m.complete(p, SyntaxKind::ParenExpression)
 }
 
-pub(super) fn let_stmt(p: &mut Parser) -> CompletedMarker {
-  p.expect(TokenKind::Let);
-
+pub(super) fn use_path(p: &mut Parser) -> CompletedMarker {
   let m = p.start();
+  p.expect(TokenKind::Identifier);
+  p.bump();
+  while p.at(TokenKind::DoubleColon) {
+    p.bump();
+    if p.at(TokenKind::Asterisk) {
+      p.bump();
+      break;
+    }
+    p.expect(TokenKind::Identifier);
+    p.bump();
+  }
+  m.complete(p, SyntaxKind::UsePath)
+}
 
+pub(super) fn use_stmt(p: &mut Parser) -> CompletedMarker {
+  let m = p.start();
+  p.expect(TokenKind::Use);
+  p.bump();
+  use_path(p);
+  if p.at(TokenKind::As) {
+    p.bump();
+    p.expect(TokenKind::Identifier);
+    p.bump();
+  }
+  if p.at(TokenKind::Semicolon) {
+    p.bump();
+  }
+  m.complete(p, SyntaxKind::UseStatement)
+}
+
+pub(super) fn let_stmt(p: &mut Parser) -> CompletedMarker {
+  let m = p.start();
+  if p.at(TokenKind::Pub) {
+    p.bump();
+  }
+  p.expect(TokenKind::Let);
   p.bump();
 
   match p.peek() {
@@ -122,6 +175,20 @@ pub(super) fn let_stmt(p: &mut Parser) -> CompletedMarker {
   }
 
   m.complete(p, SyntaxKind::LetStatement)
+}
+
+fn function_definition_inner(p: &mut Parser, m: Marker) -> CompletedMarker {
+  p.expect(TokenKind::Function);
+  p.bump();
+
+  match p.peek() {
+    Some(TokenKind::Identifier) => named_f(p, m),
+    Some(TokenKind::LeftParenthesis) => anonymous_f(p, m),
+    _ => {
+      p.error_expected_one_of(&[TokenKind::Identifier, TokenKind::LeftParenthesis]);
+      m.complete(p, SyntaxKind::Error)
+    }
+  }
 }
 
 pub(crate) fn struct_pattern(p: &mut Parser) -> CompletedMarker {
@@ -175,18 +242,11 @@ pub(crate) fn array_pattern(p: &mut Parser) -> CompletedMarker {
 }
 
 pub(super) fn function_definition(p: &mut Parser) -> CompletedMarker {
-  p.expect(TokenKind::Function);
   let m = p.start();
-  p.bump();
-
-  match p.peek() {
-    Some(TokenKind::Identifier) => named_f(p, m),
-    Some(TokenKind::LeftParenthesis) => anonymous_f(p, m),
-    _ => {
-      p.error_expected_one_of(&[TokenKind::Identifier, TokenKind::LeftParenthesis]);
-      m.complete(p, SyntaxKind::Error)
-    }
+  if p.at(TokenKind::Pub) {
+    p.bump();
   }
+  function_definition_inner(p, m)
 }
 
 fn named_f(p: &mut Parser, m: Marker) -> CompletedMarker {

@@ -1,0 +1,34 @@
+---
+source: crates/parser/src/lib.rs
+expression: "& parse.debug_tree()"
+info:
+  code: "\n      pub f greet(x) {\n        x + 1\n      }\n    "
+---
+Root@0..50
+  Whitespace@0..7 "\n      "
+  NamedFunction@7..50
+    Pub@7..10 "pub"
+    Whitespace@10..11 " "
+    Function@11..12 "f"
+    Whitespace@12..13 " "
+    Identifier@13..18 "greet"
+    ArgumentList@18..22
+      LeftParenthesis@18..19 "("
+      VariableReference@19..20
+        Identifier@19..20 "x"
+      RightParenthesis@20..21 ")"
+      Whitespace@21..22 " "
+    BlockExpression@22..50
+      LeftBrace@22..23 "{"
+      Whitespace@23..32 "\n        "
+      InfixExpression@32..44
+        VariableReference@32..34
+          Identifier@32..33 "x"
+          Whitespace@33..34 " "
+        Plus@34..35 "+"
+        Whitespace@35..36 " "
+        Number@36..44
+          Number@36..37 "1"
+          Whitespace@37..44 "\n      "
+      RightBrace@44..45 "}"
+      Whitespace@45..50 "\n    "

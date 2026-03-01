@@ -1,0 +1,30 @@
+---
+source: crates/parser/src/lib.rs
+expression: "& parse.debug_tree()"
+info:
+  code: pub f double(x) = x + x;
+---
+Root@0..24
+  NamedFunctionExpression@0..23
+    Pub@0..3 "pub"
+    Whitespace@3..4 " "
+    Function@4..5 "f"
+    Whitespace@5..6 " "
+    Identifier@6..12 "double"
+    ArgumentList@12..16
+      LeftParenthesis@12..13 "("
+      VariableReference@13..14
+        Identifier@13..14 "x"
+      RightParenthesis@14..15 ")"
+      Whitespace@15..16 " "
+    Equals@16..17 "="
+    Whitespace@17..18 " "
+    InfixExpression@18..23
+      VariableReference@18..20
+        Identifier@18..19 "x"
+        Whitespace@19..20 " "
+      Plus@20..21 "+"
+      Whitespace@21..22 " "
+      VariableReference@22..23
+        Identifier@22..23 "x"
+  Semicolon@23..24 ";"

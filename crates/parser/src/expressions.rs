@@ -79,7 +79,7 @@ fn lhs(p: &mut Parser) -> Option<CompletedMarker> {
     Some(TokenKind::DoubleLeftBrace) => parsers::object_literal(p),
     Some(TokenKind::LeftBrace) => parsers::block_expr(p),
     Some(TokenKind::LeftBracket) => parsers::array_literal(p),
-    Some(TokenKind::Identifier) => parsers::variable_ref(p),
+    Some(TokenKind::Identifier) => parsers::path_or_variable_ref(p),
     Some(TokenKind::Minus) => parsers::negation_expr(p),
     Some(TokenKind::Bang) => parsers::not_expr(p),
     Some(TokenKind::LeftParenthesis) => parsers::paren_expr(p),

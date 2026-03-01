@@ -46,6 +46,21 @@ pub enum TokenKind {
   #[token("while")]
   While,
 
+  #[token("use")]
+  Use,
+
+  #[token("as")]
+  As,
+
+  #[token("pub")]
+  Pub,
+
+  #[token("mod")]
+  Mod,
+
+  #[token("::")]
+  DoubleColon,
+
   #[token("{{")]
   DoubleLeftBrace,
 
@@ -173,6 +188,11 @@ impl fmt::Display for TokenKind {
       Self::In => "'in'",
       Self::Where => "'where'",
       Self::While => "'while'",
+      Self::Use => "'use'",
+      Self::As => "'as'",
+      Self::Pub => "'pub'",
+      Self::Mod => "'mod'",
+      Self::DoubleColon => "'::'",
       Self::Identifier => "identifier",
       Self::Period => "'.'",
       Self::Comma => "','",

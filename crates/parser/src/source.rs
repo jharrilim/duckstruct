@@ -32,6 +32,20 @@ impl<'l, 'input> Source<'l, 'input> {
     self.peek_token_raw().map(|Token { kind, .. }| *kind)
   }
 
+  /// Peek the next token kind after the current one, skipping trivia.
+  /// Used e.g. to distinguish `pub let` from `pub f` without consuming.
+  pub(crate) fn peek_next_kind(&self) -> Option<TokenKind> {
+    let mut i = self.cursor + 1;
+    while let Some(t) = self.tokens.get(i) {
+      if t.kind.is_trivia() {
+        i += 1;
+      } else {
+        return Some(t.kind);
+      }
+    }
+    None
+  }
+
   fn eat_trivia(&mut self) {
     while self.at_trivia() {
       self.cursor += 1;

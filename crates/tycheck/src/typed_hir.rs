@@ -12,10 +12,12 @@ pub enum TypedStmt {
   VariableDef {
     name: String,
     value: TypedDatabaseIdx,
+    pub_vis: bool,
   },
   FunctionDef {
     name: String,
     value: TypedDatabaseIdx,
+    pub_vis: bool,
   },
   Expr(TypedDatabaseIdx),
 }

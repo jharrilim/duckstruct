@@ -1,0 +1,5 @@
+use helper::double;
+use helper::ONE;
+
+let two = double(ONE);
+two;

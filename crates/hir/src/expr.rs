@@ -35,6 +35,10 @@ pub enum Expr {
     var: String,
     ast: ast::expr::VariableRef,
   },
+  PathRef {
+    path: Vec<String>,
+    ast: ast::expr::PathExpr,
+  },
   Function {
     name: Option<String>,
     params: Vec<String>,
