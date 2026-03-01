@@ -45,7 +45,8 @@ impl TyCheck {
     if let Some(map) = module_map {
       for (path, alias) in self.hir_db.uses.iter() {
         if path.len() >= 2 {
-          if let Some(dep) = map.get(&path[0]) {
+          let mod_key = path[0..path.len() - 1].join("::");
+          if let Some(dep) = map.get(&mod_key) {
             let item_name = path.last().unwrap();
             if let Some(typed_stmt) = dep.ty_db.definition(item_name) {
               let is_pub = match typed_stmt {
@@ -173,7 +174,8 @@ impl TyCheck {
       return self.infer_variable_ref(scope, &path[0]);
     }
     if let Some(map) = module_map {
-      if let Some(dep) = map.get(&path[0]) {
+      let mod_key = path[0..path.len() - 1].join("::");
+      if let Some(dep) = map.get(&mod_key) {
         let item_name = path.last().unwrap();
         if let Some(typed_stmt) = dep.ty_db.definition(item_name) {
           let is_pub = match typed_stmt {

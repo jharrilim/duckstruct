@@ -1,5 +1,4 @@
-use helper::double;
-use helper::ONE;
+use helper::{ONE, double};
 
 let two = double(ONE);
 two;

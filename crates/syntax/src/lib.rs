@@ -61,6 +61,7 @@ pub enum SyntaxKind {
   LetStatement,
   UseStatement,
   UsePath,
+  UseList,
 
   // Expressions
   PathExpression,

@@ -2,14 +2,19 @@
 source: crates/parser/src/lib.rs
 expression: "& parse.debug_tree()"
 info:
-  code: "use foo::bar;"
+  code: "use std::collections::{map};"
 ---
-Root@0..13
-  UseStatement@0..13
+Root@0..28
+  UseStatement@0..28
     Use@0..3 "use"
     Whitespace@3..4 " "
-    UsePath@4..12
-      Identifier@4..7 "foo"
+    UsePath@4..20
+      Identifier@4..7 "std"
       DoubleColon@7..9 "::"
-      Identifier@9..12 "bar"
-    Semicolon@12..13 ";"
+      Identifier@9..20 "collections"
+    DoubleColon@20..22 "::"
+    LeftBrace@22..23 "{"
+    UseList@23..26
+      Identifier@23..26 "map"
+    RightBrace@26..27 "}"
+    Semicolon@27..28 ";"

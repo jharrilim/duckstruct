@@ -39,23 +39,19 @@ impl Stmt {
 pub struct UseStatement(SyntaxNode);
 
 impl UseStatement {
+  /// Module path only (e.g. `helper` or `subdir::helper`).
   pub fn path(&self) -> Option<UsePath> {
     self.0.children().find_map(UsePath::cast)
   }
 
-  /// The alias after `as`, if any (e.g. `use foo::bar as baz` => "baz").
-  pub fn alias(&self) -> Option<SyntaxToken> {
-    let mut seen_as = false;
-    for element in self.0.children_with_tokens() {
-      if let SyntaxElement::Token(t) = element {
-        if t.kind() == SyntaxKind::As {
-          seen_as = true;
-        } else if seen_as && t.kind() == SyntaxKind::Identifier {
-          return Some(t);
-        }
-      }
-    }
-    None
+  /// Names imported from the module (inside the braces): `use helper::{ONE, double}` => `["ONE", "double"]`.
+  pub fn items(&self) -> Vec<String> {
+    self
+      .0
+      .children()
+      .find_map(UseList::cast)
+      .map(|list| list.names())
+      .unwrap_or_default()
   }
 }
 
@@ -90,6 +86,29 @@ impl UsePath {
       .filter_map(SyntaxElement::into_token)
       .collect();
     tokens.last().map(|t| t.kind() == SyntaxKind::Asterisk) == Some(true)
+  }
+}
+
+#[derive(Debug, Clone)]
+pub struct UseList(SyntaxNode);
+
+impl UseList {
+  pub fn cast(node: SyntaxNode) -> Option<Self> {
+    if node.kind() == SyntaxKind::UseList {
+      Some(Self(node))
+    } else {
+      None
+    }
+  }
+
+  pub fn names(&self) -> Vec<String> {
+    self
+      .0
+      .children_with_tokens()
+      .filter_map(SyntaxElement::into_token)
+      .filter(|t| t.kind() == SyntaxKind::Identifier)
+      .map(|t| t.text().to_string())
+      .collect()
   }
 }
 

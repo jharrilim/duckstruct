@@ -1,0 +1,21 @@
+---
+source: crates/parser/src/lib.rs
+expression: "& parse.debug_tree()"
+info:
+  code: "use foo::{bar, baz};"
+---
+Root@0..20
+  UseStatement@0..20
+    Use@0..3 "use"
+    Whitespace@3..4 " "
+    UsePath@4..7
+      Identifier@4..7 "foo"
+    DoubleColon@7..9 "::"
+    LeftBrace@9..10 "{"
+    UseList@10..18
+      Identifier@10..13 "bar"
+      Comma@13..14 ","
+      Whitespace@14..15 " "
+      Identifier@15..18 "baz"
+    RightBrace@18..19 "}"
+    Semicolon@19..20 ";"

@@ -2,25 +2,30 @@
 source: crates/parser/src/lib.rs
 expression: "& parse.debug_tree()"
 info:
-  code: "\n      use helper;\n      let x = 1;\n    "
+  code: "\n      use helper::{ONE};\n      let x = ONE;\n    "
 ---
-Root@0..40
+Root@0..49
   Whitespace@0..7 "\n      "
-  UseStatement@7..25
+  UseStatement@7..32
     Use@7..10 "use"
     Whitespace@10..11 " "
     UsePath@11..17
       Identifier@11..17 "helper"
-    Semicolon@17..18 ";"
-    Whitespace@18..25 "\n      "
-  LetStatement@25..34
-    Let@25..28 "let"
-    Whitespace@28..29 " "
-    Identifier@29..30 "x"
-    Whitespace@30..31 " "
-    Equals@31..32 "="
-    Whitespace@32..33 " "
-    Number@33..34
-      Number@33..34 "1"
-  Semicolon@34..35 ";"
-  Whitespace@35..40 "\n    "
+    DoubleColon@17..19 "::"
+    LeftBrace@19..20 "{"
+    UseList@20..23
+      Identifier@20..23 "ONE"
+    RightBrace@23..24 "}"
+    Semicolon@24..25 ";"
+    Whitespace@25..32 "\n      "
+  LetStatement@32..43
+    Let@32..35 "let"
+    Whitespace@35..36 " "
+    Identifier@36..37 "x"
+    Whitespace@37..38 " "
+    Equals@38..39 "="
+    Whitespace@39..40 " "
+    VariableReference@40..43
+      Identifier@40..43 "ONE"
+  Semicolon@43..44 ";"
+  Whitespace@44..49 "\n    "

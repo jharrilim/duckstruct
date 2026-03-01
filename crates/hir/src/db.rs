@@ -48,8 +48,11 @@ impl Database {
         Stmt::Expr(expr) => {
           self.defs.insert("".to_string(), Stmt::Expr(*expr));
         }
-        Stmt::Use { path, alias } => {
-          self.uses.push((path.clone(), alias.clone()));
+        Stmt::Use { path, items } => {
+          for item in items {
+            let use_path: Vec<String> = path.iter().cloned().chain(std::iter::once(item.clone())).collect();
+            self.uses.push((use_path, None));
+          }
         }
       }
     }
@@ -72,10 +75,8 @@ impl Database {
       }
       ast::Stmt::Use(ast) => {
         let path = ast.path().map(|p| p.segments()).unwrap_or_default();
-        let alias = ast
-          .alias()
-          .map(|t| t.text().to_string());
-        Stmt::Use { path, alias }
+        let items = ast.items();
+        Stmt::Use { path, items }
       }
       ast::Stmt::Expr(ast) => Stmt::Expr(self.lower_expr(Some(ast))),
     };

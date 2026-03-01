@@ -33,13 +33,6 @@ pub(super) fn boolean_literal(p: &mut Parser) -> CompletedMarker {
   m.complete(p, SyntaxKind::Boolean)
 }
 
-pub(super) fn variable_ref(p: &mut Parser) -> CompletedMarker {
-  p.expect(TokenKind::Identifier);
-  let m = p.start();
-  p.bump();
-  m.complete(p, SyntaxKind::VariableReference)
-}
-
 /// Parse a path expression (e.g. `foo::bar::baz`) or single variable reference.
 /// Produces PathExpression when there are two or more segments, else VariableReference.
 pub(super) fn path_or_variable_ref(p: &mut Parser) -> CompletedMarker {
@@ -110,20 +103,39 @@ pub(super) fn paren_expr(p: &mut Parser) -> CompletedMarker {
   m.complete(p, SyntaxKind::ParenExpression)
 }
 
+/// Module path only (e.g. `helper` or `subdir::helper`). Stops before `::{` for the item list.
 pub(super) fn use_path(p: &mut Parser) -> CompletedMarker {
   let m = p.start();
   p.expect(TokenKind::Identifier);
   p.bump();
   while p.at(TokenKind::DoubleColon) {
-    p.bump();
-    if p.at(TokenKind::Asterisk) {
-      p.bump();
+    if p.source.peek_next_kind() == Some(TokenKind::LeftBrace) {
       break;
     }
+    p.bump();
     p.expect(TokenKind::Identifier);
     p.bump();
   }
   m.complete(p, SyntaxKind::UsePath)
+}
+
+/// Brace-enclosed list of imported item names: `{ ONE, double }`.
+fn use_list(p: &mut Parser) -> CompletedMarker {
+  let m = p.start();
+  if p.at(TokenKind::Identifier) {
+    p.bump();
+  } else {
+    p.expect(TokenKind::Identifier);
+  }
+  while p.at(TokenKind::Comma) {
+    p.bump();
+    if p.at(TokenKind::Identifier) {
+      p.bump();
+    } else {
+      p.expect(TokenKind::Identifier);
+    }
+  }
+  m.complete(p, SyntaxKind::UseList)
 }
 
 pub(super) fn use_stmt(p: &mut Parser) -> CompletedMarker {
@@ -131,11 +143,13 @@ pub(super) fn use_stmt(p: &mut Parser) -> CompletedMarker {
   p.expect(TokenKind::Use);
   p.bump();
   use_path(p);
-  if p.at(TokenKind::As) {
-    p.bump();
-    p.expect(TokenKind::Identifier);
-    p.bump();
-  }
+  p.expect(TokenKind::DoubleColon);
+  p.bump();
+  p.expect(TokenKind::LeftBrace);
+  p.bump();
+  use_list(p);
+  p.expect(TokenKind::RightBrace);
+  p.bump();
   if p.at(TokenKind::Semicolon) {
     p.bump();
   }

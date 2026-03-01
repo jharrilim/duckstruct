@@ -105,7 +105,7 @@ impl Compiler {
             .as_deref()
             .unwrap_or_else(|| path.last().unwrap())
             .to_string();
-          let mod_name = path[0].clone();
+          let mod_name = path[0..path.len() - 1].join("::");
           let export = path.last().unwrap().clone();
           (bind, (mod_name, export))
         })

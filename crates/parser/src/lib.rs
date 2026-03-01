@@ -463,28 +463,28 @@ mod tests {
     parse_snapshot!(code);
   }
 
-  // Module / import syntax
+  // Module / import syntax: use module::{item1, item2}
   #[test]
-  fn parse_use_single_segment() {
-    let code = "use foo;";
+  fn parse_use_single_module_one_item() {
+    let code = "use foo::{bar};";
+    parse_snapshot!(code);
+  }
+
+  #[test]
+  fn parse_use_single_module_two_items() {
+    let code = "use foo::{bar, baz};";
     parse_snapshot!(code);
   }
 
   #[test]
   fn parse_use_path_two_segments() {
-    let code = "use foo::bar;";
+    let code = "use std::collections::{map};";
     parse_snapshot!(code);
   }
 
   #[test]
   fn parse_use_path_three_segments() {
-    let code = "use std::collections::map;";
-    parse_snapshot!(code);
-  }
-
-  #[test]
-  fn parse_use_as_alias() {
-    let code = "use foo::bar as baz;";
+    let code = "use std::collections::hash_map::{HashMap};";
     parse_snapshot!(code);
   }
 
@@ -531,8 +531,8 @@ mod tests {
   #[test]
   fn parse_use_then_let() {
     let code = r#"
-      use helper;
-      let x = 1;
+      use helper::{ONE};
+      let x = ONE;
     "#;
     parse_snapshot!(code);
   }
@@ -540,9 +540,9 @@ mod tests {
   #[test]
   fn parse_use_and_pub_let_together() {
     let code = r#"
-      use foo::bar;
+      use foo::bar::{quux};
       pub let one = 1;
-      let two = bar::quux;
+      let two = quux;
     "#;
     parse_snapshot!(code);
   }

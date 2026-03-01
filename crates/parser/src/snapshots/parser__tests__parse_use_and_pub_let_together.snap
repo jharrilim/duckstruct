@@ -2,42 +2,45 @@
 source: crates/parser/src/lib.rs
 expression: "& parse.debug_tree()"
 info:
-  code: "\n      use foo::bar;\n      pub let one = 1;\n      let two = bar::quux;\n    "
+  code: "\n      use foo::bar::{quux};\n      pub let one = 1;\n      let two = quux;\n    "
 ---
-Root@0..75
+Root@0..78
   Whitespace@0..7 "\n      "
-  UseStatement@7..27
+  UseStatement@7..35
     Use@7..10 "use"
     Whitespace@10..11 " "
     UsePath@11..19
       Identifier@11..14 "foo"
       DoubleColon@14..16 "::"
       Identifier@16..19 "bar"
-    Semicolon@19..20 ";"
-    Whitespace@20..27 "\n      "
-  LetStatement@27..42
-    Pub@27..30 "pub"
-    Whitespace@30..31 " "
-    Let@31..34 "let"
-    Whitespace@34..35 " "
-    Identifier@35..38 "one"
+    DoubleColon@19..21 "::"
+    LeftBrace@21..22 "{"
+    UseList@22..26
+      Identifier@22..26 "quux"
+    RightBrace@26..27 "}"
+    Semicolon@27..28 ";"
+    Whitespace@28..35 "\n      "
+  LetStatement@35..50
+    Pub@35..38 "pub"
     Whitespace@38..39 " "
-    Equals@39..40 "="
-    Whitespace@40..41 " "
-    Number@41..42
-      Number@41..42 "1"
-  Semicolon@42..43 ";"
-  Whitespace@43..50 "\n      "
-  LetStatement@50..69
-    Let@50..53 "let"
-    Whitespace@53..54 " "
-    Identifier@54..57 "two"
-    Whitespace@57..58 " "
-    Equals@58..59 "="
-    Whitespace@59..60 " "
-    PathExpression@60..69
-      Identifier@60..63 "bar"
-      DoubleColon@63..65 "::"
-      Identifier@65..69 "quux"
-  Semicolon@69..70 ";"
-  Whitespace@70..75 "\n    "
+    Let@39..42 "let"
+    Whitespace@42..43 " "
+    Identifier@43..46 "one"
+    Whitespace@46..47 " "
+    Equals@47..48 "="
+    Whitespace@48..49 " "
+    Number@49..50
+      Number@49..50 "1"
+  Semicolon@50..51 ";"
+  Whitespace@51..58 "\n      "
+  LetStatement@58..72
+    Let@58..61 "let"
+    Whitespace@61..62 " "
+    Identifier@62..65 "two"
+    Whitespace@65..66 " "
+    Equals@66..67 "="
+    Whitespace@67..68 " "
+    VariableReference@68..72
+      Identifier@68..72 "quux"
+  Semicolon@72..73 ";"
+  Whitespace@73..78 "\n    "

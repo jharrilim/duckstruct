@@ -56,12 +56,12 @@ impl<'l, 'input> Source<'l, 'input> {
     self.peek_kind_raw().map_or(false, TokenKind::is_trivia)
   }
 
-  pub(crate) fn peek_token(&mut self) -> Option<&Token> {
+  pub(crate) fn peek_token(&mut self) -> Option<&Token<'_>> {
     self.eat_trivia();
     self.peek_token_raw()
   }
 
-  fn peek_token_raw(&self) -> Option<&Token> {
+  fn peek_token_raw(&self) -> Option<&Token<'_>> {
     self.tokens.get(self.cursor)
   }
 
