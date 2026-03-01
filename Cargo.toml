@@ -24,6 +24,7 @@ rustyline-derive = "0.7.0"
 [dev-dependencies]
 insta = { version = "1.21.0", features = ["yaml", "serde"] }
 serde = { version = "1.0.145", features = ["derive"] }
+tempfile = "3"
 
 
 [workspace]

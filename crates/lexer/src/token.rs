@@ -150,6 +150,10 @@ pub enum TokenKind {
   #[token("|")]
   Pipe,
 
+  /// Reserved keyword for use paths: `use root::...` (project root).
+  #[token("root")]
+  Root,
+
   #[regex(r"[a-zA-Z_][a-zA-Z\d_]*")]
   Identifier,
 
@@ -222,6 +226,7 @@ impl fmt::Display for TokenKind {
       Self::LeftBracket => "'['",
       Self::RightBracket => "']'",
       Self::Pipe => "|",
+      Self::Root => "'root'",
       Self::String => "string",
       Self::Comment => "comment",
       Self::Error => "an unrecognized token",

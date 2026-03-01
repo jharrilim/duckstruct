@@ -7,6 +7,8 @@ edition = "2021"
 
 [dependencies]
 ast = { path = "../ast" }
+toml = "0.8"
+serde = { version = "1", features = ["derive"] }
 codegen = { path = "../codegen" }
 data-structures = { path = "../data-structures" }
 hir = { path = "../hir" }

@@ -56,6 +56,8 @@ pub enum SyntaxKind {
   Comment,
   Error,
   Root,
+  /// Keyword in use paths: `use root::...` (project root). Distinct from Root (AST root).
+  RootPath,
 
   // Statements
   LetStatement,
@@ -155,6 +157,7 @@ impl From<TokenKind> for SyntaxKind {
       TokenKind::Colon => Self::Colon,
       TokenKind::Semicolon => Self::Semicolon,
       TokenKind::Pipe => Self::Pipe,
+      TokenKind::Root => Self::RootPath,
       TokenKind::Period => Self::Period,
       TokenKind::Comment => Self::Comment,
       TokenKind::Error => Self::Error,

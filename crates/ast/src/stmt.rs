@@ -67,14 +67,21 @@ impl UsePath {
     }
   }
 
-  /// Path segments (identifiers). For `use foo::bar::*`, returns `["foo", "bar"]`.
+  /// Path segments (identifiers, or "root" for RootPath). For `use foo::bar::*`, returns `["foo", "bar"]`; for `use root::src::main`, returns `["root", "src", "main"]`.
   pub fn segments(&self) -> Vec<String> {
     self
       .0
       .children_with_tokens()
       .filter_map(SyntaxElement::into_token)
-      .filter(|t| t.kind() == SyntaxKind::Identifier)
-      .map(|t| t.text().to_string())
+      .filter_map(|t| {
+        if t.kind() == SyntaxKind::Identifier {
+          Some(t.text().to_string())
+        } else if t.kind() == SyntaxKind::RootPath {
+          Some("root".to_string())
+        } else {
+          None
+        }
+      })
       .collect()
   }
 

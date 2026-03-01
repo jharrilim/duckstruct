@@ -1,4 +1,7 @@
+mod manifest;
 mod modules;
+
+use std::path::Path;
 
 use ast::Root;
 use codegen::{js::JsGenerator, CodeGenerator};
@@ -11,6 +14,29 @@ pub enum TargetLang {
 }
 
 pub struct Compiler;
+
+/// Resolve the entry file path and optional project root from a path (file or directory).
+/// When `path` is a directory, looks for `duckstruct.toml` and uses its `entrypoint`; returns error if no manifest.
+/// When `path` is a file, uses it as entry and optionally the manifest dir as project root.
+pub fn resolve_entry_and_project_root(
+  path: &Path,
+) -> Result<(std::path::PathBuf, Option<std::path::PathBuf>), String> {
+  if path.is_dir() {
+    let root = manifest::find_manifest_dir(path).ok_or_else(|| {
+      format!(
+        "No {} found in {} or any parent directory. When compiling a directory, a manifest is required.",
+        manifest::MANIFEST_FILENAME,
+        path.display()
+      )
+    })?;
+    let m = manifest::load_manifest(&root)?;
+    let entry = root.join(&m.entrypoint);
+    Ok((entry, Some(root)))
+  } else {
+    let root = manifest::find_manifest_dir(path);
+    Ok((path.to_path_buf(), root))
+  }
+}
 
 impl Default for Compiler {
   fn default() -> Self {
@@ -38,10 +64,17 @@ impl Compiler {
     Ok(JsGenerator::new(&tycheck).generate())
   }
 
-  pub fn compile_file(&self, path: std::path::PathBuf, target: TargetLang) -> Result<(), String> {
-    let output_path = path.with_extension("js");
-    println!("{} => {}", path.display(), output_path.display());
-    let source = match std::fs::read_to_string(&path) {
+  /// Compile the file at `entry_path`. `project_root` is used to resolve `use root::...` imports;
+  /// when `None`, any `root::` use is an error.
+  pub fn compile_file(
+    &self,
+    entry_path: std::path::PathBuf,
+    project_root: Option<std::path::PathBuf>,
+    target: TargetLang,
+  ) -> Result<(), String> {
+    let output_path = entry_path.with_extension("js");
+    println!("{} => {}", entry_path.display(), output_path.display());
+    let source = match std::fs::read_to_string(&entry_path) {
       Ok(source) => source,
       Err(e) => return Err(format!("Failed to read file: {}", e)),
     };
@@ -57,7 +90,8 @@ impl Compiler {
         TargetLang::Javascript => self.compile_js(&source)?,
       }
     } else {
-      let (entry_hir, deps) = modules::load_module_tree(&path)?;
+      let (entry_hir, deps) =
+        modules::load_module_tree(&entry_path, project_root.as_deref())?;
       let entry_uses = entry_hir.uses.clone();
       let mut module_map: std::collections::HashMap<String, &TyCheck> =
         std::collections::HashMap::new();

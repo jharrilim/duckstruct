@@ -1,6 +1,7 @@
+use std::fs;
 use std::path::{Path, PathBuf};
 
-use compile::{Compiler, TargetLang};
+use compile::{resolve_entry_and_project_root, Compiler, TargetLang};
 use insta;
 use serde::Serialize;
 
@@ -51,7 +52,7 @@ pub fn compile_lambda_calculus() {
 #[test]
 pub fn compile_with_use_bundles_deps() {
   let entry = codestub("main_use.ds");
-  let result = Compiler::new().compile_file(entry, TargetLang::Javascript);
+  let result = Compiler::new().compile_file(entry, None, TargetLang::Javascript);
   assert!(result.is_ok(), "{:?}", result.err());
   let out_path = codestub("main_use.js");
   let js = std::fs::read_to_string(&out_path).unwrap();
@@ -66,4 +67,52 @@ pub fn compile_with_use_bundles_deps() {
     js
   );
   let _ = std::fs::remove_file(out_path);
+}
+
+#[test]
+fn compile_project_with_manifest_and_root_import() {
+  let dir = tempfile::tempdir().expect("temp dir");
+  let root = dir.path();
+  fs::write(
+    root.join("duckstruct.toml"),
+    r#"entrypoint = "src/main.ds"
+"#,
+  )
+  .expect("write manifest");
+  fs::create_dir_all(root.join("src")).expect("create src");
+  fs::create_dir_all(root.join("lib")).expect("create lib");
+  fs::write(
+    root.join("src").join("main.ds"),
+    r#"
+use root::lib::util::{VAL};
+VAL
+"#,
+  )
+  .expect("write main.ds");
+  fs::write(
+    root.join("lib").join("util.ds"),
+    r#"
+pub let VAL = 42;
+"#,
+  )
+  .expect("write lib/util.ds");
+
+  let (entry_path, project_root) =
+    resolve_entry_and_project_root(root).expect("resolve entry and root");
+  assert_eq!(entry_path, root.join("src").join("main.ds"));
+  assert_eq!(project_root, Some(root.to_path_buf()));
+
+  let result = Compiler::new().compile_file(
+    entry_path,
+    project_root,
+    TargetLang::Javascript,
+  );
+  assert!(result.is_ok(), "compile failed: {:?}", result.err());
+  let js_path = root.join("src").join("main.js");
+  let js = fs::read_to_string(&js_path).expect("read output");
+  assert!(
+    js.contains("__root::lib::util__VAL") || js.contains("VAL"),
+    "bundled output should reference VAL: {}",
+    js
+  );
 }

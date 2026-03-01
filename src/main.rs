@@ -18,9 +18,15 @@ struct Args {
 fn main() -> Result<()> {
   let args = Args::parse();
 
-  if let Some(file_path) = args.compile {
-    match Compiler::new().compile_file(file_path, TargetLang::Javascript) {
-      Ok(()) => {}
+  if let Some(path) = args.compile {
+    match compile::resolve_entry_and_project_root(&path) {
+      Ok((entry_path, project_root)) => {
+        if let Err(err) =
+          Compiler::new().compile_file(entry_path, project_root, TargetLang::Javascript)
+        {
+          println!("Compilation failed: {}", err);
+        }
+      }
       Err(err) => println!("Compilation failed: {}", err),
     };
     return Ok(());

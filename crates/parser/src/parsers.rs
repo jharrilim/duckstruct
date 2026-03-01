@@ -103,11 +103,14 @@ pub(super) fn paren_expr(p: &mut Parser) -> CompletedMarker {
   m.complete(p, SyntaxKind::ParenExpression)
 }
 
-/// Module path only (e.g. `helper` or `subdir::helper`). Stops before `::{` for the item list.
+/// Module path only (e.g. `helper`, `subdir::helper`, or `root::src::main`). Stops before `::{` for the item list.
 pub(super) fn use_path(p: &mut Parser) -> CompletedMarker {
   let m = p.start();
-  p.expect(TokenKind::Identifier);
-  p.bump();
+  if p.at(TokenKind::Identifier) || p.at(TokenKind::Root) {
+    p.bump();
+  } else {
+    p.expect(TokenKind::Identifier);
+  }
   while p.at(TokenKind::DoubleColon) {
     if p.source.peek_next_kind() == Some(TokenKind::LeftBrace) {
       break;
