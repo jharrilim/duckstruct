@@ -1,0 +1,6 @@
+// Example: compiles to an LLVM executable (single module only).
+// From repo root: cargo run --features llvm -- compile tests/projects/llvm_executable
+// Output: output/llvm/index.ll, index.o, and index (executable)
+
+let x = 1 + 2
+x

@@ -3,11 +3,14 @@
 //! Objects, arrays, strings, and for-loops are not yet supported.
 
 use std::collections::HashMap;
+use std::path::Path;
 
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
-use inkwell::values::{BasicValueEnum, FloatValue, FunctionValue, PointerValue};
+use inkwell::targets::{CodeModel, FileType, InitializationConfig, RelocMode, Target};
+use inkwell::OptimizationLevel;
+use inkwell::values::{BasicMetadataValueEnum, BasicValueEnum, FunctionValue, PointerValue, ValueKind};
 use tycheck::{
   typed_db::TypedDatabaseIdx,
   typed_hir::{BinaryOp, FunctionDef, Ty, TypedExpr, TypedStmt, UnaryOp},
@@ -31,8 +34,64 @@ impl<'tycheck> LlvmGenerator<'tycheck> {
     Self { tycheck }
   }
 
-  fn generate_llvm(&self) -> Result<String, String> {
+  pub fn generate_llvm(&self) -> Result<String, String> {
     let context = Context::create();
+    let module = self.build_module(&context)?;
+    Ok(module.print_to_string().to_string())
+  }
+
+  /// Compile the program to a native object file using LLVM's backend.
+  /// Initializes the native target and writes `.o` to the given path.
+  pub fn compile_to_object_file(&self, path: &Path) -> Result<(), String> {
+    let context = Context::create();
+    let module = self.build_module(&context)?;
+    Self::emit_object_file(&module, path)
+  }
+
+  /// Emit LLVM IR to `ir_path` and compile to native object file at `obj_path` in one pass.
+  /// Builds the module once and runs LLVM's backend for the object file.
+  pub fn compile_to_files(&self, ir_path: &Path, obj_path: &Path) -> Result<(), String> {
+    let context = Context::create();
+    let module = self.build_module(&context)?;
+    std::fs::write(ir_path, module.print_to_string().to_string())
+      .map_err(|e| format!("Failed to write IR: {}", e))?;
+    Self::emit_object_file(&module, obj_path)
+  }
+
+  fn emit_object_file(module: &Module, path: &Path) -> Result<(), String> {
+    Target::initialize_native(&InitializationConfig::default())
+      .map_err(|e| format!("Failed to initialize native target: {}", e))?;
+
+    let triple = inkwell::targets::TargetMachine::get_default_triple();
+    let target = Target::from_triple(&triple)
+      .map_err(|e| format!("Failed to get target for triple: {}", e))?;
+
+    let cpu = inkwell::targets::TargetMachine::get_host_cpu_name();
+    let cpu_str = cpu.to_str().map_err(|e| format!("Invalid host CPU name: {:?}", e))?;
+    let features = inkwell::targets::TargetMachine::get_host_cpu_features();
+    let features_str = features
+      .to_str()
+      .map_err(|e| format!("Invalid host CPU features: {:?}", e))?;
+
+    let target_machine = target
+      .create_target_machine(
+        &triple,
+        cpu_str,
+        features_str,
+        OptimizationLevel::Default,
+        RelocMode::Default,
+        CodeModel::Default,
+      )
+      .ok_or_else(|| "Failed to create target machine".to_string())?;
+
+    target_machine
+      .write_to_file(module, FileType::Object, path)
+      .map_err(|e| format!("Failed to write object file: {}", e))?;
+    Ok(())
+  }
+
+  /// Build the LLVM module (IR) from the typed HIR. Used by both IR emission and object compilation.
+  fn build_module<'ctx>(&self, context: &'ctx Context) -> Result<Module<'ctx>, String> {
     let module = context.create_module("main");
     let builder = context.create_builder();
 
@@ -79,7 +138,7 @@ impl<'tycheck> LlvmGenerator<'tycheck> {
 
             let ret_val = self.compile_expr_with_locals(
               body,
-              &context,
+              context,
               &module,
               &builder,
               &global_ptrs,
@@ -101,23 +160,31 @@ impl<'tycheck> LlvmGenerator<'tycheck> {
       }
     }
 
-    let ir = module.print_to_string().to_string();
-    Ok(ir)
+    // Add C main() so the linker can produce an executable when linking.
+    let i32_type = context.i32_type();
+    let main_type = i32_type.fn_type(&[], false);
+    let main_fn = module.add_function("main", main_type, None);
+    let entry = context.append_basic_block(main_fn, "entry");
+    builder.position_at_end(entry);
+    builder
+      .build_return(Some(&i32_type.const_int(0, false)))
+      .map_err(|e| e.to_string())?;
+
+    Ok(module)
   }
 
-  fn compile_expr_with_locals(
+  fn compile_expr_with_locals<'ctx>(
     &self,
     expr: &TypedDatabaseIdx,
-    context: &Context,
-    module: &Module,
-    builder: &Builder,
-    global_ptrs: &HashMap<String, PointerValue>,
-    functions: &HashMap<String, FunctionValue>,
-    locals: &HashMap<String, BasicValueEnum>,
-    _current_fn: Option<FunctionValue>,
-  ) -> Result<BasicValueEnum, String> {
+    context: &'ctx Context,
+    module: &Module<'ctx>,
+    builder: &Builder<'ctx>,
+    global_ptrs: &HashMap<String, PointerValue<'ctx>>,
+    functions: &HashMap<String, FunctionValue<'ctx>>,
+    locals: &HashMap<String, BasicValueEnum<'ctx>>,
+    _current_fn: Option<FunctionValue<'ctx>>,
+  ) -> Result<BasicValueEnum<'ctx>, String> {
     let expr_node = self.tycheck.ty_db.expr(expr);
-    let f64_type = context.f64_type();
 
     match expr_node {
       TypedExpr::Number { val: Some(v) } => {
@@ -288,7 +355,7 @@ impl<'tycheck> LlvmGenerator<'tycheck> {
                 context,
                 module,
                 builder,
-                globals,
+                global_ptrs,
                 functions,
                 locals,
                 _current_fn,
@@ -300,7 +367,7 @@ impl<'tycheck> LlvmGenerator<'tycheck> {
             last = Some(v);
           }
         }
-        last.ok_or_else(|| "empty block".to_string())?
+        last.ok_or_else(|| "empty block".to_string())
       }
       TypedExpr::Conditional {
         condition,
@@ -380,20 +447,24 @@ impl<'tycheck> LlvmGenerator<'tycheck> {
             context,
             module,
             builder,
-            globals,
+            global_ptrs,
             functions,
             locals,
             _current_fn,
           )?;
           arg_vals.push(v.into_float_value());
         }
-        let args_ref: Vec<_> = arg_vals.iter().collect();
-        let result = builder
-          .build_call(callee, &args_ref, "call")
-          .map_err(|e| e.to_string())?
-          .try_as_basic_value()
-          .left()
-          .ok_or_else(|| "call must return a value".to_string())?;
+        let args_meta: Vec<BasicMetadataValueEnum> = arg_vals
+          .iter()
+          .map(|&f| BasicMetadataValueEnum::FloatValue(f))
+          .collect();
+        let call_site = builder
+          .build_call(callee, &args_meta, "call")
+          .map_err(|e| e.to_string())?;
+        let result = match call_site.try_as_basic_value() {
+          ValueKind::Basic(bv) => bv,
+          _ => return Err("call must return a value".to_string()),
+        };
         Ok(result)
       }
       TypedExpr::FunctionDef(_) => Err("nested function definitions not supported in LLVM backend".to_string()),

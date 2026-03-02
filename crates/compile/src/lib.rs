@@ -2,6 +2,8 @@ mod manifest;
 mod modules;
 
 use std::path::Path;
+#[cfg(feature = "llvm")]
+use std::process::Command;
 
 use ast::Root;
 use codegen::{js::JsGenerator, CodeGenerator};
@@ -11,6 +13,33 @@ use tycheck::TyCheck;
 
 #[cfg(feature = "llvm")]
 use codegen::llvm::LlvmGenerator;
+
+/// Link an object file to an executable using the system linker (clang or cc).
+#[cfg(feature = "llvm")]
+fn link_object_to_executable(obj_path: &Path, exe_path: &Path) -> Result<(), String> {
+  for linker in ["clang", "cc"] {
+    let status = match Command::new(linker)
+      .arg(obj_path)
+      .arg("-o")
+      .arg(exe_path)
+      .status()
+    {
+      Ok(s) => s,
+      Err(_) => continue,
+    };
+    if status.success() {
+      return Ok(());
+    }
+    return Err(format!(
+      "Linker {} exited with code {:?}",
+      linker,
+      status.code()
+    ));
+  }
+  Err(
+    "No linker found (tried clang, cc). Install clang or gcc to link executables.".to_string(),
+  )
+}
 
 pub enum TargetLang {
   Javascript,
@@ -107,21 +136,29 @@ impl Compiler {
     project_root: Option<std::path::PathBuf>,
     target: TargetLang,
   ) -> Result<(), String> {
-    let output_path = match &project_root {
+    #[cfg_attr(not(feature = "llvm"), allow(unused_variables))]
+    let (output_path, link_executable, executable_name) = match &project_root {
       Some(root) => {
         let m = manifest::load_manifest(root)?;
         let output_dir = m
           .output
           .as_deref()
           .unwrap_or(manifest::DEFAULT_OUTPUT_DIR);
+        let exe_name = Some(m.executable_name().to_string());
         match target {
-          TargetLang::Javascript => root.join(output_dir).join("js").join("index.js"),
-          TargetLang::Llvm => root.join(output_dir).join("llvm").join("index.ll"),
+          TargetLang::Javascript => {
+            (root.join(output_dir).join("js").join("index.js"), false, None)
+          }
+          TargetLang::Llvm => (
+            root.join(output_dir).join("llvm").join("index.ll"),
+            m.link_executable(),
+            exe_name,
+          ),
         }
       }
       None => match target {
-        TargetLang::Javascript => entry_path.with_extension("js"),
-        TargetLang::Llvm => entry_path.with_extension("ll"),
+        TargetLang::Javascript => (entry_path.with_extension("js"), false, None),
+        TargetLang::Llvm => (entry_path.with_extension("ll"), false, None),
       },
     };
     if let Some(parent) = output_path.parent() {
@@ -140,14 +177,31 @@ impl Compiler {
     let ast = Root::cast(parse.syntax())
       .ok_or_else(|| "Failed to generate AST from source".to_string())?;
 
-    let code = if modules::collect_use_deps(&ast).is_empty() {
+    let (code, llvm_object_path) = if modules::collect_use_deps(&ast).is_empty() {
       match target {
-        TargetLang::Javascript => self.compile_js(&source)?,
+        TargetLang::Javascript => (self.compile_js(&source)?, None::<std::path::PathBuf>),
         TargetLang::Llvm => {
           #[cfg(not(feature = "llvm"))]
           return Err("LLVM backend requires building with --features llvm and having LLVM installed".to_string());
           #[cfg(feature = "llvm")]
-          self.compile_llvm(&source)?
+          {
+            let hir = lower(ast.clone());
+            let mut tycheck = TyCheck::new(hir);
+            tycheck.infer();
+            let generator = LlvmGenerator::new(&tycheck);
+            let obj_path = output_path.with_extension("o");
+            generator.compile_to_files(&output_path, &obj_path)?;
+            println!("{} => {}", entry_path.display(), obj_path.display());
+            if link_executable {
+              let exe_path = output_path
+                .parent()
+                .unwrap()
+                .join(executable_name.as_deref().unwrap_or("index"));
+              link_object_to_executable(&obj_path, &exe_path)?;
+              println!("{} => {}", entry_path.display(), exe_path.display());
+            }
+            (generator.generate_llvm()?, Some(obj_path))
+          }
         }
       }
     } else {
@@ -212,17 +266,19 @@ impl Compiler {
       bundle.push_str(&entry_js);
 
       match target {
-        TargetLang::Javascript => bundle,
+        TargetLang::Javascript => (bundle, None),
         TargetLang::Llvm => {
           return Err("LLVM backend does not support multi-module projects yet".to_string());
         }
       }
     };
 
-    match std::fs::write(output_path, code) {
-      Ok(()) => Ok(()),
-      Err(err) => Err(format!("Failed to write to file: {}", err)),
+    if llvm_object_path.is_none() {
+      if let Err(err) = std::fs::write(output_path, code) {
+        return Err(format!("Failed to write to file: {}", err));
+      }
     }
+    Ok(())
   }
 
   pub fn eval(&self, source: &str) -> Result<String, String> {

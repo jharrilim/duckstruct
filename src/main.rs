@@ -8,17 +8,27 @@ use rustyline::Result;
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-  #[arg(short, long)]
-  compile: Option<PathBuf>,
+  #[command(subcommand)]
+  command: Option<Command>,
 
   #[arg(short, long)]
   eval: Option<String>,
 }
 
+#[derive(Subcommand, Debug)]
+enum Command {
+  /// Compile a Duckstruct file or project to the target language (JS by default, or from manifest).
+  #[command(visible_aliases = ["c", "build"])]
+  Compile {
+    /// Path to a .duck file or project directory to compile
+    path: PathBuf,
+  },
+}
+
 fn main() -> Result<()> {
   let args = Args::parse();
 
-  if let Some(path) = args.compile {
+  if let Some(Command::Compile { path }) = args.command {
     match compile::resolve_entry_and_project_root(&path) {
       Ok((entry_path, project_root)) => {
         let target = match &project_root {

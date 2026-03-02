@@ -39,6 +39,9 @@ impl std::str::FromStr for Backend {
 struct TargetSection {
   #[serde(default)]
   backend: Option<String>,
+  /// When backend is "llvm", if true also link the object file to an executable (default: false).
+  #[serde(default)]
+  link: Option<bool>,
 }
 
 /// Manifest schema. First property is `entrypoint`. Optional `output` configures the output directory.
@@ -47,6 +50,9 @@ struct TargetSection {
 pub struct Manifest {
   /// Entry point path relative to the directory containing the manifest.
   pub entrypoint: String,
+  /// Project name; when linking an LLVM executable, this is the output binary name (default: "index").
+  #[serde(default)]
+  pub name: Option<String>,
   /// Output directory relative to project root (e.g. "output" → emit JS to output/js/index.js). Default: "output".
   #[serde(default)]
   pub output: Option<String>,
@@ -64,6 +70,24 @@ impl Manifest {
       .and_then(|t| t.backend.as_deref())
       .unwrap_or("js");
     s.parse().unwrap_or(Backend::Js)
+  }
+
+  /// When backend is llvm, whether to link the object file to an executable. Default: false.
+  pub fn link_executable(&self) -> bool {
+    self
+      .target
+      .as_ref()
+      .and_then(|t| t.link)
+      .unwrap_or(false)
+  }
+
+  /// Name for the linked executable when backend is llvm and link is true. Default: "index".
+  pub fn executable_name(&self) -> &str {
+    self
+      .name
+      .as_deref()
+      .filter(|s| !s.is_empty())
+      .unwrap_or("index")
   }
 }
 
@@ -190,6 +214,48 @@ backend = "js"
 "#,
     );
     assert_eq!(m.backend(), Backend::Js);
+  }
+
+  #[test]
+  fn test_parse_manifest_target_link_executable() {
+    let m = Manifest::from(
+      r#"entrypoint = "src/main.ds"
+
+[target]
+backend = "llvm"
+link = true
+"#,
+    );
+    assert_eq!(m.backend(), Backend::Llvm);
+    assert!(m.link_executable());
+  }
+
+  #[test]
+  fn test_parse_manifest_link_default_false() {
+    let m = Manifest::from(
+      r#"entrypoint = "src/main.ds"
+
+[target]
+backend = "llvm"
+"#,
+    );
+    assert!(!m.link_executable());
+  }
+
+  #[test]
+  fn test_parse_manifest_name_and_executable_name() {
+    let m = Manifest::from(
+      r#"entrypoint = "src/main.ds"
+name = "myapp"
+"#,
+    );
+    assert_eq!(m.executable_name(), "myapp");
+  }
+
+  #[test]
+  fn test_executable_name_default() {
+    let m = Manifest::from("entrypoint = \"src/main.ds\"\n");
+    assert_eq!(m.executable_name(), "index");
   }
 
   #[test]

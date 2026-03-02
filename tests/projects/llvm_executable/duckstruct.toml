@@ -1,0 +1,6 @@
+entrypoint = "src/main.ds"
+name = "llvm_executable"
+
+[target]
+backend = "llvm"
+link = true
