@@ -21,6 +21,8 @@ use crate::CodeGenerator;
 
 pub struct LlvmGenerator<'tycheck> {
   tycheck: &'tycheck TyCheck,
+  /// External (stdlib) function names -> param count. These get declared, not defined.
+  external_functions: HashMap<String, usize>,
 }
 
 impl<'tycheck> CodeGenerator for LlvmGenerator<'tycheck> {
@@ -31,7 +33,20 @@ impl<'tycheck> CodeGenerator for LlvmGenerator<'tycheck> {
 
 impl<'tycheck> LlvmGenerator<'tycheck> {
   pub fn new(tycheck: &'tycheck TyCheck) -> Self {
-    Self { tycheck }
+    Self {
+      tycheck,
+      external_functions: HashMap::new(),
+    }
+  }
+
+  /// Register external (e.g. stdlib) functions that should be declared in the module
+  /// (name -> number of f64 params). Call sites will call these; implementations must be linked.
+  pub fn with_external_functions(
+    mut self,
+    name_to_param_count: impl IntoIterator<Item = (String, usize)>,
+  ) -> Self {
+    self.external_functions = name_to_param_count.into_iter().collect();
+    self
   }
 
   pub fn generate_llvm(&self) -> Result<String, String> {
@@ -100,18 +115,52 @@ impl<'tycheck> LlvmGenerator<'tycheck> {
     // Global variable pointers (for loading on reference). Only constant initializers supported.
     let mut global_ptrs: HashMap<String, PointerValue> = HashMap::new();
     let mut functions: HashMap<String, FunctionValue> = HashMap::new();
+    // Top-level initializers and final expression to run from main().
+    let mut main_inits: Vec<(String, TypedDatabaseIdx)> = Vec::new();
+    let mut main_expr: Option<TypedDatabaseIdx> = None;
+
+    // Declare external (stdlib) functions. "print" is implemented below; others are linked later.
+    for (name, param_count) in &self.external_functions {
+      let param_tys: Vec<_> = (0..*param_count).map(|_| f64_type.into()).collect();
+      let fn_type = f64_type.fn_type(param_tys.as_slice(), false);
+      let fn_name = format!("f_{}", name.replace("-", "_"));
+      let decl = module.add_function(&fn_name, fn_type, None);
+      if name != "print" {
+        decl.set_linkage(inkwell::module::Linkage::External);
+      }
+      functions.insert(name.clone(), decl);
+    }
+
+    // Implement print by calling printf from libc (link with -lc).
+    if self.external_functions.get("print") == Some(&1) {
+      let print_fn = functions.get("print").copied().expect("print in external_functions");
+      crate::stdlib::add_print_implementation(
+        context,
+        &module,
+        &builder,
+        print_fn,
+        f64_type,
+      )?;
+    }
 
     for (name, stmt) in self.tycheck.ty_db.defs_iter() {
       match stmt {
         TypedStmt::VariableDef { value, .. } => {
-          let init_const = match self.tycheck.ty_db.expr(value) {
-            TypedExpr::Number { val: Some(v) } => context.f64_type().const_float(*v),
-            _ => context.f64_type().const_float(0.0),
+          // Skip emitting a global for external (builtin) function names e.g. print.
+          if self.external_functions.contains_key(name) {
+            continue;
+          }
+          let (init_const, needs_runtime_init) = match self.tycheck.ty_db.expr(value) {
+            TypedExpr::Number { val: Some(v) } => (context.f64_type().const_float(*v), false),
+            _ => (context.f64_type().const_float(0.0), true),
           };
           let global_name = format!("g_{}", name.replace("-", "_"));
           let global = module.add_global(f64_type, None, &global_name);
           global.set_initializer(&init_const);
           global_ptrs.insert(name.clone(), global.as_pointer_value());
+          if needs_runtime_init {
+            main_inits.push((name.clone(), *value));
+          }
         }
         TypedStmt::FunctionDef { value, .. } => {
           let expr = self.tycheck.ty_db.expr(value);
@@ -154,18 +203,46 @@ impl<'tycheck> LlvmGenerator<'tycheck> {
             functions.insert(name.clone(), func);
           }
         }
-        TypedStmt::Expr(_expr) => {
-          // Top-level expression: skip for LLVM (no main entry point yet)
+        TypedStmt::Expr(expr) => {
+          main_expr = Some(*expr);
         }
       }
     }
 
-    // Add C main() so the linker can produce an executable when linking.
+    // Build main() to run top-level initializers and the last expression.
     let i32_type = context.i32_type();
     let main_type = i32_type.fn_type(&[], false);
     let main_fn = module.add_function("main", main_type, None);
     let entry = context.append_basic_block(main_fn, "entry");
     builder.position_at_end(entry);
+    let empty_locals: HashMap<String, BasicValueEnum> = HashMap::new();
+    for (name, value_idx) in main_inits {
+      let ptr = global_ptrs.get(&name).copied().ok_or_else(|| format!("global {} not found", name))?;
+      let val = self.compile_expr_with_locals(
+        &value_idx,
+        context,
+        &module,
+        &builder,
+        &global_ptrs,
+        &functions,
+        &empty_locals,
+        None,
+      )?;
+      let f = val.into_float_value();
+      builder.build_store(ptr, f).map_err(|e| e.to_string())?;
+    }
+    if let Some(expr_idx) = main_expr {
+      let _ = self.compile_expr_with_locals(
+        &expr_idx,
+        context,
+        &module,
+        &builder,
+        &global_ptrs,
+        &functions,
+        &empty_locals,
+        None,
+      )?;
+    }
     builder
       .build_return(Some(&i32_type.const_int(0, false)))
       .map_err(|e| e.to_string())?;

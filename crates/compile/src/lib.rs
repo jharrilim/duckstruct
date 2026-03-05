@@ -7,6 +7,7 @@ use std::process::Command;
 
 use ast::Root;
 use codegen::{js::JsGenerator, CodeGenerator};
+use duckstruct_std;
 use hir::lower;
 use parser::parse;
 use tycheck::TyCheck;
@@ -22,6 +23,7 @@ fn link_object_to_executable(obj_path: &Path, exe_path: &Path) -> Result<(), Str
       .arg(obj_path)
       .arg("-o")
       .arg(exe_path)
+      .arg("-lc")
       .status()
     {
       Ok(s) => s,
@@ -177,6 +179,23 @@ impl Compiler {
     let ast = Root::cast(parse.syntax())
       .ok_or_else(|| "Failed to generate AST from source".to_string())?;
 
+    let std_backend = match target {
+      TargetLang::Javascript => duckstruct_std::Backend::Js,
+      TargetLang::Llvm => duckstruct_std::Backend::Llvm,
+    };
+    let prelude = duckstruct_std::globals_for_backend(std_backend);
+    let prelude_ref = if prelude.is_empty() {
+      None
+    } else {
+      Some(prelude.as_slice())
+    };
+    let global_external_fns = duckstruct_std::external_functions_for_backend(std_backend);
+    let global_external_fns_ref = if global_external_fns.is_empty() {
+      None
+    } else {
+      Some(global_external_fns.as_slice())
+    };
+
     let (code, llvm_object_path) = if modules::collect_use_deps(&ast).is_empty() {
       match target {
         TargetLang::Javascript => (self.compile_js(&source)?, None::<std::path::PathBuf>),
@@ -187,8 +206,11 @@ impl Compiler {
           {
             let hir = lower(ast.clone());
             let mut tycheck = TyCheck::new(hir);
-            tycheck.infer();
-            let generator = LlvmGenerator::new(&tycheck);
+            tycheck.infer_with_modules(None, prelude_ref, global_external_fns_ref);
+            let external_fns_map: std::collections::HashMap<String, usize> =
+              global_external_fns.into_iter().collect();
+            let generator = LlvmGenerator::new(&tycheck)
+              .with_external_functions(external_fns_map);
             let obj_path = output_path.with_extension("o");
             generator.compile_to_files(&output_path, &obj_path)?;
             println!("{} => {}", entry_path.display(), obj_path.display());
@@ -214,61 +236,113 @@ impl Compiler {
         module_map.insert(dep.name.clone(), &dep.tycheck);
       }
       let mut entry_tycheck = TyCheck::new(entry_hir);
-      entry_tycheck.infer_with_modules(Some(&module_map));
+      entry_tycheck.infer_with_modules(
+        Some(&module_map),
+        prelude_ref,
+        global_external_fns_ref,
+      );
 
-      let mut bundle = String::new();
-      for dep in &deps {
-        let pub_names: std::collections::HashSet<String> = dep
-          .tycheck
-          .ty_db
-          .defs_iter()
-          .into_iter()
-          .filter_map(|(name, stmt)| {
-            let pub_vis = match stmt {
-              tycheck::typed_hir::TypedStmt::VariableDef { pub_vis, .. }
-              | tycheck::typed_hir::TypedStmt::FunctionDef { pub_vis, .. } => *pub_vis,
-              _ => false,
-            };
-            if pub_vis {
-              Some(name.clone())
-            } else {
-              None
-            }
-          })
-          .collect();
-        let prefix = format!("__{}__", dep.name.replace("::", "__"));
-        let dep_js = JsGenerator::new(&dep.tycheck)
-          .with_prefix(&prefix, pub_names)
-          .generate_js();
-        if !dep_js.is_empty() {
-          bundle.push_str(&dep_js);
-          bundle.push('\n');
-        }
-      }
-
-      let import_map: std::collections::HashMap<String, (String, String)> = entry_uses
+      let all_deps_are_stdlib = deps
         .iter()
-        .filter(|(path, _)| path.len() >= 2)
-        .map(|(path, alias)| {
-          let bind = alias
-            .as_deref()
-            .unwrap_or_else(|| path.last().unwrap())
-            .to_string();
-          let mod_name = path[0..path.len() - 1].join("__");
-          let export = path.last().unwrap().clone();
-          (bind, (mod_name, export))
-        })
-        .collect();
-
-      let entry_js = JsGenerator::new(&entry_tycheck)
-        .with_import_map(import_map)
-        .generate_js();
-      bundle.push_str(&entry_js);
+        .all(|d| duckstruct_std::is_stdlib_module(&d.name));
 
       match target {
-        TargetLang::Javascript => (bundle, None),
+        TargetLang::Javascript => {
+          let mut bundle = String::new();
+          for dep in &deps {
+            let pub_names: std::collections::HashSet<String> = dep
+              .tycheck
+              .ty_db
+              .defs_iter()
+              .into_iter()
+              .filter_map(|(name, stmt)| {
+                let pub_vis = match stmt {
+                  tycheck::typed_hir::TypedStmt::VariableDef { pub_vis, .. }
+                  | tycheck::typed_hir::TypedStmt::FunctionDef { pub_vis, .. } => *pub_vis,
+                  _ => false,
+                };
+                if pub_vis {
+                  Some(name.clone())
+                } else {
+                  None
+                }
+              })
+              .collect();
+            let prefix = format!("__{}__", dep.name.replace("::", "__"));
+            let dep_js = JsGenerator::new(&dep.tycheck)
+              .with_prefix(&prefix, pub_names)
+              .generate_js();
+            if !dep_js.is_empty() {
+              bundle.push_str(&dep_js);
+              bundle.push('\n');
+            }
+          }
+
+          let import_map: std::collections::HashMap<String, (String, String)> = entry_uses
+            .iter()
+            .filter(|(path, _)| path.len() >= 2)
+            .map(|(path, alias)| {
+              let bind = alias
+                .as_deref()
+                .unwrap_or_else(|| path.last().unwrap())
+                .to_string();
+              let mod_name = path[0..path.len() - 1].join("__");
+              let export = path.last().unwrap().clone();
+              (bind, (mod_name, export))
+            })
+            .collect();
+
+          let entry_js = JsGenerator::new(&entry_tycheck)
+            .with_import_map(import_map)
+            .generate_js();
+          bundle.push_str(&entry_js);
+
+          (bundle, None)
+        }
         TargetLang::Llvm => {
-          return Err("LLVM backend does not support multi-module projects yet".to_string());
+          if !all_deps_are_stdlib {
+            return Err("LLVM backend does not support multi-module projects yet".to_string());
+          }
+          #[cfg(not(feature = "llvm"))]
+          return Err("LLVM backend requires building with --features llvm".to_string());
+          #[cfg(feature = "llvm")]
+          {
+            let mut external_fns: std::collections::HashMap<String, usize> = global_external_fns
+              .into_iter()
+              .collect();
+            for dep in &deps {
+              for (name, stmt) in dep.tycheck.ty_db.defs_iter() {
+                if let tycheck::typed_hir::TypedStmt::FunctionDef {
+                  pub_vis: true,
+                  value,
+                  ..
+                } = stmt
+                {
+                  let expr = dep.tycheck.ty_db.expr(value);
+                  if let tycheck::typed_hir::TypedExpr::FunctionDef(
+                    tycheck::typed_hir::FunctionDef { params, .. },
+                  ) = expr
+                  {
+                    external_fns.insert(name.clone(), params.len());
+                  }
+                }
+              }
+            }
+            let generator = LlvmGenerator::new(&entry_tycheck)
+              .with_external_functions(external_fns);
+            let obj_path = output_path.with_extension("o");
+            generator.compile_to_files(&output_path, &obj_path)?;
+            println!("{} => {}", entry_path.display(), obj_path.display());
+            if link_executable {
+              let exe_path = output_path
+                .parent()
+                .unwrap()
+                .join(executable_name.as_deref().unwrap_or("index"));
+              link_object_to_executable(&obj_path, &exe_path)?;
+              println!("{} => {}", entry_path.display(), exe_path.display());
+            }
+            (generator.generate_llvm()?, Some(obj_path))
+          }
         }
       }
     };

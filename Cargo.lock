@@ -125,6 +125,7 @@ dependencies = [
  "ast",
  "codegen",
  "data-structures",
+ "duckstruct-std",
  "hir",
  "lexer",
  "parser",
@@ -216,6 +217,18 @@ dependencies = [
  "serde",
  "syntax",
  "tempfile",
+ "tycheck",
+]
+
+[[package]]
+name = "duckstruct-std"
+version = "0.1.0"
+dependencies = [
+ "ast",
+ "hir",
+ "lexer",
+ "parser",
+ "syntax",
  "tycheck",
 ]
 

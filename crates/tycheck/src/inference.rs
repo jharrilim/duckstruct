@@ -1,3 +1,7 @@
+/// Type inference for the Duckstruct language. It does more than just inference.
+/// It acts as a partial evaluator for code during type checking.
+/// It also has the ability to refine parameter types based on the context of the function call.
+
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -36,12 +40,54 @@ impl TyCheck {
 
   /// Infers types for all statements in the HIR database.
   pub fn infer(&mut self) {
-    self.infer_with_modules(None);
+    self.infer_with_modules(None, None, None);
   }
 
-  /// Infers types with an optional module map for resolving imports and path refs.
-  pub fn infer_with_modules(&mut self, module_map: Option<&ModuleMap<'_>>) {
+  /// Infers types with an optional module map for resolving imports and path refs,
+  /// an optional prelude (e.g. stdlib globals) injected into the initial scope,
+  /// and optional global external functions (name -> param count) that get function type in scope.
+  pub fn infer_with_modules(
+    &mut self,
+    module_map: Option<&ModuleMap<'_>>,
+    prelude: Option<&[(String, TypedExpr)]>,
+    external_functions: Option<&[(String, usize)]>,
+  ) {
     let mut scope = Scope::default();
+    if let Some(prelude_items) = prelude {
+      for (name, expr) in prelude_items.iter() {
+        let idx = self.ty_db.alloc(expr.clone());
+        self.ty_db.define(
+          name.clone(),
+          TypedStmt::VariableDef {
+            name: name.clone(),
+            value: idx,
+            pub_vis: false,
+          },
+        );
+        scope.define(name.clone(), idx);
+      }
+    }
+    if let Some(ext_fns) = external_functions {
+      for (name, param_count) in ext_fns.iter() {
+        let ty = Ty::Function {
+          params: (0..*param_count).map(|_| Ty::Number(None)).collect(),
+          ret: Some(Box::new(Ty::Number(None))),
+        };
+        let idx = self.ty_db.alloc(TypedExpr::VariableRef {
+          var: name.clone(),
+          ty,
+        });
+        self.ty_db.define(
+          name.clone(),
+          TypedStmt::VariableDef {
+            name: name.clone(),
+            value: idx,
+            pub_vis: false,
+          },
+        );
+        scope.define(name.clone(), idx);
+      }
+    }
     if let Some(map) = module_map {
       for (path, alias) in self.hir_db.uses.iter() {
         if path.len() >= 2 {

@@ -1,10 +1,12 @@
 //! Module resolution and dependency loading for the Rust-like import system.
 //! One file = one module; module name = filename without extension.
+//! Standard library modules (e.g. `file`) are resolved from duckstruct_std, not the filesystem.
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use ast::Root;
+use duckstruct_std;
 use hir;
 use parser::parse;
 use tycheck::TyCheck;
@@ -128,6 +130,28 @@ fn load_deps_recurse(
 ) -> Result<(), String> {
   let deps = collect_use_deps(ast);
   for mod_name in deps {
+    if duckstruct_std::is_stdlib_module(&mod_name) {
+      let synthetic_path = PathBuf::from(format!("std::{}", mod_name));
+      if loading.contains(&synthetic_path) {
+        return Err(format!(
+          "Circular dependency involving module `{}`",
+          mod_name
+        ));
+      }
+      if loaded_paths.contains(&synthetic_path) {
+        continue;
+      }
+      loading.insert(synthetic_path.clone());
+      let stdlib_module = duckstruct_std::load_stdlib_module(&mod_name)?;
+      dep_order.push(LoadedModule {
+        name: stdlib_module.name,
+        tycheck: stdlib_module.tycheck,
+      });
+      loaded_paths.insert(synthetic_path.clone());
+      loading.remove(&synthetic_path);
+      continue;
+    }
+
     let dep_path = resolve_module_path(current_path, &mod_name, project_root)?;
     let canonical = dep_path.canonicalize().unwrap_or_else(|_| dep_path.clone());
 
@@ -359,6 +383,38 @@ pub let THREE = 3;
       _ => false,
     };
     assert!(is_pub, "THREE should be public");
+  }
+
+  /// `use file::{read}` loads the stdlib file module, not a file.ds from disk.
+  #[test]
+  fn test_use_file_loads_stdlib_module() {
+    let dir = tempfile::tempdir().expect("temp dir");
+    let root = dir.path();
+    let main_ds = root.join("main.ds");
+    fs::write(
+      &main_ds,
+      r#"
+use file::{read};
+read(0)
+"#,
+    )
+    .expect("write main.ds");
+
+    let result = load_module_tree(&main_ds, None);
+    assert!(result.is_ok(), "load_module_tree failed: {:?}", result.err());
+    let (_entry_hir, deps) = result.unwrap();
+    assert_eq!(deps.len(), 1, "expected one dependency (file)");
+    assert_eq!(deps[0].name, "file");
+    let def = deps[0]
+      .tycheck
+      .ty_db
+      .definition("read")
+      .expect("file module should define read");
+    let is_pub = match def {
+      tycheck::typed_hir::TypedStmt::FunctionDef { pub_vis, .. } => *pub_vis,
+      _ => false,
+    };
+    assert!(is_pub, "read should be public");
   }
 
   /// `use root::...` without a project root (no manifest) returns an error.

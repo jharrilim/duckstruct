@@ -1,0 +1,16 @@
+[package]
+name = "duckstruct-std"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = []
+llvm = []
+
+[dependencies]
+ast = { path = "../ast" }
+hir = { path = "../hir" }
+lexer = { path = "../lexer" }
+parser = { path = "../parser" }
+syntax = { path = "../syntax" }
+tycheck = { path = "../tycheck" }
