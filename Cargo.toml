@@ -5,6 +5,10 @@ edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[[bin]]
+name = "duckstruct"
+path = "src/main.rs"
+
 [features]
 default = []
 # Enable LLVM backend (requires LLVM 15+ installed). Use: cargo build --features llvm
@@ -12,6 +16,7 @@ llvm = ["compile/llvm"]
 
 [dependencies]
 ast = { path = "./crates/ast" }
+cli = { path = "./crates/cli" }
 codegen = { path = "./crates/codegen" }
 compile = { path = "./crates/compile" }
 data-structures = { path = "./crates/data-structures" }
@@ -20,13 +25,7 @@ lexer = { path = "./crates/lexer" }
 parser = { path = "./crates/parser" }
 syntax = { path = "./crates/syntax" }
 tycheck = { path = "./crates/tycheck" }
-clap = { version = "4.0.17", features = ["derive"] }
-home = "0.5.4"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
 project-root = "0.2.2"
-rustyline = "10.0.0"
-rustyline-derive = "0.7.0"
 
 [dev-dependencies]
 insta = { version = "1.21.0", features = ["yaml", "serde"] }

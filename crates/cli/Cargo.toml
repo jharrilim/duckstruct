@@ -1,0 +1,18 @@
+[package]
+name = "cli"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+ast = { path = "../ast" }
+clap = { version = "4.0.17", features = ["derive"] }
+codegen = { path = "../codegen" }
+compile = { path = "../compile" }
+hir = { path = "../hir" }
+home = "0.5.4"
+parser = { path = "../parser" }
+rustyline = "10.0.0"
+rustyline-derive = "0.7.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tycheck = { path = "../tycheck" }

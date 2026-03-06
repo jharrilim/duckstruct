@@ -1,3 +1,5 @@
+//! Interactive REPL.
+
 use codegen::js::JsGenerator;
 use parser::parse;
 use rustyline::{

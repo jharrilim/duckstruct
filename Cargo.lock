@@ -100,6 +100,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "cli"
+version = "0.1.0"
+dependencies = [
+ "ast",
+ "clap",
+ "codegen",
+ "compile",
+ "hir",
+ "home",
+ "parser",
+ "rustyline",
+ "rustyline-derive",
+ "serde",
+ "serde_json",
+ "tycheck",
+]
+
+[[package]]
 name = "clipboard-win"
 version = "4.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -202,20 +220,16 @@ name = "duckstruct"
 version = "0.1.0"
 dependencies = [
  "ast",
- "clap",
+ "cli",
  "codegen",
  "compile",
  "data-structures",
  "hir",
- "home",
  "insta",
  "lexer",
  "parser",
  "project-root",
- "rustyline",
- "rustyline-derive",
  "serde",
- "serde_json",
  "syntax",
  "tempfile",
  "tycheck",
