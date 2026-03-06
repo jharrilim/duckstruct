@@ -1,9 +1,10 @@
 pub mod repl;
 use std::path::PathBuf;
 
-use clap::*;
+use clap::{Parser, Subcommand};
 use compile::{Compiler, TargetLang};
 use rustyline::Result;
+use serde::Serialize;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -23,10 +24,102 @@ enum Command {
     /// Path to a .duck file or project directory to compile
     path: PathBuf,
   },
+
+  /// Parse and report diagnostics as JSON (for LSP/editors). Reads file or stdin.
+  Check {
+    /// Path to a .ds file (omit to read from stdin)
+    path: Option<PathBuf>,
+    /// Output LSP-style diagnostics as JSON
+    #[arg(long)]
+    json: bool,
+  },
+}
+
+/// Convert byte offset in source to (line, character) 0-based for LSP.
+fn offset_to_line_character(source: &str, byte_offset: usize) -> (u32, u32) {
+  let mut line: u32 = 0;
+  let mut line_start = 0;
+  for (i, c) in source.char_indices() {
+    if i >= byte_offset {
+      let character = (byte_offset - line_start) as u32;
+      return (line, character);
+    }
+    if c == '\n' {
+      line += 1;
+      line_start = i + 1;
+    }
+  }
+  let character = (byte_offset.saturating_sub(line_start)) as u32;
+  (line, character)
+}
+
+#[derive(Serialize)]
+struct LspDiagnostic {
+  range: LspRange,
+  message: String,
+  severity: u8, // 1=Error
+}
+
+#[derive(Serialize)]
+struct LspRange {
+  start: LspPosition,
+  end: LspPosition,
+}
+
+#[derive(Serialize)]
+struct LspPosition {
+  line: u32,
+  character: u32,
 }
 
 fn main() -> Result<()> {
   let args = Args::parse();
+
+  if let Some(Command::Check { path, json }) = args.command {
+    if !json {
+      eprintln!("check requires --json");
+      std::process::exit(1);
+    }
+    let source = match path.as_ref() {
+      Some(p) => std::fs::read_to_string(p).unwrap_or_else(|e| {
+        eprintln!("{}", e);
+        std::process::exit(1);
+      }),
+      None => {
+        use std::io::Read;
+        let mut s = String::new();
+        std::io::stdin().read_to_string(&mut s).unwrap();
+        s
+      }
+    };
+    let parse_result = parser::parse(&source);
+    let diagnostics: Vec<LspDiagnostic> = parse_result
+      .errors
+      .iter()
+      .map(|e| {
+        let start_byte: u32 = e.range.start().into();
+        let end_byte: u32 = e.range.end().into();
+        let (start_line, start_char) = offset_to_line_character(&source, start_byte as usize);
+        let (end_line, end_char) = offset_to_line_character(&source, end_byte as usize);
+        LspDiagnostic {
+          range: LspRange {
+            start: LspPosition {
+              line: start_line,
+              character: start_char,
+            },
+            end: LspPosition {
+              line: end_line,
+              character: end_char,
+            },
+          },
+          message: e.to_string(),
+          severity: 1, // Error
+        }
+      })
+      .collect();
+    println!("{}", serde_json::to_string(&diagnostics).unwrap());
+    return Ok(());
+  }
 
   if let Some(Command::Compile { path }) = args.command {
     match compile::resolve_entry_and_project_root(&path) {

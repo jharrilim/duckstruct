@@ -8,13 +8,13 @@ import * as assert from 'assert';
 import { getDocUri, activate } from './helper';
 
 suite('Should do completion', () => {
-	const docUri = getDocUri('completion.txt');
+	const docUri = getDocUri('completion.ds');
 
-	test('Completes JS/TS in txt file', async () => {
+	test('Completes in duckstruct file', async () => {
 		await testCompletion(docUri, new vscode.Position(0, 0), {
 			items: [
-				{ label: 'JavaScript', kind: vscode.CompletionItemKind.Text },
-				{ label: 'TypeScript', kind: vscode.CompletionItemKind.Text }
+				{ label: 'f', kind: vscode.CompletionItemKind.Keyword },
+				{ label: 'let', kind: vscode.CompletionItemKind.Keyword }
 			]
 		});
 	});

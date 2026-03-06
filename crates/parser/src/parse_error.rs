@@ -12,8 +12,10 @@ pub enum Expectations {
 pub struct ParseError {
   pub(super) expected: Expectations,
   pub(super) found: Option<TokenKind>,
-  pub(super) range: TextRange,
-  pub(super) line: usize,
+  /// Byte range in the source (for LSP/tooling).
+  pub range: TextRange,
+  /// 0-based line number.
+  pub line: usize,
 }
 
 impl fmt::Display for ParseError {

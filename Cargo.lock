@@ -215,6 +215,7 @@ dependencies = [
  "rustyline",
  "rustyline-derive",
  "serde",
+ "serde_json",
  "syntax",
  "tempfile",
  "tycheck",

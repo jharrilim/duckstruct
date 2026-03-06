@@ -2,6 +2,8 @@
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
+import { execFile } from 'child_process';
+import { fileURLToPath } from 'url';
 import {
 	createConnection,
 	TextDocuments,
@@ -83,13 +85,19 @@ connection.onInitialized(() => {
 // The example settings
 interface ExampleSettings {
 	maxNumberOfProblems: number;
+	duckstructPath: string;
 }
 
 // The global settings, used when the `workspace/configuration` request is not supported by the client.
-// Please note that this is not the case when using this server with the client provided in this example
-// but could happen with other clients.
-const defaultSettings: ExampleSettings = { maxNumberOfProblems: 1000 };
+const defaultSettings: ExampleSettings = { maxNumberOfProblems: 1000, duckstructPath: 'duckstruct' };
 let globalSettings: ExampleSettings = defaultSettings;
+
+// LSP diagnostic from Rust check --json
+interface CheckDiagnostic {
+	range: { start: { line: number; character: number }; end: { line: number; character: number } };
+	message: string;
+	severity: number;
+}
 
 // Cache the settings of all open documents
 const documentSettings: Map<string, Thenable<ExampleSettings>> = new Map();
@@ -135,50 +143,62 @@ documents.onDidChangeContent(change => {
 });
 
 async function validateTextDocument(textDocument: TextDocument): Promise<void> {
-	// In this simple example we get the settings for every validate run.
 	const settings = await getDocumentSettings(textDocument.uri);
-
-	// The validator creates diagnostics for all uppercase words length 2 and more
-	const text = textDocument.getText();
-	const pattern = /\b[A-Z]{2,}\b/g;
-	let m: RegExpExecArray | null;
-
-	let problems = 0;
-	const diagnostics: Diagnostic[] = [];
-	while ((m = pattern.exec(text)) && problems < settings.maxNumberOfProblems) {
-		problems++;
-		const diagnostic: Diagnostic = {
-			severity: DiagnosticSeverity.Warning,
-			range: {
-				start: textDocument.positionAt(m.index),
-				end: textDocument.positionAt(m.index + m[0].length)
-			},
-			message: `${m[0]} is all uppercase.`,
-			source: 'ex'
-		};
-		if (hasDiagnosticRelatedInformationCapability) {
-			diagnostic.relatedInformation = [
-				{
-					location: {
-						uri: textDocument.uri,
-						range: Object.assign({}, diagnostic.range)
-					},
-					message: 'Spelling matters'
-				},
-				{
-					location: {
-						uri: textDocument.uri,
-						range: Object.assign({}, diagnostic.range)
-					},
-					message: 'Particularly for names'
-				}
-			];
-		}
-		diagnostics.push(diagnostic);
+	const uri = textDocument.uri;
+	if (!uri.startsWith('file:')) {
+		connection.sendDiagnostics({ uri, diagnostics: [] });
+		return;
 	}
+	const filePath = fileURLToPath(uri);
+	const duckstructPath = settings.duckstructPath || 'duckstruct';
 
-	// Send the computed diagnostics to VSCode.
-	connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
+	const diagnostics: Diagnostic[] = await new Promise((resolve) => {
+		execFile(duckstructPath, ['check', '--json', filePath], { timeout: 5000 }, (err: Error | null, stdout: string | Buffer, _stderr: string | Buffer) => {
+			const out = (typeof stdout === 'string' ? stdout : stdout.toString()).trim();
+			if (err) {
+				// Binary missing or non-zero exit (e.g. parse errors are still printed to stdout)
+				if (out) {
+					try {
+						const raw: CheckDiagnostic[] = JSON.parse(out);
+						resolve(
+							raw.map((d) => ({
+								range: {
+									start: { line: d.range.start.line, character: d.range.start.character },
+									end: { line: d.range.end.line, character: d.range.end.character }
+								},
+								message: d.message,
+								severity: d.severity === 1 ? DiagnosticSeverity.Error : DiagnosticSeverity.Warning,
+								source: 'duckstruct'
+							}))
+						);
+						return;
+					} catch (_e) {
+						// fall through to empty
+					}
+				}
+				resolve([]);
+				return;
+			}
+			try {
+				const raw: CheckDiagnostic[] = JSON.parse(out || '[]');
+				resolve(
+					raw.map((d) => ({
+						range: {
+							start: { line: d.range.start.line, character: d.range.start.character },
+							end: { line: d.range.end.line, character: d.range.end.character }
+						},
+						message: d.message,
+						severity: d.severity === 1 ? DiagnosticSeverity.Error : DiagnosticSeverity.Warning,
+						source: 'duckstruct'
+					}))
+				);
+			} catch (_e) {
+				resolve([]);
+			}
+		});
+	});
+
+	connection.sendDiagnostics({ uri, diagnostics });
 }
 
 connection.onDidChangeWatchedFiles(_change => {
@@ -186,37 +206,44 @@ connection.onDidChangeWatchedFiles(_change => {
 	connection.console.log('We received an file change event');
 });
 
-// This handler provides the initial list of the completion items.
+// Duckstruct keywords and stdlib for completion
+const KEYWORD_ITEMS: CompletionItem[] = [
+	{ label: 'f', kind: CompletionItemKind.Keyword, data: 'kw_f', detail: 'function' },
+	{ label: 'let', kind: CompletionItemKind.Keyword, data: 'kw_let', detail: 'binding' },
+	{ label: 'if', kind: CompletionItemKind.Keyword, data: 'kw_if' },
+	{ label: 'else', kind: CompletionItemKind.Keyword, data: 'kw_else' },
+	{ label: 'for', kind: CompletionItemKind.Keyword, data: 'kw_for' },
+	{ label: 'in', kind: CompletionItemKind.Keyword, data: 'kw_in' },
+	{ label: 'where', kind: CompletionItemKind.Keyword, data: 'kw_where' },
+	{ label: 'while', kind: CompletionItemKind.Keyword, data: 'kw_while' },
+	{ label: 'use', kind: CompletionItemKind.Keyword, data: 'kw_use', detail: 'import' },
+	{ label: 'as', kind: CompletionItemKind.Keyword, data: 'kw_as' },
+	{ label: 'pub', kind: CompletionItemKind.Keyword, data: 'kw_pub', detail: 'public' },
+	{ label: 'mod', kind: CompletionItemKind.Keyword, data: 'kw_mod', detail: 'module' },
+	{ label: 'class', kind: CompletionItemKind.Keyword, data: 'kw_class' },
+	{ label: 'true', kind: CompletionItemKind.Keyword, data: 'lit_true' },
+	{ label: 'false', kind: CompletionItemKind.Keyword, data: 'lit_false' }
+];
+const STDLIB_ITEMS: CompletionItem[] = [
+	{ label: 'file', kind: CompletionItemKind.Module, data: 'stdlib_file', detail: 'stdlib module', documentation: 'use file::{ read, write }' },
+	{ label: 'read', kind: CompletionItemKind.Function, data: 'stdlib_read', detail: 'file.read(path)', documentation: 'Read file at path' },
+	{ label: 'write', kind: CompletionItemKind.Function, data: 'stdlib_write', detail: 'file.write(path, content)', documentation: 'Write content to path' },
+	{ label: 'print', kind: CompletionItemKind.Function, data: 'stdlib_print', detail: 'print(value)', documentation: 'Print value (LLVM backend)' },
+	{ label: 'PI', kind: CompletionItemKind.Constant, data: 'stdlib_pi', detail: 'constant', documentation: 'Math constant π (LLVM backend)' }
+];
+
 connection.onCompletion(
 	(_textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => {
-		// The pass parameter contains the position of the text document in
-		// which code complete got requested. For the example we ignore this
-		// info and always provide the same completion items.
-		return [
-			{
-				label: 'TypeScript',
-				kind: CompletionItemKind.Text,
-				data: 1
-			},
-			{
-				label: 'JavaScript',
-				kind: CompletionItemKind.Text,
-				data: 2
-			}
-		];
+		return [...KEYWORD_ITEMS, ...STDLIB_ITEMS];
 	}
 );
 
-// This handler resolves additional information for the item selected in
-// the completion list.
 connection.onCompletionResolve(
 	(item: CompletionItem): CompletionItem => {
-		if (item.data === 1) {
-			item.detail = 'TypeScript details';
-			item.documentation = 'TypeScript documentation';
-		} else if (item.data === 2) {
-			item.detail = 'JavaScript details';
-			item.documentation = 'JavaScript documentation';
+		const d = item.data as string | undefined;
+		if (!d) return item;
+		if (d.startsWith('kw_') || d.startsWith('lit_')) {
+			item.documentation = item.detail ? `Keyword: ${item.detail}` : undefined;
 		}
 		return item;
 	}

@@ -17,7 +17,7 @@
 		"vscode": "^1.75.0"
 	},
 	"activationEvents": [
-		"onLanguage:plaintext"
+		"onLanguage:duckstruct"
 	],
 	"main": "./client/out/extension",
 	"contributes": {
@@ -57,6 +57,12 @@
 					],
 					"default": "off",
 					"description": "Traces the communication between VS Code and the language server."
+				},
+				"languageServerExample.duckstructPath": {
+					"scope": "resource",
+					"type": "string",
+					"default": "duckstruct",
+					"description": "Path to the duckstruct binary (for diagnostics). Use 'duckstruct' if on PATH, or e.g. absolute path to target/debug/duckstruct."
 				}
 			}
 		}
