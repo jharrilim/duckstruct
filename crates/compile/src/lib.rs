@@ -198,7 +198,17 @@ impl Compiler {
 
     let (code, llvm_object_path) = if modules::collect_use_deps(&ast).is_empty() {
       match target {
-        TargetLang::Javascript => (self.compile_js(&source)?, None::<std::path::PathBuf>),
+        TargetLang::Javascript => {
+          let hir = lower(ast.clone());
+          let mut tycheck = TyCheck::new(hir);
+          tycheck.infer_with_modules(None, prelude_ref, global_external_fns_ref);
+          let ext_names: std::collections::HashSet<String> =
+            global_external_fns.iter().map(|(n, _)| n.clone()).collect();
+          let code = JsGenerator::new(&tycheck)
+            .with_external_functions(ext_names)
+            .generate_js();
+          (code, None::<std::path::PathBuf>)
+        }
         TargetLang::Llvm => {
           #[cfg(not(feature = "llvm"))]
           return Err("LLVM backend requires building with --features llvm and having LLVM installed".to_string());
@@ -292,8 +302,13 @@ impl Compiler {
             })
             .collect();
 
+          let ext_names: std::collections::HashSet<String> = global_external_fns
+            .iter()
+            .map(|(n, _)| n.clone())
+            .collect();
           let entry_js = JsGenerator::new(&entry_tycheck)
             .with_import_map(import_map)
+            .with_external_functions(ext_names)
             .generate_js();
           bundle.push_str(&entry_js);
 

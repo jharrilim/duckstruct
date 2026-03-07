@@ -1,0 +1,12 @@
+// Basic Duckstruct example
+// Run from repo root: duckstruct compile examples/basic
+// print(...) is a builtin; in JS it becomes console.log (accepts a number like the LLVM backend).
+
+let Person = f(name) = {{
+  name: name,
+}};
+
+let p = Person("duck");
+
+let greeting = "hello, " + p.name;
+print(greeting);

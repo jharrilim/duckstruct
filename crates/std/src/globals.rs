@@ -33,10 +33,11 @@ fn globals_js() -> Vec<(String, TypedExpr)> {
 }
 
 /// Returns global external (builtin) function names and their parameter count for the given backend.
-/// These are declared in the module and must be provided at link time (e.g. print for LLVM).
+/// LLVM: declared in the module and implemented/linked (e.g. print -> printf).
+/// JS: print is emitted as console.log by the codegen.
 pub fn external_functions_for_backend(backend: Backend) -> Vec<(String, usize)> {
   match backend {
     Backend::Llvm => vec![("print".to_string(), 1)],
-    Backend::Js => vec![],
+    Backend::Js => vec![("print".to_string(), 1)],
   }
 }

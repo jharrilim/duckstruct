@@ -19,6 +19,8 @@ pub struct JsGenerator<'tycheck> {
   module_pub_names: Option<std::collections::HashSet<String>>,
   /// When generating entry with imports: map local name -> (module_name, export_name) for prefixed emit.
   import_map: Option<HashMap<String, (String, String)>>,
+  /// Builtin names (e.g. print) that are not emitted as defs; calls are emitted as console.log etc.
+  external_functions: Option<std::collections::HashSet<String>>,
 }
 
 impl<'tycheck> CodeGenerator for JsGenerator<'tycheck> {
@@ -34,7 +36,17 @@ impl<'tycheck> JsGenerator<'tycheck> {
       prefix: None,
       module_pub_names: None,
       import_map: None,
+      external_functions: None,
     }
+  }
+
+  /// Skip emitting defs for these names (stdlib builtins like print; calls are special-cased in generate_expr).
+  pub fn with_external_functions(
+    mut self,
+    names: impl IntoIterator<Item = String>,
+  ) -> Self {
+    self.external_functions = Some(names.into_iter().collect());
+    self
   }
 
   /// Configure generator to emit a dependency module's pub defs with a prefix (for bundling).
@@ -72,6 +84,13 @@ impl<'tycheck> JsGenerator<'tycheck> {
     let mut stmts: Vec<String> = Vec::new();
     let defs = self.tycheck.ty_db.defs_iter();
     for (name, stmt) in defs {
+      if self
+        .external_functions
+        .as_ref()
+        .map_or(false, |ext| ext.contains(name))
+      {
+        continue;
+      }
       if let (Some(_), Some(pub_names)) = (&self.prefix, &self.module_pub_names) {
         if !pub_names.contains(name) {
           continue;
@@ -132,25 +151,34 @@ impl<'tycheck> JsGenerator<'tycheck> {
         if ty.has_value() {
           format!("{}", ty)
         } else {
-          let args = args
+          let args_str = args
             .iter()
             .map(|a| self.generate_expr(a))
             .collect::<Vec<_>>()
             .join(", ");
 
-          let lhs = match self.tycheck.ty_db.expr(def) {
-            TypedExpr::FunctionDef(FunctionDef { name, .. }) => match name {
-              Some(s) => s.clone(),
-              None => "".to_string(),
-            },
-            TypedExpr::VariableRef { var, .. } => var.clone(),
-            _ => {
-              let expr = self.tycheck.ty_db.expr(def);
-              expr.ty().to_string()
-            }
+          let callee = match self.tycheck.ty_db.expr(def) {
+            TypedExpr::FunctionDef(FunctionDef { name, .. }) => name.as_deref().unwrap_or(""),
+            TypedExpr::VariableRef { var, .. } => var.as_str(),
+            _ => "",
           };
 
-          format!("{}({})", lhs, args)
+          if callee == "print" {
+            format!("console.log({})", args_str)
+          } else {
+            let lhs = match self.tycheck.ty_db.expr(def) {
+              TypedExpr::FunctionDef(FunctionDef { name, .. }) => match name {
+                Some(s) => s.clone(),
+                None => "".to_string(),
+              },
+              TypedExpr::VariableRef { var, .. } => var.clone(),
+              _ => {
+                let expr = self.tycheck.ty_db.expr(def);
+                expr.ty().to_string()
+              }
+            };
+            format!("{}({})", lhs, args_str)
+          }
         }
       }
       TypedExpr::Number { val: Some(val) } => val.to_string(),
