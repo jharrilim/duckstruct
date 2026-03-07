@@ -317,14 +317,14 @@ pub(crate) fn argument_list(p: &mut Parser) -> CompletedMarker {
       }
       Some(TokenKind::Comma) => {
         if !on_expr {
-          panic!(",,,,,sorry cant do that")
+          p.error_expected_one_of(&[TokenKind::Comma]);
         }
         on_expr = false;
         p.bump();
       }
       _ => {
         if on_expr {
-          panic!("u forgor comma 💀")
+          p.error_expected_one_of(&[TokenKind::Comma]);
         }
         on_expr = true;
         expr(p);
