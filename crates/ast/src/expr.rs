@@ -17,6 +17,7 @@ pub enum Expr {
   Block(Block),
   Array(Array),
   Object(Object),
+  StructLiteral(StructLiteral),
   ObjectFieldAccess(ObjectFieldAccess),
   Conditional(Conditional),
   ForExpression(ForExpression),
@@ -42,6 +43,7 @@ impl Expr {
       SyntaxKind::ArrayExpression => Self::Array(Array(node)),
       SyntaxKind::ConditionalExpression => Self::Conditional(Conditional(node)),
       SyntaxKind::ObjectExpression => Self::Object(Object(node)),
+      SyntaxKind::StructLiteralExpression => Self::StructLiteral(StructLiteral(node)),
       SyntaxKind::ObjectFieldAccessExpression => Self::ObjectFieldAccess(ObjectFieldAccess(node)),
       SyntaxKind::ForExpression => Self::ForExpression(ForExpression(node)),
       _ => return None,
@@ -65,6 +67,7 @@ impl Expr {
       Self::Block(expr) => expr.span(),
       Self::Array(expr) => expr.span(),
       Self::Object(expr) => expr.span(),
+      Self::StructLiteral(expr) => expr.span(),
       Self::ObjectFieldAccess(expr) => expr.span(),
       Self::Conditional(expr) => expr.span(),
       Self::ForExpression(expr) => expr.span(),
@@ -334,6 +337,46 @@ impl Conditional {
       .children()
       .find(|t| t.kind() == SyntaxKind::ElseCondition)
       .and_then(|t| t.first_child())
+      .and_then(Expr::cast)
+  }
+
+  pub fn span(&self) -> TextRange {
+    self.0.text_range()
+  }
+}
+
+/// `new TypeName { field: expr, ... }` struct construction.
+#[derive(Debug, Clone)]
+pub struct StructLiteral(pub(crate) SyntaxNode);
+impl StructLiteral {
+  pub fn type_expr(&self) -> Option<Expr> {
+    self.0.children().find_map(Expr::cast)
+  }
+
+  pub fn fields(&self) -> impl Iterator<Item = (String, Option<Expr>)> + '_ {
+    self
+      .0
+      .children()
+      .filter(|c| c.kind() == SyntaxKind::ObjectField)
+      .map(|c| (Self::field_key(&c), Self::field_value(&c)))
+  }
+
+  fn field_key(field_node: &SyntaxNode) -> String {
+    field_node
+      .children()
+      .find(|c| c.kind() == SyntaxKind::ObjectFieldKey)
+      .unwrap()
+      .first_token()
+      .unwrap()
+      .text()
+      .to_string()
+  }
+
+  fn field_value(field_node: &SyntaxNode) -> Option<Expr> {
+    field_node
+      .children()
+      .find(|c| c.kind() == SyntaxKind::ObjectFieldValue)
+      .and_then(|c| c.first_child())
       .and_then(Expr::cast)
   }
 

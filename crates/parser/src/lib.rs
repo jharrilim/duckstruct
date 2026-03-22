@@ -511,15 +511,21 @@ mod tests {
   }
 
   #[test]
-  fn parse_class_empty_no_errors() {
-    let code = "class Foo {}\nlet x = 1;\n";
+  fn parse_struct_empty_no_errors() {
+    let code = "struct Foo {}\nlet x = 1;\n";
     let parsed = parse(code);
     assert!(parsed.errors.is_empty(), "{:?}", parsed.errors);
   }
 
   #[test]
-  fn parse_pub_class_empty_no_errors() {
-    let code = "pub class Bar {}\n";
+  fn parse_new_struct_literal_empty() {
+    let code = "let x = new Foo { };";
+    parse_snapshot!(code);
+  }
+
+  #[test]
+  fn parse_pub_struct_empty_no_errors() {
+    let code = "pub struct Bar {}\n";
     let parsed = parse(code);
     assert!(parsed.errors.is_empty(), "{:?}", parsed.errors);
   }

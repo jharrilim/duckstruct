@@ -159,13 +159,13 @@ pub(super) fn use_stmt(p: &mut Parser) -> CompletedMarker {
   m.complete(p, SyntaxKind::UseStatement)
 }
 
-/// `class Name { ... }` or `pub class Name { ... }` (pub consumed here when present).
-pub(super) fn class_definition(p: &mut Parser) -> CompletedMarker {
+/// `struct Name { ... }` or `pub struct Name { ... }` (pub consumed here when present).
+pub(super) fn struct_definition(p: &mut Parser) -> CompletedMarker {
   let m = p.start();
   if p.at(TokenKind::Pub) {
     p.bump();
   }
-  p.expect(TokenKind::Class);
+  p.expect(TokenKind::Struct);
   p.bump();
   p.expect(TokenKind::Identifier);
   p.bump();
@@ -186,7 +186,7 @@ pub(super) fn class_definition(p: &mut Parser) -> CompletedMarker {
       }
     }
   }
-  m.complete(p, SyntaxKind::ClassStatement)
+  m.complete(p, SyntaxKind::StructStatement)
 }
 
 pub(super) fn let_stmt(p: &mut Parser) -> CompletedMarker {
@@ -426,6 +426,35 @@ pub(crate) fn array_literal(p: &mut Parser) -> CompletedMarker {
   }
 }
 
+/// `new TypeName { field: expr, ... }` struct construction.
+pub(crate) fn new_struct_literal_expr(p: &mut Parser) -> CompletedMarker {
+  let m = p.start();
+  p.expect(TokenKind::New);
+  p.bump();
+  path_or_variable_ref(p);
+  p.expect(TokenKind::LeftBrace);
+  p.bump();
+  loop {
+    match p.peek() {
+      Some(TokenKind::RightBrace) => {
+        p.bump();
+        break;
+      }
+      None => {
+        p.expected(TokenKind::RightBrace);
+        break;
+      }
+      _ => {
+        object_field(p);
+        if p.peek() == Some(TokenKind::Comma) {
+          p.bump();
+        }
+      }
+    }
+  }
+  m.complete(p, SyntaxKind::StructLiteralExpression)
+}
+
 pub(crate) fn object_literal(p: &mut Parser) -> CompletedMarker {
   p.expect(TokenKind::DoubleLeftBrace);
   let m = p.start();
@@ -450,7 +479,7 @@ pub(crate) fn object_literal(p: &mut Parser) -> CompletedMarker {
   }
 }
 
-fn object_field(p: &mut Parser) -> CompletedMarker {
+pub(crate) fn object_field(p: &mut Parser) -> CompletedMarker {
   p.expect(TokenKind::Identifier);
   let m = p.start();
   {

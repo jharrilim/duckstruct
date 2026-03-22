@@ -220,7 +220,7 @@ const KEYWORD_ITEMS: CompletionItem[] = [
 	{ label: 'as', kind: CompletionItemKind.Keyword, data: 'kw_as' },
 	{ label: 'pub', kind: CompletionItemKind.Keyword, data: 'kw_pub', detail: 'public' },
 	{ label: 'mod', kind: CompletionItemKind.Keyword, data: 'kw_mod', detail: 'module' },
-	{ label: 'class', kind: CompletionItemKind.Keyword, data: 'kw_class' },
+	{ label: 'struct', kind: CompletionItemKind.Keyword, data: 'kw_struct' },
 	{ label: 'true', kind: CompletionItemKind.Keyword, data: 'lit_true' },
 	{ label: 'false', kind: CompletionItemKind.Keyword, data: 'lit_false' }
 ];

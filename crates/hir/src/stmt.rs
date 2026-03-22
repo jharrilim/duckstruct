@@ -12,7 +12,7 @@ pub enum Stmt {
     value: DatabaseIdx,
     pub_vis: bool,
   },
-  ClassDef {
+  StructDef {
     name: String,
     pub_vis: bool,
   },

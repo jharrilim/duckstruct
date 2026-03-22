@@ -1,4 +1,4 @@
-class Printer {
+struct Printer {
   text = "";
 
   write(s = this.text) {
@@ -6,13 +6,13 @@ class Printer {
   }
 }
 
-class Story {
+struct Story {
   private static story = "a story";
   header = "This is {.story} all about how,";
   body() => "my life got flipped, turned upside down";
 
   read() {
-    let p = Printer {
+    let p = new Printer {
       text: header + " " + body(),
     };
     p.write()
@@ -20,7 +20,7 @@ class Story {
 }
 
 f main() {
-  let p = Printer { };
+  let p = new Printer { };
   p.write("Hello world");
-  Story { }.read();
+  new Story { }.read();
 }

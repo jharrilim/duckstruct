@@ -10,11 +10,12 @@ pub enum SyntaxKind {
   Whitespace,
   Function, // the keyword
   Boolean,  // true or false
-  Class,
+  Struct,
   Let,
   If,
   Else,
   For,
+  New,
   In,
   Where,
   While,
@@ -61,7 +62,7 @@ pub enum SyntaxKind {
 
   // Statements
   LetStatement,
-  ClassStatement,
+  StructStatement,
   UseStatement,
   UsePath,
   UseList,
@@ -89,6 +90,7 @@ pub enum SyntaxKind {
   ObjectFieldKey,
   ObjectFieldValue,
   ObjectFieldAccessExpression,
+  StructLiteralExpression,
   // Loops
   ForExpression,
   ForPattern,
@@ -116,11 +118,12 @@ impl From<TokenKind> for SyntaxKind {
       TokenKind::Whitespace => Self::Whitespace,
       TokenKind::Boolean => Self::Boolean,
       TokenKind::Function => Self::Function,
-      TokenKind::Class => Self::Class,
+      TokenKind::Struct => Self::Struct,
       TokenKind::Let => Self::Let,
       TokenKind::If => Self::If,
       TokenKind::Else => Self::Else,
       TokenKind::For => Self::For,
+      TokenKind::New => Self::New,
       TokenKind::In => Self::In,
       TokenKind::Where => Self::Where,
       TokenKind::While => Self::While,

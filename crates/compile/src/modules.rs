@@ -417,15 +417,15 @@ read(0)
     assert!(is_pub, "read should be public");
   }
 
-  /// `pub class` is exported and visible as `TypedStmt::ClassDef` with `pub_vis`.
+  /// `pub struct` is exported and visible as `TypedStmt::StructDef` with `pub_vis`.
   #[test]
-  fn test_pub_class_export_is_public() {
+  fn test_pub_struct_export_is_public() {
     let dir = tempfile::tempdir().expect("temp dir");
     let root = dir.path();
     let main_ds = root.join("main.ds");
     let helper_ds = root.join("helper.ds");
 
-    fs::write(&helper_ds, "pub class Foo {}\n").expect("write helper.ds");
+    fs::write(&helper_ds, "pub struct Foo {}\n").expect("write helper.ds");
     fs::write(
       &main_ds,
       r#"
@@ -445,10 +445,10 @@ use helper::{Foo};
       .definition("Foo")
       .expect("helper should define Foo");
     let is_pub = match def {
-      tycheck::typed_hir::TypedStmt::ClassDef { pub_vis, .. } => *pub_vis,
+      tycheck::typed_hir::TypedStmt::StructDef { pub_vis, .. } => *pub_vis,
       _ => false,
     };
-    assert!(is_pub, "Foo class should be public");
+    assert!(is_pub, "Foo struct should be public");
   }
 
   /// `use root::...` without a project root (no manifest) returns an error.

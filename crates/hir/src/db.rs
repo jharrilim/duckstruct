@@ -45,7 +45,7 @@ impl Database {
         Stmt::FunctionDef { name, .. } => {
           self.defs.insert(name.clone(), stmt);
         }
-        Stmt::ClassDef { name, .. } => {
+        Stmt::StructDef { name, .. } => {
           self.defs.insert(name.clone(), stmt);
         }
         Stmt::Expr(expr) => {
@@ -81,7 +81,7 @@ impl Database {
         let items = ast.items();
         Stmt::Use { path, items }
       }
-      ast::Stmt::ClassDef(ast) => Stmt::ClassDef {
+      ast::Stmt::StructDef(ast) => Stmt::StructDef {
         name: ast.name()?.text().to_string(),
         pub_vis: ast.is_pub(),
       },
@@ -143,6 +143,18 @@ impl Database {
         ast::Expr::Conditional(ast) => self.lower_conditional(ast),
         ast::Expr::Object(ast) => self.lower_object(ast),
         ast::Expr::ObjectFieldAccess(ast) => self.lower_object_field_access(ast),
+        ast::Expr::StructLiteral(sl) => {
+          let type_expr = self.lower_expr(sl.type_expr());
+          let mut fields = FxIndexMap::default();
+          for (k, v) in sl.fields() {
+            fields.insert(k, self.lower_expr(v));
+          }
+          self.exprs.alloc(Expr::StructLiteral {
+            type_expr,
+            fields,
+            ast: sl.clone(),
+          })
+        },
         ast::Expr::ForExpression(ast) => self.lower_for_expression(ast),
       }
     } else {

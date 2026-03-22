@@ -25,8 +25,8 @@ pub enum TokenKind {
   #[token("let")]
   Let,
 
-  #[token("class")]
-  Class,
+  #[token("struct")]
+  Struct,
 
   #[token("if")]
   If,
@@ -36,6 +36,9 @@ pub enum TokenKind {
 
   #[token("for")]
   For,
+
+  #[token("new")]
+  New,
 
   #[token("in")]
   In,
@@ -184,11 +187,12 @@ impl fmt::Display for TokenKind {
       Self::Whitespace => "whitespace",
       Self::Function => "'f'",
       Self::Boolean => "boolean",
-      Self::Class => "'class'",
+      Self::Struct => "'struct'",
       Self::Let => "'let'",
       Self::If => "'if'",
       Self::Else => "'else'",
       Self::For => "'for'",
+      Self::New => "'new'",
       Self::In => "'in'",
       Self::Where => "'where'",
       Self::While => "'while'",

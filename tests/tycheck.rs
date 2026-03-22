@@ -633,14 +633,14 @@ mod expressions {
   }
 }
 
-mod classes {
+mod structs {
   use super::*;
 
   #[test]
-  fn tycheck_function_returning_class_instance() {
+  fn tycheck_function_returning_struct_instance() {
     let code = "
-      class Foo { }
-      let a = f() = Foo()
+      struct Foo { }
+      let a = f() = new Foo { }
     ";
     let tycheck = tycheck(code);
 
@@ -655,10 +655,10 @@ mod classes {
   }
 
   #[test]
-  fn tycheck_class_constructor_call() {
+  fn tycheck_struct_literal_empty() {
     let code = "
-      class Foo { }
-      let x = Foo()
+      struct Foo { }
+      let x = new Foo { }
     ";
     let tycheck = tycheck(code);
 
@@ -666,14 +666,20 @@ mod classes {
   }
 
   #[test]
-  fn tycheck_class_constructor_wrong_arity_errors() {
+  fn tycheck_struct_constructor_call_errors() {
     let code = "
-      class Foo { }
+      struct Foo { }
       let x = Foo(1)
     ";
     let tycheck = tycheck(code);
 
     assert!(tycheck.diagnostics.has_errors());
+    let first = tycheck.diagnostics.errors.first().unwrap();
+    assert!(
+      first.message().contains("new"),
+      "expected hint to use `new` struct syntax, got: {}",
+      first.message()
+    );
   }
 }
 

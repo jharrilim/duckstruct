@@ -13,7 +13,7 @@ pub enum Ty {
     params: Vec<Ty>,
     ret: Option<Box<Ty>>,
   },
-  /// Nominal instance of a class (displayed as the class name).
+  /// Nominal instance of a struct (displayed as the struct name).
   Instance(String),
   Generic,
   Error,

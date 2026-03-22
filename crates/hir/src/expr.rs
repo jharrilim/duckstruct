@@ -69,6 +69,11 @@ pub enum Expr {
     field: String,
     ast: ast::expr::ObjectFieldAccess,
   },
+  StructLiteral {
+    type_expr: Idx<Self>,
+    fields: FxIndexMap<String, Idx<Self>>,
+    ast: ast::expr::StructLiteral,
+  },
   For {
     binding: Pat,
     iterable: Idx<Self>,

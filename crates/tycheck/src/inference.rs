@@ -98,7 +98,7 @@ impl TyCheck {
               let is_pub = match typed_stmt {
                 TypedStmt::VariableDef { pub_vis, .. }
                 | TypedStmt::FunctionDef { pub_vis, .. }
-                | TypedStmt::ClassDef { pub_vis, .. } => {
+                | TypedStmt::StructDef { pub_vis, .. } => {
                   *pub_vis
                 }
                 _ => false,
@@ -143,12 +143,12 @@ impl TyCheck {
         Stmt::FunctionDef { name, value, pub_vis } => {
           self.infer_function_def(scope, name, value, *pub_vis, module_map)
         }
-        Stmt::ClassDef { name, pub_vis } => {
-          let ctor = self.ty_db.alloc(TypedExpr::ClassConstructor {
+        Stmt::StructDef { name, pub_vis } => {
+          let ctor = self.ty_db.alloc(TypedExpr::StructConstructor {
             name: name.clone(),
           });
           scope.define(name.clone(), ctor);
-          TypedStmt::ClassDef {
+          TypedStmt::StructDef {
             name: name.clone(),
             value: ctor,
             pub_vis: *pub_vis,
@@ -211,6 +211,11 @@ impl TyCheck {
       Expr::ObjectFieldAccess { object, field, ast } => {
         return self.infer_object_field_access(scope, object, field, ast, module_map)
       }
+      Expr::StructLiteral {
+        type_expr,
+        fields,
+        ast,
+      } => return self.infer_struct_literal(scope, type_expr, fields, ast, module_map),
       Expr::PathRef { path, .. } => return self.infer_path_ref(scope, path, module_map),
       Expr::Missing => {
         todo!("Handle expression missing: {:?}", expr);
@@ -240,7 +245,7 @@ impl TyCheck {
           let is_pub = match typed_stmt {
             TypedStmt::VariableDef { pub_vis, .. }
             | TypedStmt::FunctionDef { pub_vis, .. }
-            | TypedStmt::ClassDef { pub_vis, .. } => *pub_vis,
+            | TypedStmt::StructDef { pub_vis, .. } => *pub_vis,
             _ => false,
           };
           if is_pub {
@@ -254,6 +259,103 @@ impl TyCheck {
       }
     }
     self.ty_db.alloc(TypedExpr::Error)
+  }
+
+  fn infer_struct_literal(
+    &mut self,
+    scope: &mut Scope,
+    type_expr: &DatabaseIdx,
+    fields: &FxIndexMap<String, DatabaseIdx>,
+    ast: &ast::expr::StructLiteral,
+    module_map: Option<&ModuleMap<'_>>,
+  ) -> TypedDatabaseIdx {
+    if !fields.is_empty() {
+      self.diagnostics.push_error(
+        "struct literals with fields are not yet supported".into(),
+        ast.span(),
+      );
+      return self.ty_db.alloc(TypedExpr::Error);
+    }
+
+    let hir_db = Rc::clone(&self.hir_db);
+    let struct_name = match hir_db.get_expr(type_expr) {
+      Expr::VariableRef { var, .. } => {
+        let Some(def) = scope.def(var) else {
+          self
+            .diagnostics
+            .push_error(format!("undefined `{}`", var), ast.span());
+          return self.ty_db.alloc(TypedExpr::Error);
+        };
+        match self.ty_db.expr(&def) {
+          TypedExpr::StructConstructor { name } => name.clone(),
+          _ => {
+            self.diagnostics.push_error(
+              format!("`{}` is not a struct type", var),
+              ast.span(),
+            );
+            return self.ty_db.alloc(TypedExpr::Error);
+          }
+        }
+      }
+      Expr::PathRef { path, .. } => {
+        let Some(map) = module_map else {
+          self
+            .diagnostics
+            .push_error("unknown module path".into(), ast.span());
+          return self.ty_db.alloc(TypedExpr::Error);
+        };
+        if path.len() < 2 {
+          self
+            .diagnostics
+            .push_error("invalid struct literal type".into(), ast.span());
+          return self.ty_db.alloc(TypedExpr::Error);
+        }
+        let mod_key = path[0..path.len() - 1].join("::");
+        let item_name = path.last().unwrap();
+        let Some(dep) = map.get(&mod_key) else {
+          self.diagnostics.push_error(
+            format!("unknown module `{}`", mod_key),
+            ast.span(),
+          );
+          return self.ty_db.alloc(TypedExpr::Error);
+        };
+        let Some(typed_stmt) = dep.ty_db.definition(item_name) else {
+          self
+            .diagnostics
+            .push_error(format!("unknown item `{}`", item_name), ast.span());
+          return self.ty_db.alloc(TypedExpr::Error);
+        };
+        match typed_stmt {
+          TypedStmt::StructDef {
+            name,
+            pub_vis: true,
+            ..
+          } => name.clone(),
+          TypedStmt::StructDef { pub_vis: false, .. } => {
+            self.diagnostics.push_error(
+              format!("struct `{}` is not public", item_name),
+              ast.span(),
+            );
+            return self.ty_db.alloc(TypedExpr::Error);
+          }
+          _ => {
+            self.diagnostics.push_error(
+              format!("`{}` is not a struct in this module", item_name),
+              ast.span(),
+            );
+            return self.ty_db.alloc(TypedExpr::Error);
+          }
+        }
+      }
+      _ => {
+        self
+          .diagnostics
+          .push_error("invalid struct literal type".into(), ast.span());
+        return self.ty_db.alloc(TypedExpr::Error);
+      }
+    };
+
+    self.ty_db.alloc(TypedExpr::StructInstance { name: struct_name })
   }
 
   fn infer_variable_ref(&mut self, scope: &mut Scope, var: &str) -> TypedDatabaseIdx {
@@ -565,28 +667,15 @@ impl TyCheck {
     // result of a function call, the end of a block, or just the function definition itself.
     match lhs_expr.clone() {
       TypedExpr::FunctionParameter { name: _, ty: _ } => *lhs,
-      TypedExpr::ClassConstructor { name } => {
-        if !args.is_empty() {
-          self.diagnostics.push_error(
-            format!(
-              "class `{}` constructor expected 0 arguments, but got {}",
-              name,
-              args.len()
-            ),
-            ast.span(),
-          );
-          return self.ty_db.alloc(TypedExpr::Error);
-        }
-        let ret_ty = Ty::Instance(name.clone());
-        let ret_idx = self.ty_db.alloc(TypedExpr::ClassInstance {
-          name: name.clone(),
-        });
-        self.ty_db.alloc(TypedExpr::FunctionCall {
-          args: args.clone(),
-          def: *lhs,
-          ret: ret_idx,
-          ty: ret_ty,
-        })
+      TypedExpr::StructConstructor { name } => {
+        self.diagnostics.push_error(
+          format!(
+            "construct struct `{}` with `new` and `{{ }}`, e.g. `new {} {{ }}`",
+            name, name
+          ),
+          ast.span(),
+        );
+        self.ty_db.alloc(TypedExpr::Error)
       }
       TypedExpr::VariableRef { var, ty } => {
         if scope.is_late_binding(&var) {

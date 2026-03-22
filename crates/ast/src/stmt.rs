@@ -8,7 +8,7 @@ use syntax::{SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 pub enum Stmt {
   VariableDef(VariableDef),
   FunctionDef(FunctionDef),
-  ClassDef(ClassDef),
+  StructDef(StructDef),
   Use(UseStatement),
   Expr(Expr),
 }
@@ -19,7 +19,7 @@ impl Stmt {
       SyntaxKind::LetStatement => Self::VariableDef(VariableDef(node)),
       SyntaxKind::NamedFunction => Self::FunctionDef(FunctionDef(node)),
       SyntaxKind::NamedFunctionExpression => Self::FunctionDef(FunctionDef(node)),
-      SyntaxKind::ClassStatement => Self::ClassDef(ClassDef(node)),
+      SyntaxKind::StructStatement => Self::StructDef(StructDef(node)),
       SyntaxKind::UseStatement => Self::Use(UseStatement(node)),
       _ => Self::Expr(Expr::cast(node)?),
     };
@@ -31,7 +31,7 @@ impl Stmt {
     match self {
       Stmt::VariableDef(def) => def.value(),
       Stmt::FunctionDef(def) => def.func(),
-      Stmt::ClassDef(_) => None,
+      Stmt::StructDef(_) => None,
       Stmt::Use(_) => None,
       Stmt::Expr(expr) => Some(expr.clone()),
     }
@@ -123,9 +123,9 @@ impl UseList {
 }
 
 #[derive(Debug)]
-pub struct ClassDef(SyntaxNode);
+pub struct StructDef(SyntaxNode);
 
-impl ClassDef {
+impl StructDef {
   /// True if this definition is prefixed with `pub`.
   pub fn is_pub(&self) -> bool {
     self

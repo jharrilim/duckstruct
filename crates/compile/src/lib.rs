@@ -269,7 +269,7 @@ impl Compiler {
                 let pub_vis = match stmt {
                   tycheck::typed_hir::TypedStmt::VariableDef { pub_vis, .. }
                   | tycheck::typed_hir::TypedStmt::FunctionDef { pub_vis, .. }
-                  | tycheck::typed_hir::TypedStmt::ClassDef { pub_vis, .. } => *pub_vis,
+                  | tycheck::typed_hir::TypedStmt::StructDef { pub_vis, .. } => *pub_vis,
                   _ => false,
                 };
                 if pub_vis {

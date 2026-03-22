@@ -19,7 +19,7 @@ pub enum TypedStmt {
     value: TypedDatabaseIdx,
     pub_vis: bool,
   },
-  ClassDef {
+  StructDef {
     name: String,
     value: TypedDatabaseIdx,
     pub_vis: bool,
@@ -32,7 +32,7 @@ impl TypedStmt {
     match self {
       TypedStmt::VariableDef { value, .. } => value,
       TypedStmt::FunctionDef { value, .. } => value,
-      TypedStmt::ClassDef { value, .. } => value,
+      TypedStmt::StructDef { value, .. } => value,
       TypedStmt::Expr(value) => value,
     }
   }
@@ -105,11 +105,11 @@ pub enum TypedExpr {
     body: TypedDatabaseIdx,
     ty: Ty,
   },
-  /// Class name in scope; callable with `()` to produce `ClassInstance`.
-  ClassConstructor {
+  /// Struct name in scope; construct values with `new Name { }`, not `Name(...)`.
+  StructConstructor {
     name: String,
   },
-  ClassInstance {
+  StructInstance {
     name: String,
   },
   Unresolved,
@@ -134,11 +134,11 @@ impl TypedExpr {
       Self::Object { ty, .. } => ty.clone(),
       Self::ObjectFieldAccess { ty, .. } => ty.clone(),
       Self::For { ty, .. } => ty.clone(),
-      Self::ClassConstructor { name } => Ty::Function {
+      Self::StructConstructor { name } => Ty::Function {
         params: vec![],
         ret: Some(Box::new(Ty::Instance(name.clone()))),
       },
-      Self::ClassInstance { name } => Ty::Instance(name.clone()),
+      Self::StructInstance { name } => Ty::Instance(name.clone()),
       Self::Unresolved => Ty::Generic,
       Self::Error => Ty::Error,
     }
@@ -161,8 +161,8 @@ impl TypedExpr {
       Self::Object { ty, .. } => ty,
       Self::ObjectFieldAccess { ty, .. } => ty,
       Self::For { ty, .. } => ty,
-      Self::ClassConstructor { .. } => unimplemented!(),
-      Self::ClassInstance { .. } => unimplemented!(),
+      Self::StructConstructor { .. } => unimplemented!(),
+      Self::StructInstance { .. } => unimplemented!(),
       Self::Unresolved => unimplemented!(),
       Self::Error => unimplemented!(),
     }

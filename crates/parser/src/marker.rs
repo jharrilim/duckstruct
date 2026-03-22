@@ -1,4 +1,5 @@
-use crate::{event::Event, parser::Parser};
+use crate::event::Event;
+use crate::parser::Parser;
 use drop_bomb::DropBomb;
 use syntax::SyntaxKind;
 
