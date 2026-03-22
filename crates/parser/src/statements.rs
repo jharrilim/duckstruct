@@ -10,6 +10,7 @@ pub(super) fn stmt(p: &mut Parser) -> Option<CompletedMarker> {
     Some(TokenKind::Pub) => match p.source.peek_next_kind() {
       Some(TokenKind::Let) => Some(parsers::let_stmt(p)),
       Some(TokenKind::Function) => Some(parsers::function_definition(p)),
+      Some(TokenKind::Class) => Some(parsers::class_definition(p)),
       _ => {
         p.error();
         None
@@ -17,6 +18,7 @@ pub(super) fn stmt(p: &mut Parser) -> Option<CompletedMarker> {
     },
     Some(TokenKind::Let) => Some(parsers::let_stmt(p)),
     Some(TokenKind::Function) => Some(parsers::function_definition(p)),
+    Some(TokenKind::Class) => Some(parsers::class_definition(p)),
     _ => expr(p),
   };
 

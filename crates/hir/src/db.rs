@@ -45,6 +45,9 @@ impl Database {
         Stmt::FunctionDef { name, .. } => {
           self.defs.insert(name.clone(), stmt);
         }
+        Stmt::ClassDef { name, .. } => {
+          self.defs.insert(name.clone(), stmt);
+        }
         Stmt::Expr(expr) => {
           self.defs.insert("".to_string(), Stmt::Expr(*expr));
         }
@@ -78,6 +81,10 @@ impl Database {
         let items = ast.items();
         Stmt::Use { path, items }
       }
+      ast::Stmt::ClassDef(ast) => Stmt::ClassDef {
+        name: ast.name()?.text().to_string(),
+        pub_vis: ast.is_pub(),
+      },
       ast::Stmt::Expr(ast) => Stmt::Expr(self.lower_expr(Some(ast))),
     };
 

@@ -633,6 +633,50 @@ mod expressions {
   }
 }
 
+mod classes {
+  use super::*;
+
+  #[test]
+  fn tycheck_function_returning_class_instance() {
+    let code = "
+      class Foo { }
+      let a = f() = Foo()
+    ";
+    let tycheck = tycheck(code);
+
+    expect_type_for_definition(
+      &tycheck,
+      "a",
+      Ty::Function {
+        params: vec![],
+        ret: Some(Box::new(Ty::Instance("Foo".to_string()))),
+      },
+    );
+  }
+
+  #[test]
+  fn tycheck_class_constructor_call() {
+    let code = "
+      class Foo { }
+      let x = Foo()
+    ";
+    let tycheck = tycheck(code);
+
+    expect_type_for_definition(&tycheck, "x", Ty::Instance("Foo".to_string()));
+  }
+
+  #[test]
+  fn tycheck_class_constructor_wrong_arity_errors() {
+    let code = "
+      class Foo { }
+      let x = Foo(1)
+    ";
+    let tycheck = tycheck(code);
+
+    assert!(tycheck.diagnostics.has_errors());
+  }
+}
+
 mod diagnostics {
   use super::*;
 

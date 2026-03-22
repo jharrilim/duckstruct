@@ -159,6 +159,36 @@ pub(super) fn use_stmt(p: &mut Parser) -> CompletedMarker {
   m.complete(p, SyntaxKind::UseStatement)
 }
 
+/// `class Name { ... }` or `pub class Name { ... }` (pub consumed here when present).
+pub(super) fn class_definition(p: &mut Parser) -> CompletedMarker {
+  let m = p.start();
+  if p.at(TokenKind::Pub) {
+    p.bump();
+  }
+  p.expect(TokenKind::Class);
+  p.bump();
+  p.expect(TokenKind::Identifier);
+  p.bump();
+  p.expect(TokenKind::LeftBrace);
+  p.bump();
+  loop {
+    match p.peek() {
+      Some(TokenKind::RightBrace) => {
+        p.bump();
+        break;
+      }
+      None => {
+        p.expected(TokenKind::RightBrace);
+        break;
+      }
+      _ => {
+        statements::stmt(p);
+      }
+    }
+  }
+  m.complete(p, SyntaxKind::ClassStatement)
+}
+
 pub(super) fn let_stmt(p: &mut Parser) -> CompletedMarker {
   let m = p.start();
   if p.at(TokenKind::Pub) {

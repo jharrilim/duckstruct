@@ -61,6 +61,7 @@ pub enum SyntaxKind {
 
   // Statements
   LetStatement,
+  ClassStatement,
   UseStatement,
   UsePath,
   UseList,

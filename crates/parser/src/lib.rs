@@ -511,6 +511,20 @@ mod tests {
   }
 
   #[test]
+  fn parse_class_empty_no_errors() {
+    let code = "class Foo {}\nlet x = 1;\n";
+    let parsed = parse(code);
+    assert!(parsed.errors.is_empty(), "{:?}", parsed.errors);
+  }
+
+  #[test]
+  fn parse_pub_class_empty_no_errors() {
+    let code = "pub class Bar {}\n";
+    let parsed = parse(code);
+    assert!(parsed.errors.is_empty(), "{:?}", parsed.errors);
+  }
+
+  #[test]
   fn parse_path_expression_two_segments() {
     let code = "foo::bar";
     parse_snapshot!(code);

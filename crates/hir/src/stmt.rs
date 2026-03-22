@@ -12,6 +12,10 @@ pub enum Stmt {
     value: DatabaseIdx,
     pub_vis: bool,
   },
+  ClassDef {
+    name: String,
+    pub_vis: bool,
+  },
   /// path = module path (e.g. ["helper"] or ["subdir", "helper"]); items = names to import.
   Use {
     path: Vec<String>,

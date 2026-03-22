@@ -268,7 +268,8 @@ impl Compiler {
               .filter_map(|(name, stmt)| {
                 let pub_vis = match stmt {
                   tycheck::typed_hir::TypedStmt::VariableDef { pub_vis, .. }
-                  | tycheck::typed_hir::TypedStmt::FunctionDef { pub_vis, .. } => *pub_vis,
+                  | tycheck::typed_hir::TypedStmt::FunctionDef { pub_vis, .. }
+                  | tycheck::typed_hir::TypedStmt::ClassDef { pub_vis, .. } => *pub_vis,
                   _ => false,
                 };
                 if pub_vis {

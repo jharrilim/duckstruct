@@ -162,6 +162,7 @@ impl<'tycheck> LlvmGenerator<'tycheck> {
             main_inits.push((name.clone(), *value));
           }
         }
+        TypedStmt::ClassDef { .. } => {}
         TypedStmt::FunctionDef { value, .. } => {
           let expr = self.tycheck.ty_db.expr(value);
           if let TypedExpr::FunctionDef(FunctionDef {
@@ -543,6 +544,9 @@ impl<'tycheck> LlvmGenerator<'tycheck> {
           _ => return Err("call must return a value".to_string()),
         };
         Ok(result)
+      }
+      TypedExpr::ClassConstructor { .. } | TypedExpr::ClassInstance { .. } => {
+        Err("LLVM backend: class types not yet supported".to_string())
       }
       TypedExpr::FunctionDef(_) => Err("nested function definitions not supported in LLVM backend".to_string()),
       TypedExpr::FunctionParameter { .. } => Err("parameter should be in locals".to_string()),

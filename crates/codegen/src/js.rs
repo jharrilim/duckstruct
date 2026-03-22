@@ -112,6 +112,7 @@ impl<'tycheck> JsGenerator<'tycheck> {
         let value = self.generate_expr(value);
         format!("const {} = {};", name, value)
       }
+      TypedStmt::ClassDef { .. } => String::new(),
       TypedStmt::FunctionDef { value, pub_vis: _, .. } => {
         let (_stmt_name, params, body, _body_hir, _ty) = match self.tycheck.ty_db.expr(value) {
           TypedExpr::FunctionDef(FunctionDef {
@@ -160,6 +161,7 @@ impl<'tycheck> JsGenerator<'tycheck> {
           let callee = match self.tycheck.ty_db.expr(def) {
             TypedExpr::FunctionDef(FunctionDef { name, .. }) => name.as_deref().unwrap_or(""),
             TypedExpr::VariableRef { var, .. } => var.as_str(),
+            TypedExpr::ClassConstructor { name } => name.as_str(),
             _ => "",
           };
 
@@ -172,6 +174,7 @@ impl<'tycheck> JsGenerator<'tycheck> {
                 None => "".to_string(),
               },
               TypedExpr::VariableRef { var, .. } => var.clone(),
+              TypedExpr::ClassConstructor { name } => name.clone(),
               _ => {
                 let expr = self.tycheck.ty_db.expr(def);
                 expr.ty().to_string()
@@ -289,6 +292,8 @@ impl<'tycheck> JsGenerator<'tycheck> {
           format!("{}.{}", object, field)
         }
       }
+      TypedExpr::ClassConstructor { name } => name.clone(),
+      TypedExpr::ClassInstance { .. } => "({})".to_string(),
       TypedExpr::For { .. } => todo!("Implement codegen for for loops"),
       TypedExpr::Unresolved => todo!(),
       TypedExpr::Error => todo!("typedexpr errorrrr"),

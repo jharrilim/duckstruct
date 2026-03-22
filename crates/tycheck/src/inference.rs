@@ -96,7 +96,9 @@ impl TyCheck {
             let item_name = path.last().unwrap();
             if let Some(typed_stmt) = dep.ty_db.definition(item_name) {
               let is_pub = match typed_stmt {
-                TypedStmt::VariableDef { pub_vis, .. } | TypedStmt::FunctionDef { pub_vis, .. } => {
+                TypedStmt::VariableDef { pub_vis, .. }
+                | TypedStmt::FunctionDef { pub_vis, .. }
+                | TypedStmt::ClassDef { pub_vis, .. } => {
                   *pub_vis
                 }
                 _ => false,
@@ -140,6 +142,17 @@ impl TyCheck {
         }
         Stmt::FunctionDef { name, value, pub_vis } => {
           self.infer_function_def(scope, name, value, *pub_vis, module_map)
+        }
+        Stmt::ClassDef { name, pub_vis } => {
+          let ctor = self.ty_db.alloc(TypedExpr::ClassConstructor {
+            name: name.clone(),
+          });
+          scope.define(name.clone(), ctor);
+          TypedStmt::ClassDef {
+            name: name.clone(),
+            value: ctor,
+            pub_vis: *pub_vis,
+          }
         }
         Stmt::Expr(expr_idx) => TypedStmt::Expr(self.infer_expr(scope, expr_idx, module_map)),
         Stmt::Use { .. } => todo!("use statements are resolved in infer_with_modules"),
@@ -225,7 +238,9 @@ impl TyCheck {
         let item_name = path.last().unwrap();
         if let Some(typed_stmt) = dep.ty_db.definition(item_name) {
           let is_pub = match typed_stmt {
-            TypedStmt::VariableDef { pub_vis, .. } | TypedStmt::FunctionDef { pub_vis, .. } => *pub_vis,
+            TypedStmt::VariableDef { pub_vis, .. }
+            | TypedStmt::FunctionDef { pub_vis, .. }
+            | TypedStmt::ClassDef { pub_vis, .. } => *pub_vis,
             _ => false,
           };
           if is_pub {
@@ -550,6 +565,29 @@ impl TyCheck {
     // result of a function call, the end of a block, or just the function definition itself.
     match lhs_expr.clone() {
       TypedExpr::FunctionParameter { name: _, ty: _ } => *lhs,
+      TypedExpr::ClassConstructor { name } => {
+        if !args.is_empty() {
+          self.diagnostics.push_error(
+            format!(
+              "class `{}` constructor expected 0 arguments, but got {}",
+              name,
+              args.len()
+            ),
+            ast.span(),
+          );
+          return self.ty_db.alloc(TypedExpr::Error);
+        }
+        let ret_ty = Ty::Instance(name.clone());
+        let ret_idx = self.ty_db.alloc(TypedExpr::ClassInstance {
+          name: name.clone(),
+        });
+        self.ty_db.alloc(TypedExpr::FunctionCall {
+          args: args.clone(),
+          def: *lhs,
+          ret: ret_idx,
+          ty: ret_ty,
+        })
+      }
       TypedExpr::VariableRef { var, ty } => {
         if scope.is_late_binding(&var) {
           return *lhs;
@@ -758,7 +796,7 @@ impl TyCheck {
     name: &Option<String>,
     params: &[String],
     body: &DatabaseIdx,
-    ast: &ast::expr::Function,
+    _ast: &ast::expr::Function,
     module_map: Option<&ModuleMap<'_>>,
   ) -> TypedDatabaseIdx {
     let params: FxIndexMap<String, TypedDatabaseIdx> = params
@@ -839,6 +877,7 @@ impl TyCheck {
         Ty::String(None) => Ty::Boolean(None),
         Ty::Array(_) => Ty::Boolean(Some(false)),
         Ty::Object(_) => Ty::Boolean(Some(false)),
+        Ty::Instance(_) => Ty::Boolean(None),
         Ty::Generic => Ty::Boolean(None),
         _ => {
           self.diagnostics.push_error(
@@ -924,6 +963,7 @@ impl TyCheck {
         (Ty::Array(_), Ty::Array(_)) => Ty::Boolean(None),
         (Ty::Function { ret: Some(lhs), .. }, Ty::Function { ret: Some(rhs), .. }) => Ty::Boolean(Some(lhs == rhs)),
         (Ty::Function { ret: None, .. }, Ty::Function { ret: None, .. }) => Ty::Boolean(None),
+        (Ty::Instance(a), Ty::Instance(b)) => Ty::Boolean(Some(a == b)),
         (Ty::Generic, Ty::Generic) => Ty::Boolean(None),
         _ => Ty::Boolean(Some(false)),
       },
@@ -937,6 +977,7 @@ impl TyCheck {
         (Ty::Array(_), Ty::Array(_)) => Ty::Boolean(None),
         (Ty::Function { ret: Some(lhs), .. }, Ty::Function { ret: Some(rhs), .. }) => Ty::Boolean(Some(lhs != rhs)),
         (Ty::Function { ret: None, .. }, Ty::Function { ret: None, .. }) => Ty::Boolean(None),
+        (Ty::Instance(a), Ty::Instance(b)) => Ty::Boolean(Some(a != b)),
         (Ty::Generic, Ty::Generic) => Ty::Boolean(None),
         _ => Ty::Boolean(Some(true)),
       },

@@ -8,6 +8,7 @@ use syntax::{SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 pub enum Stmt {
   VariableDef(VariableDef),
   FunctionDef(FunctionDef),
+  ClassDef(ClassDef),
   Use(UseStatement),
   Expr(Expr),
 }
@@ -18,6 +19,7 @@ impl Stmt {
       SyntaxKind::LetStatement => Self::VariableDef(VariableDef(node)),
       SyntaxKind::NamedFunction => Self::FunctionDef(FunctionDef(node)),
       SyntaxKind::NamedFunctionExpression => Self::FunctionDef(FunctionDef(node)),
+      SyntaxKind::ClassStatement => Self::ClassDef(ClassDef(node)),
       SyntaxKind::UseStatement => Self::Use(UseStatement(node)),
       _ => Self::Expr(Expr::cast(node)?),
     };
@@ -29,6 +31,7 @@ impl Stmt {
     match self {
       Stmt::VariableDef(def) => def.value(),
       Stmt::FunctionDef(def) => def.func(),
+      Stmt::ClassDef(_) => None,
       Stmt::Use(_) => None,
       Stmt::Expr(expr) => Some(expr.clone()),
     }
@@ -116,6 +119,30 @@ impl UseList {
       .filter(|t| t.kind() == SyntaxKind::Identifier)
       .map(|t| t.text().to_string())
       .collect()
+  }
+}
+
+#[derive(Debug)]
+pub struct ClassDef(SyntaxNode);
+
+impl ClassDef {
+  /// True if this definition is prefixed with `pub`.
+  pub fn is_pub(&self) -> bool {
+    self
+      .0
+      .children_with_tokens()
+      .next()
+      .and_then(SyntaxElement::into_token)
+      .map(|t| t.kind() == SyntaxKind::Pub)
+      == Some(true)
+  }
+
+  pub fn name(&self) -> Option<SyntaxToken> {
+    self
+      .0
+      .children_with_tokens()
+      .filter_map(SyntaxElement::into_token)
+      .find(|token| token.kind() == SyntaxKind::Identifier)
   }
 }
 

@@ -417,6 +417,40 @@ read(0)
     assert!(is_pub, "read should be public");
   }
 
+  /// `pub class` is exported and visible as `TypedStmt::ClassDef` with `pub_vis`.
+  #[test]
+  fn test_pub_class_export_is_public() {
+    let dir = tempfile::tempdir().expect("temp dir");
+    let root = dir.path();
+    let main_ds = root.join("main.ds");
+    let helper_ds = root.join("helper.ds");
+
+    fs::write(&helper_ds, "pub class Foo {}\n").expect("write helper.ds");
+    fs::write(
+      &main_ds,
+      r#"
+use helper::{Foo};
+1
+"#,
+    )
+    .expect("write main.ds");
+
+    let result = load_module_tree(&main_ds, None);
+    assert!(result.is_ok(), "load_module_tree failed: {:?}", result.err());
+    let (_entry_hir, deps) = result.unwrap();
+    let dep = deps.iter().find(|d| d.name == "helper").expect("helper dep");
+    let def = dep
+      .tycheck
+      .ty_db
+      .definition("Foo")
+      .expect("helper should define Foo");
+    let is_pub = match def {
+      tycheck::typed_hir::TypedStmt::ClassDef { pub_vis, .. } => *pub_vis,
+      _ => false,
+    };
+    assert!(is_pub, "Foo class should be public");
+  }
+
   /// `use root::...` without a project root (no manifest) returns an error.
   #[test]
   fn test_use_root_without_manifest_errors() {

@@ -13,6 +13,8 @@ pub enum Ty {
     params: Vec<Ty>,
     ret: Option<Box<Ty>>,
   },
+  /// Nominal instance of a class (displayed as the class name).
+  Instance(String),
   Generic,
   Error,
 }
@@ -36,6 +38,7 @@ impl Ty {
       (Ty::Boolean(_), Ty::Boolean(_)) => true,
       (Ty::Array(_), Ty::Array(_)) => true,
       (Ty::Object(_), Ty::Object(_)) => true,
+      (Ty::Instance(a), Ty::Instance(b)) => a == b,
       (
         Ty::Function { params, ret },
         Ty::Function {
@@ -74,6 +77,7 @@ impl Ty {
         params: params.iter().map(|p| p.deconst()).collect(),
         ret: ret.as_ref().map(|r| Box::new(r.deconst())),
       },
+      Ty::Instance(name) => Ty::Instance(name.clone()),
       Ty::Generic => Ty::Generic,
       Ty::Error => Ty::Error,
     }
@@ -87,6 +91,7 @@ impl Ty {
       Ty::Array(Some(val)) => Truthiness::Known(!val.is_empty()),
       Ty::Object(Some(val)) => Truthiness::Known(!val.is_empty()),
       Ty::Function { .. } => Truthiness::Known(true),
+      Ty::Instance(_) => Truthiness::Unknown,
       Ty::Generic => Truthiness::Unknown,
       Ty::Error => Truthiness::Unknown,
       _ => Truthiness::Unknown,
@@ -145,6 +150,7 @@ impl Display for Ty {
       Ty::Boolean(None) => write!(f, "boolean"),
       Ty::Array(None) => write!(f, "array"),
       Ty::Object(None) => write!(f, "object"),
+      Ty::Instance(name) => write!(f, "{}", name),
       Ty::Generic => write!(f, "generic"),
       Ty::Error => write!(f, "error"),
     }
