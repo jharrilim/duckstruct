@@ -434,6 +434,12 @@ mod tests {
   }
 
   #[test]
+  fn parse_let_for_simple_body() {
+    let code = "let a = for x in [1, 2, 3] x;";
+    parse_snapshot!(code);
+  }
+
+  #[test]
   fn parse_for_in_where_expression() {
     let code = r#"
       for x in xs where x > 0 {

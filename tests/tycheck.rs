@@ -15,7 +15,16 @@ pub fn tycheck(code: &str) -> TyCheck {
 pub fn expect_type_for_definition(tycheck: &TyCheck, def: &str, ty: Ty) {
   let expr = tycheck.ty_db.definition_expr(def);
 
-  assert!(tycheck.diagnostics.has_errors() == false);
+  assert!(
+    !tycheck.diagnostics.has_errors(),
+    "unexpected errors: {:?}",
+    tycheck
+      .diagnostics
+      .errors
+      .iter()
+      .map(|e| e.message().to_string())
+      .collect::<Vec<_>>()
+  );
   assert!(expr.is_some());
   let expr = expr.unwrap();
   assert_eq!(expr.ty(), ty);
@@ -630,6 +639,93 @@ mod expressions {
     let tycheck = tycheck(code);
 
     expect_type_for_definition(&tycheck, "b", Ty::Number(Some(1.0)));
+  }
+}
+
+mod loops {
+  use super::*;
+  use ast::Stmt;
+
+  #[test]
+  fn for_expression_binding_pattern_is_present() {
+    let code = "let a = for x in [1, 2, 3] x;";
+    let root = Root::cast(parse(code).syntax()).unwrap();
+    let stmt = root.stmts().next().expect("stmt");
+    let Stmt::VariableDef(def) = stmt else {
+      panic!("expected let");
+    };
+    let ast::Expr::ForExpression(for_e) = def.value().expect("rhs") else {
+      panic!("expected for");
+    };
+    assert!(
+      for_e.binding_pattern().is_some(),
+      "binding pattern should resolve (got {:?})",
+      for_e.binding_pattern()
+    );
+  }
+
+  #[test]
+  fn tycheck_for_last_element_determinate() {
+    let code = "let a = for x in [1, 2, 3] x;";
+    let tycheck = tycheck(code);
+    expect_type_for_definition(&tycheck, "a", Ty::Number(Some(3.0)));
+  }
+
+  #[test]
+  fn tycheck_for_fold_sum_determinate() {
+    let code = "let a = for x in [1, 2, 3] |0| |acc, i| acc + x;";
+    let tycheck = tycheck(code);
+    expect_type_for_definition(&tycheck, "a", Ty::Number(Some(6.0)));
+  }
+
+  #[test]
+  fn tycheck_for_where_filter_determinate() {
+    let code = "let a = for x in [1, 2, 3, 4] where x < 3 |0| |acc, i| acc + x;";
+    let tycheck = tycheck(code);
+    expect_type_for_definition(&tycheck, "a", Ty::Number(Some(3.0)));
+  }
+
+  #[test]
+  fn tycheck_for_empty_uses_initializer() {
+    let code = "let a = for x in [] |42| 0;";
+    let tycheck = tycheck(code);
+    expect_type_for_definition(&tycheck, "a", Ty::Number(Some(42.0)));
+  }
+
+  #[test]
+  fn tycheck_for_indeterminate_over_parameter() {
+    let code = "
+      f sum(xs) {
+        for x in xs |0| |acc, i| acc + x
+      }
+    ";
+    let tycheck = tycheck(code);
+    expect_type_for_definition(
+      &tycheck,
+      "sum",
+      Ty::Function {
+        params: vec![Ty::Generic],
+        ret: Some(Box::new(Ty::Number(None))),
+      },
+    );
+  }
+
+  #[test]
+  fn tycheck_for_where_must_be_boolean_error() {
+    let code = "let a = for x in [1] where 1 x;";
+    let tycheck = tycheck(code);
+    assert!(
+      tycheck.diagnostics.has_errors(),
+      "expected error when where is not boolean"
+    );
+    assert!(
+      tycheck
+        .diagnostics
+        .errors
+        .iter()
+        .any(|e| e.message().contains("boolean")),
+      "expected boolean-related diagnostic"
+    );
   }
 }
 

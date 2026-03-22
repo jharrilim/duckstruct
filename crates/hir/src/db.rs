@@ -166,14 +166,18 @@ impl Database {
     let iterable = self.lower_expr(ast.iterable());
     let body = self.lower_expr(ast.body());
     let binding = self.lower_pat(ast.binding_pattern());
-    let where_clause = self.lower_expr(ast.where_clause());
-    let pipe_pattern = self.lower_pat(ast.pipe_pattern());
+    let where_clause = ast
+      .where_clause()
+      .map(|e| self.lower_expr(Some(e)));
+    let acc_init = ast.acc_init().map(|e| self.lower_expr(Some(e)));
+    let fold_params = ast.fold_params();
     self.exprs.alloc(Expr::For {
       binding,
       iterable,
       body,
       where_clause,
-      pipe_pattern,
+      acc_init,
+      fold_params,
       ast,
     })
   }

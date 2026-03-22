@@ -98,6 +98,8 @@ pub enum SyntaxKind {
   ForWhereCondition,
   ForBody,
   ForPipePattern,
+  /// `| acc_name , index_name |` before the for-body (fold parameters).
+  ForFoldParams,
   // Patterns
   Pattern,
   StructPattern,

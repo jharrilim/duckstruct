@@ -10,7 +10,7 @@ use crate::scope::Scope;
 use crate::typed_db::{TypedDatabase, TypedDatabaseIdx};
 use crate::typed_hir::{FunctionDef, Ty, TypedExpr, TypedStmt};
 use data_structures::{index_map, FxIndexMap};
-use hir::{expr::Expr, stmt::Stmt, DatabaseIdx};
+use hir::{expr::Expr, pat::Pat, stmt::Stmt, DatabaseIdx};
 
 /// Map from module name to its type-checked state (for resolving `foo::bar` and use bindings).
 pub type ModuleMap<'a> = HashMap<String, &'a TyCheck>;
@@ -220,7 +220,27 @@ impl TyCheck {
       Expr::Missing => {
         todo!("Handle expression missing: {:?}", expr);
       }
-      Expr::For { .. } => todo!(),
+      Expr::For {
+        binding,
+        iterable,
+        where_clause,
+        acc_init,
+        fold_params,
+        body,
+        ast,
+      } => {
+        return self.infer_for(
+          scope,
+          binding,
+          iterable,
+          where_clause.as_ref(),
+          acc_init.as_ref(),
+          fold_params.as_ref(),
+          body,
+          ast,
+          module_map,
+        );
+      }
     };
     self.ty_db.alloc(expr)
   }
@@ -582,6 +602,235 @@ impl TyCheck {
         })
       }
     }
+  }
+
+  fn join_element_types_for_iterable(ty: &Ty) -> Ty {
+    match ty {
+      Ty::Array(Some(elems)) => {
+        if elems.is_empty() {
+          return Ty::Generic;
+        }
+        let first = elems[0].clone();
+        for e in elems.iter().skip(1) {
+          if !first.type_eq(e) {
+            return first.deconst();
+          }
+        }
+        first.deconst()
+      }
+      _ => Ty::Generic,
+    }
+  }
+
+  /// Infer `where` and `body` once with loop-shaped bindings (for diagnostics and codegen).
+  fn infer_for_shaped_subexprs(
+    &mut self,
+    scope: &mut Scope,
+    bind_name: &str,
+    iterable_ty: &Ty,
+    fold_params: Option<&(String, String)>,
+    acc_init_typed: Option<&TypedDatabaseIdx>,
+    where_clause: Option<&DatabaseIdx>,
+    body: &DatabaseIdx,
+    module_map: Option<&ModuleMap<'_>>,
+  ) -> (Option<TypedDatabaseIdx>, TypedDatabaseIdx) {
+    scope.push_frame();
+    let elem_ty = Self::join_element_types_for_iterable(iterable_ty);
+    scope.define(
+      bind_name.to_string(),
+      self.ty_db.alloc(TypedExpr::VariableRef {
+        var: bind_name.to_string(),
+        ty: elem_ty,
+      }),
+    );
+    if let Some((acc_n, idx_n)) = fold_params {
+      let acc_ty = acc_init_typed
+        .map(|t| self.ty_db.expr(t).ty().clone())
+        .unwrap_or(Ty::Generic);
+      scope.define(
+        acc_n.clone(),
+        self.ty_db.alloc(TypedExpr::VariableRef {
+          var: acc_n.clone(),
+          ty: acc_ty,
+        }),
+      );
+      scope.define(
+        idx_n.clone(),
+        self.ty_db.alloc(TypedExpr::VariableRef {
+          var: idx_n.clone(),
+          ty: Ty::Number(None),
+        }),
+      );
+    }
+
+    let where_shaped = where_clause.map(|w| self.infer_expr(scope, w, module_map));
+    let body_shaped = self.infer_expr(scope, body, module_map);
+    scope.pop_frame();
+    (where_shaped, body_shaped)
+  }
+
+  fn infer_for(
+    &mut self,
+    scope: &mut Scope,
+    binding: &Pat,
+    iterable: &DatabaseIdx,
+    where_clause: Option<&DatabaseIdx>,
+    acc_init: Option<&DatabaseIdx>,
+    fold_params: Option<&(String, String)>,
+    body: &DatabaseIdx,
+    for_ast: &ast::expr::ForExpression,
+    module_map: Option<&ModuleMap<'_>>,
+  ) -> TypedDatabaseIdx {
+    let span = for_ast.span();
+    let bind_name = match binding {
+      Pat::Ident { name } => name.clone(),
+      _ => {
+        self
+          .diagnostics
+          .push_error("for-loop binding must be a simple name".into(), span);
+        return self.ty_db.alloc(TypedExpr::Error);
+      }
+    };
+
+    if fold_params.is_some() && acc_init.is_none() {
+      self.diagnostics.push_error(
+        "fold parameters `|acc, i|` require an accumulator initializer `| expr |`".into(),
+        span,
+      );
+      return self.ty_db.alloc(TypedExpr::Error);
+    }
+
+    let iterable_typed = self.infer_expr(scope, iterable, module_map);
+    let iterable_ty = self.ty_db.expr(&iterable_typed).ty().clone();
+
+    let acc_init_typed = acc_init.map(|i| self.infer_expr(scope, i, module_map));
+
+    let (where_shaped, body_shaped) = self.infer_for_shaped_subexprs(
+      scope,
+      &bind_name,
+      &iterable_ty,
+      fold_params,
+      acc_init_typed.as_ref(),
+      where_clause,
+      body,
+      module_map,
+    );
+
+    let mut determinate_ty: Option<Ty> = None;
+
+    if let TypedExpr::Array {
+      vals: Some(elem_idxs),
+      ty: Ty::Array(Some(elem_tys)),
+      ..
+    } = self.ty_db.expr(&iterable_typed).clone()
+    {
+      if elem_idxs.len() == elem_tys.len() {
+        let mut determinate_ok = true;
+        let mut running_acc = acc_init_typed.clone();
+        let mut last_body: Option<TypedDatabaseIdx> = None;
+
+        for (k, elem_idx) in elem_idxs.iter().enumerate() {
+          scope.push_frame();
+          scope.define(bind_name.clone(), *elem_idx);
+
+          if let Some((acc_n, idx_n)) = fold_params {
+            let acc_val = running_acc.clone().expect("fold requires initializer");
+            scope.define(acc_n.clone(), acc_val);
+            let i_lit = self.ty_db.alloc(TypedExpr::Number {
+              val: Some(k as f64),
+            });
+            scope.define(idx_n.clone(), i_lit);
+          }
+
+          if let Some(widx) = where_clause {
+            let w_typed = self.infer_expr(scope, widx, module_map);
+            match self.ty_db.expr(&w_typed).ty().clone() {
+              Ty::Boolean(Some(false)) => {
+                scope.pop_frame();
+                continue;
+              }
+              Ty::Boolean(Some(true)) => {}
+              Ty::Boolean(None) => {
+                determinate_ok = false;
+                scope.pop_frame();
+                break;
+              }
+              _ => {
+                self
+                  .diagnostics
+                  .push_error("where clause must be boolean".into(), span);
+                determinate_ok = false;
+                scope.pop_frame();
+                break;
+              }
+            }
+          }
+
+          let body_typed = self.infer_expr(scope, body, module_map);
+          scope.pop_frame();
+
+          if !determinate_ok {
+            break;
+          }
+
+          last_body = Some(body_typed.clone());
+          if fold_params.is_some() {
+            running_acc = Some(body_typed);
+          }
+        }
+
+        if determinate_ok {
+          determinate_ty = Some(if fold_params.is_some() {
+            running_acc
+              .map(|idx| self.ty_db.expr(&idx).ty().clone())
+              .or_else(|| acc_init_typed.as_ref().map(|t| self.ty_db.expr(t).ty().clone()))
+              .unwrap_or(Ty::Generic)
+          } else if let Some(lb) = last_body {
+            self.ty_db.expr(&lb).ty().clone()
+          } else {
+            acc_init_typed
+              .as_ref()
+              .map(|t| self.ty_db.expr(t).ty().clone())
+              .unwrap_or(Ty::Generic)
+          });
+        }
+      }
+    }
+
+    let final_ty = if let Some(dt) = determinate_ty {
+      dt
+    } else {
+      let body_ty = self.ty_db.expr(&body_shaped).ty().clone();
+      match &acc_init_typed {
+        Some(init_idx) => {
+          let init_ty = self.ty_db.expr(init_idx).ty().clone();
+          if !init_ty.type_eq(&body_ty) {
+            self.diagnostics.push_error(
+              format!(
+                "Type mismatch in for-loop: initializer {} and body {}",
+                init_ty, body_ty
+              ),
+              span,
+            );
+            Ty::Error
+          } else {
+            body_ty.deconst()
+          }
+        }
+        None => body_ty.deconst(),
+      }
+    };
+
+    self.ty_db.alloc(TypedExpr::For {
+      binding: bind_name,
+      iterable: iterable_typed,
+      where_clause: where_shaped,
+      acc_init: acc_init_typed,
+      fold_acc: fold_params.map(|(a, _)| a.clone()),
+      fold_index: fold_params.map(|(_, i)| i.clone()),
+      body: body_shaped,
+      ty: final_ty,
+    })
   }
 
   fn infer_array(

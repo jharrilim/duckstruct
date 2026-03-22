@@ -536,6 +536,30 @@ pub(crate) fn for_expr(p: &mut Parser) -> CompletedMarker {
     m.complete(p, SyntaxKind::ForPipePattern);
   }
 
+  if p.at(TokenKind::Pipe) {
+    let m = p.start();
+    p.bump();
+
+    p.expect(TokenKind::Identifier);
+    {
+      let mm = p.start();
+      p.bump();
+      mm.complete(p, SyntaxKind::Identifier);
+    }
+    p.expect(TokenKind::Comma);
+    p.bump();
+    p.expect(TokenKind::Identifier);
+    {
+      let mm = p.start();
+      p.bump();
+      mm.complete(p, SyntaxKind::Identifier);
+    }
+    p.expect(TokenKind::Pipe);
+    p.bump();
+
+    m.complete(p, SyntaxKind::ForFoldParams);
+  }
+
   {
     let m = p.start();
     expr(p);

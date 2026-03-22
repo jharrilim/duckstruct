@@ -459,12 +459,23 @@ pub struct ForExpression(SyntaxNode);
 impl ForExpression {
   pub fn binding_pattern(&self) -> Option<Pat> {
     // TODO: support patterns
-    self
+    let for_pat = self
       .0
       .children()
-      .find(|c| c.kind() == SyntaxKind::ForPattern)
-      .and_then(|c| c.first_child())
-      .and_then(Pat::cast)
+      .find(|c| c.kind() == SyntaxKind::ForPattern)?;
+    if let Some(p) = for_pat.children().find_map(Pat::cast) {
+      return Some(p);
+    }
+    // Parser may attach the loop variable as a bare identifier token (no Pat node).
+    for_pat
+      .children_with_tokens()
+      .filter_map(SyntaxElement::into_token)
+      .find(|t| t.kind() == SyntaxKind::Identifier)
+      .map(|t| {
+        Pat::Ident(crate::pat::Ident {
+          name: t.text().to_string(),
+        })
+      })
   }
 
   pub fn iterable(&self) -> Option<Expr> {
@@ -472,8 +483,7 @@ impl ForExpression {
       .0
       .children()
       .find(|c| c.kind() == SyntaxKind::ForInExpression)
-      .and_then(|c| c.first_child())
-      .and_then(Expr::cast)
+      .and_then(|c| c.children().find_map(Expr::cast))
   }
 
   pub fn body(&self) -> Option<Expr> {
@@ -481,8 +491,7 @@ impl ForExpression {
       .0
       .children()
       .find(|c| c.kind() == SyntaxKind::ForBody)
-      .and_then(|c| c.first_child())
-      .and_then(Expr::cast)
+      .and_then(|c| c.children().find_map(Expr::cast))
   }
 
   pub fn where_clause(&self) -> Option<Expr> {
@@ -490,17 +499,34 @@ impl ForExpression {
       .0
       .children()
       .find(|c| c.kind() == SyntaxKind::ForWhereCondition)
-      .and_then(|c| c.first_child())
-      .and_then(Expr::cast)
+      .and_then(|c| c.children().find_map(Expr::cast))
   }
 
-  pub fn pipe_pattern(&self) -> Option<Pat> {
+  /// Accumulator initializer: `| expr |` between iterable and optional fold params.
+  pub fn acc_init(&self) -> Option<Expr> {
     self
       .0
       .children()
       .find(|c| c.kind() == SyntaxKind::ForPipePattern)
-      .and_then(|c| c.first_child())
-      .and_then(Pat::cast)
+      .and_then(|c| c.children().find_map(Expr::cast))
+  }
+
+  /// Fold parameter names: `| acc , i |` before the body. Requires `acc_init` when present.
+  pub fn fold_params(&self) -> Option<(String, String)> {
+    let node = self
+      .0
+      .children()
+      .find(|c| c.kind() == SyntaxKind::ForFoldParams)?;
+    let mut names = node.children().filter_map(|c| {
+      if c.kind() == SyntaxKind::Identifier {
+        Some(c.first_token()?.text().to_string())
+      } else {
+        None
+      }
+    });
+    let acc = names.next()?;
+    let idx = names.next()?;
+    Some((acc, idx))
   }
 
   pub fn span(&self) -> TextRange {

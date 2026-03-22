@@ -294,7 +294,63 @@ impl<'tycheck> JsGenerator<'tycheck> {
       }
       TypedExpr::StructConstructor { name } => name.clone(),
       TypedExpr::StructInstance { .. } => "({})".to_string(),
-      TypedExpr::For { .. } => todo!("Implement codegen for for loops"),
+      TypedExpr::For {
+        binding,
+        iterable,
+        where_clause,
+        acc_init,
+        fold_acc,
+        fold_index,
+        body,
+        ty,
+      } => {
+        if ty.has_value() {
+          format!("{}", ty)
+        } else {
+          let iter_e = self.generate_expr(iterable);
+          let idx_var = fold_index
+            .clone()
+            .unwrap_or_else(|| "__ds_k".to_string());
+          let where_guard = match where_clause.as_ref() {
+            Some(w) => {
+              let w_e = self.generate_expr(w);
+              format!("if (!({})) continue;\n          ", w_e)
+            }
+            None => String::new(),
+          };
+          let body_e = self.generate_expr(body);
+          let (setup, ret_name) = if let Some(acc_n) = fold_acc {
+            let init_e = acc_init
+              .as_ref()
+              .map(|i| self.generate_expr(i))
+              .unwrap_or_else(|| "undefined".to_string());
+            (
+              format!("let {} = {};", acc_n, init_e),
+              acc_n.clone(),
+            )
+          } else {
+            let setup_line = match acc_init.as_ref() {
+              Some(i) => format!("let __ds_out = {};", self.generate_expr(i)),
+              None => "let __ds_out;".to_string(),
+            };
+            (setup_line, "__ds_out".to_string())
+          };
+          format!(
+            "(((__ds_iter) => {{\n        {}\n        for (let {} = 0; {} < __ds_iter.length; {}++) {{\n          const {} = __ds_iter[{}];\n          {}{} = {};\n        }}\n        return {};\n      }})({}))",
+            setup,
+            idx_var,
+            idx_var,
+            idx_var,
+            binding,
+            idx_var,
+            where_guard,
+            ret_name,
+            body_e,
+            ret_name,
+            iter_e
+          )
+        }
+      }
       TypedExpr::Unresolved => todo!(),
       TypedExpr::Error => todo!("typedexpr errorrrr"),
     };

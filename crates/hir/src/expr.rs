@@ -77,9 +77,10 @@ pub enum Expr {
   For {
     binding: Pat,
     iterable: Idx<Self>,
-    where_clause: Idx<Self>,
+    where_clause: Option<Idx<Self>>,
+    acc_init: Option<Idx<Self>>,
+    fold_params: Option<(String, String)>,
     body: Idx<Self>,
-    pipe_pattern: Pat,
     ast: ast::expr::ForExpression,
   },
   Missing,
