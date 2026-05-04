@@ -1,4 +1,4 @@
-mod manifest;
+pub mod manifest;
 mod modules;
 
 pub mod ide;
