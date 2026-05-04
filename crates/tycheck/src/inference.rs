@@ -954,7 +954,7 @@ impl TyCheck {
       TypedExpr::StructConstructor { name } => {
         self.diagnostics.push_error("type::error",
           format!(
-            "construct struct `{}` with `new` and `{{ }}`, e.g. `new {} {{ }}`",
+            "construct struct `{}` with a struct literal, e.g. `new {} {{ }}`",
             name, name
           ),
           ast.span(),

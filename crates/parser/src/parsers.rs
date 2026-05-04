@@ -429,14 +429,8 @@ pub(crate) fn array_literal(p: &mut Parser) -> CompletedMarker {
   }
 }
 
-/// `new TypeName { field: expr, ... }` struct construction.
-pub(crate) fn new_struct_literal_expr(p: &mut Parser) -> CompletedMarker {
-  let m = p.start();
-  p.expect(TokenKind::New);
-  p.bump();
-  path_or_variable_ref(p);
-  p.expect(TokenKind::LeftBrace);
-  p.bump();
+/// Comma-separated `key: expr` fields after `{` has been consumed; consumes closing `}`.
+pub(crate) fn parse_object_literal_fields(p: &mut Parser) {
   loop {
     match p.peek() {
       Some(TokenKind::RightBrace) => {
@@ -455,31 +449,23 @@ pub(crate) fn new_struct_literal_expr(p: &mut Parser) -> CompletedMarker {
       }
     }
   }
-  m.complete(p, SyntaxKind::StructLiteralExpression)
 }
 
-pub(crate) fn object_literal(p: &mut Parser) -> CompletedMarker {
-  p.expect(TokenKind::DoubleLeftBrace);
+/// `new { field: expr, ... }` anonymous object or `new TypeName { ... }` struct construction.
+pub(crate) fn new_expr(p: &mut Parser) -> CompletedMarker {
   let m = p.start();
+  p.expect(TokenKind::New);
   p.bump();
-
-  loop {
-    match p.peek() {
-      Some(TokenKind::DoubleRightBrace) => {
-        p.bump();
-        break m.complete(p, SyntaxKind::ObjectExpression);
-      }
-      None => {
-        p.expected(TokenKind::DoubleRightBrace);
-      }
-      _ => {
-        object_field(p);
-        if p.peek() == Some(TokenKind::Comma) {
-          p.bump();
-        }
-      }
-    }
+  if p.peek() == Some(TokenKind::LeftBrace) {
+    p.bump();
+    parse_object_literal_fields(p);
+    return m.complete(p, SyntaxKind::ObjectExpression);
   }
+  path_or_variable_ref(p);
+  p.expect(TokenKind::LeftBrace);
+  p.bump();
+  parse_object_literal_fields(p);
+  m.complete(p, SyntaxKind::StructLiteralExpression)
 }
 
 pub(crate) fn object_field(p: &mut Parser) -> CompletedMarker {

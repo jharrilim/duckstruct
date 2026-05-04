@@ -252,7 +252,7 @@ impl Display for Ty {
         write!(f, "]")
       }
       Ty::Object(Some(o)) => {
-        write!(f, "{{ ")?;
+        write!(f, "new {{ ")?;
         for (i, (key, ty)) in o.iter().enumerate() {
           write!(f, "{}: {}", key, ty)?;
           if i < o.len() - 1 {

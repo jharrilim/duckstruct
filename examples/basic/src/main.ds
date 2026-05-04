@@ -2,9 +2,9 @@
 // Run from repo root: duckstruct compile examples/basic
 // print(...) is a builtin; in JS it becomes console.log (accepts a number like the LLVM backend).
 
-let Person = f(name) = {{
+let Person = f(name) = new {
   name: name,
-}};
+};
 
 let p = Person("duck");
 

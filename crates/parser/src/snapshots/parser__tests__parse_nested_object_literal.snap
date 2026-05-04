@@ -2,92 +2,96 @@
 source: crates/parser/src/lib.rs
 expression: "&parse.debug_tree()"
 info:
-  code: "\n      {{\n        x: 1,\n        y: \"yes\",\n        z: f(x) = x + 1,\n        a: {{\n          b: [2],\n          c: \"no\",\n        }}\n      }}\n    "
+  code: "\n      new {\n        x: 1,\n        y: \"yes\",\n        z: f(x) = x + 1,\n        a: new {\n          b: [2],\n          c: \"no\",\n        }\n      }\n    "
 ---
-Root@0..142
+Root@0..146
   Whitespace@0..7 "\n      "
-  ObjectExpression@7..142
-    DoubleLeftBrace@7..9 "{{"
-    Whitespace@9..18 "\n        "
-    ObjectField@18..22
-      ObjectFieldKey@18..19
-        Identifier@18..19 "x"
-      Colon@19..20 ":"
-      Whitespace@20..21 " "
-      ObjectFieldValue@21..22
-        Number@21..22
-          Number@21..22 "1"
-    Comma@22..23 ","
-    Whitespace@23..32 "\n        "
-    ObjectField@32..40
-      ObjectFieldKey@32..33
-        Identifier@32..33 "y"
-      Colon@33..34 ":"
-      Whitespace@34..35 " "
-      ObjectFieldValue@35..40
-        String@35..40
-          String@35..40 "\"yes\""
-    Comma@40..41 ","
-    Whitespace@41..50 "\n        "
-    ObjectField@50..65
-      ObjectFieldKey@50..51
-        Identifier@50..51 "z"
-      Colon@51..52 ":"
-      Whitespace@52..53 " "
-      ObjectFieldValue@53..65
-        AnonymousFunctionExpression@53..65
-          Function@53..54 "f"
-          ArgumentList@54..58
-            LeftParenthesis@54..55 "("
-            VariableReference@55..56
-              Identifier@55..56 "x"
-            RightParenthesis@56..57 ")"
-            Whitespace@57..58 " "
-          Equals@58..59 "="
-          Whitespace@59..60 " "
-          InfixExpression@60..65
-            VariableReference@60..62
-              Identifier@60..61 "x"
-              Whitespace@61..62 " "
-            Plus@62..63 "+"
-            Whitespace@63..64 " "
-            Number@64..65
-              Number@64..65 "1"
-    Comma@65..66 ","
-    Whitespace@66..75 "\n        "
-    ObjectField@75..135
-      ObjectFieldKey@75..76
-        Identifier@75..76 "a"
-      Colon@76..77 ":"
-      Whitespace@77..78 " "
-      ObjectFieldValue@78..135
-        ObjectExpression@78..135
-          DoubleLeftBrace@78..80 "{{"
-          Whitespace@80..91 "\n          "
-          ObjectField@91..97
-            ObjectFieldKey@91..92
-              Identifier@91..92 "b"
-            Colon@92..93 ":"
-            Whitespace@93..94 " "
-            ObjectFieldValue@94..97
-              ArrayExpression@94..97
-                LeftBracket@94..95 "["
-                Number@95..96
-                  Number@95..96 "2"
-                RightBracket@96..97 "]"
-          Comma@97..98 ","
-          Whitespace@98..109 "\n          "
-          ObjectField@109..116
-            ObjectFieldKey@109..110
-              Identifier@109..110 "c"
-            Colon@110..111 ":"
-            Whitespace@111..112 " "
-            ObjectFieldValue@112..116
-              String@112..116
-                String@112..116 "\"no\""
-          Comma@116..117 ","
-          Whitespace@117..126 "\n        "
-          DoubleRightBrace@126..128 "}}"
-          Whitespace@128..135 "\n      "
-    DoubleRightBrace@135..137 "}}"
-    Whitespace@137..142 "\n    "
+  ObjectExpression@7..146
+    New@7..10 "new"
+    Whitespace@10..11 " "
+    LeftBrace@11..12 "{"
+    Whitespace@12..21 "\n        "
+    ObjectField@21..25
+      ObjectFieldKey@21..22
+        Identifier@21..22 "x"
+      Colon@22..23 ":"
+      Whitespace@23..24 " "
+      ObjectFieldValue@24..25
+        Number@24..25
+          Number@24..25 "1"
+    Comma@25..26 ","
+    Whitespace@26..35 "\n        "
+    ObjectField@35..43
+      ObjectFieldKey@35..36
+        Identifier@35..36 "y"
+      Colon@36..37 ":"
+      Whitespace@37..38 " "
+      ObjectFieldValue@38..43
+        String@38..43
+          String@38..43 "\"yes\""
+    Comma@43..44 ","
+    Whitespace@44..53 "\n        "
+    ObjectField@53..68
+      ObjectFieldKey@53..54
+        Identifier@53..54 "z"
+      Colon@54..55 ":"
+      Whitespace@55..56 " "
+      ObjectFieldValue@56..68
+        AnonymousFunctionExpression@56..68
+          Function@56..57 "f"
+          ArgumentList@57..61
+            LeftParenthesis@57..58 "("
+            VariableReference@58..59
+              Identifier@58..59 "x"
+            RightParenthesis@59..60 ")"
+            Whitespace@60..61 " "
+          Equals@61..62 "="
+          Whitespace@62..63 " "
+          InfixExpression@63..68
+            VariableReference@63..65
+              Identifier@63..64 "x"
+              Whitespace@64..65 " "
+            Plus@65..66 "+"
+            Whitespace@66..67 " "
+            Number@67..68
+              Number@67..68 "1"
+    Comma@68..69 ","
+    Whitespace@69..78 "\n        "
+    ObjectField@78..140
+      ObjectFieldKey@78..79
+        Identifier@78..79 "a"
+      Colon@79..80 ":"
+      Whitespace@80..81 " "
+      ObjectFieldValue@81..140
+        ObjectExpression@81..140
+          New@81..84 "new"
+          Whitespace@84..85 " "
+          LeftBrace@85..86 "{"
+          Whitespace@86..97 "\n          "
+          ObjectField@97..103
+            ObjectFieldKey@97..98
+              Identifier@97..98 "b"
+            Colon@98..99 ":"
+            Whitespace@99..100 " "
+            ObjectFieldValue@100..103
+              ArrayExpression@100..103
+                LeftBracket@100..101 "["
+                Number@101..102
+                  Number@101..102 "2"
+                RightBracket@102..103 "]"
+          Comma@103..104 ","
+          Whitespace@104..115 "\n          "
+          ObjectField@115..122
+            ObjectFieldKey@115..116
+              Identifier@115..116 "c"
+            Colon@116..117 ":"
+            Whitespace@117..118 " "
+            ObjectFieldValue@118..122
+              String@118..122
+                String@118..122 "\"no\""
+          Comma@122..123 ","
+          Whitespace@123..132 "\n        "
+          RightBrace@132..133 "}"
+          Whitespace@133..140 "\n      "
+    RightBrace@140..141 "}"
+    Whitespace@141..146 "\n    "

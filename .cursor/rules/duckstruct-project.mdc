@@ -7,6 +7,25 @@ alwaysApply: true
 
 This repository implements **duckstruct**, a programming language. The compiler, runtime pieces, and tooling are written in **Rust** (workspace crates under `crates/`).
 
+The workspace root package builds the **`ds`** binary (`src/main.rs`); library crates live under `crates/`.
+
+## Workspace crates (brief)
+
+Rough front-to-back compiler order, then supporting crates:
+
+- **`lexer`** — Tokenization (`logos`).
+- **`syntax`** — Rowan `SyntaxKind` / language definition for the concrete syntax tree.
+- **`parser`** — Parser from tokens to CST (event-based + sink).
+- **`ast`** — Typed AST over the CST (expr / pat / stmt, `Root`).
+- **`hir`** — Lowers `ast::Root` into an arena-backed HIR (`Database`).
+- **`tycheck`** — Type checking and inference; typed HIR and diagnostics integration.
+- **`codegen`** — Code generation: JavaScript by default; optional LLVM backend (`llvm` feature).
+- **`compile`** — Compiler driver: modules, manifest, parse → lower → typecheck → codegen; links in stdlib.
+- **`cli`** — Clap-based CLI for `ds` (compile, check, init, repl, etc.).
+- **`diagnostics`** — Shared diagnostic model; human-readable output and LSP JSON bridges.
+- **`data-structures`** — Shared utilities (e.g. `la_arena` re-exports, `FxIndexMap` helpers).
+- **`std`** (package name **`duckstruct-std`**) — Standard library sources: builtins/globals per backend, modules like `file`, exposed to the compiler as pre-typechecked modules.
+
 ## Type system
 
 duckstruct uses **constraint-style type checking on function parameters** (requirements on parameters rather than only nominal types). When changing inference, diagnostics, or call typing, preserve that model and align with existing `tycheck` / parser behavior instead of assuming a conventional nominal-only system.

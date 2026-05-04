@@ -76,7 +76,6 @@ fn lhs(p: &mut Parser) -> Option<CompletedMarker> {
     Some(TokenKind::Number) => parsers::number_literal(p),
     Some(TokenKind::Boolean) => parsers::boolean_literal(p),
     Some(TokenKind::String) => parsers::string_literal(p),
-    Some(TokenKind::DoubleLeftBrace) => parsers::object_literal(p),
     Some(TokenKind::LeftBrace) => parsers::block_expr(p),
     Some(TokenKind::LeftBracket) => parsers::array_literal(p),
     Some(TokenKind::Identifier) => parsers::path_or_variable_ref(p),
@@ -86,7 +85,7 @@ fn lhs(p: &mut Parser) -> Option<CompletedMarker> {
     Some(TokenKind::If) => parsers::conditional_expr(p),
     Some(TokenKind::Function) => parsers::function_definition(p),
     Some(TokenKind::For) => parsers::for_expr(p),
-    Some(TokenKind::New) => parsers::new_struct_literal_expr(p),
+    Some(TokenKind::New) => parsers::new_expr(p),
     None => return None,
     Some(TokenKind::Let) => return None, // handled in a parslet
     _ => {

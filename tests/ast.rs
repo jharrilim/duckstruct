@@ -1,6 +1,5 @@
 use ast::Root;
 use parser::parse;
-use syntax::TextRange;
 
 fn ast(code: &str) -> Root {
   Root::cast(parse(code).syntax()).unwrap()
@@ -50,7 +49,7 @@ fn ast_conditional_assignment() {
 
 #[test]
 fn ast_object_literal() {
-  let ast = ast("let x = {{ a: 1, b: 2 }}");
+  let ast = ast("let x = new { a: 1, b: 2 }");
   assert_eq!(ast.stmts().count(), 1);
 
   let stmt = ast.stmts().next();
@@ -75,7 +74,7 @@ fn ast_object_literal() {
 
 #[test]
 fn ast_object_field_access() {
-  let ast = ast("let x = {{ a: 1, b: 2 }}.a");
+  let ast = ast("let x = new { a: 1, b: 2 }.a");
   assert_eq!(ast.stmts().count(), 1);
 
   let stmt = ast.stmts().next();

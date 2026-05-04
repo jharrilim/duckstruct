@@ -30,8 +30,8 @@
       "name": "constant.language.duckstruct"
     },
     "object": {
-      "begin": "{{",
-      "end": "}}",
+      "begin": "\\bnew\\s*\\{",
+      "end": "\\}",
       "patterns": [
         {
           "include": "#object-property"

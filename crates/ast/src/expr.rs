@@ -385,6 +385,7 @@ impl StructLiteral {
   }
 }
 
+/// Anonymous object literal: `new { key: expr, ... }`.
 #[derive(Debug, Clone)]
 pub struct Object(SyntaxNode);
 impl Object {

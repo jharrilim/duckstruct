@@ -80,7 +80,7 @@ mod literals {
 
   #[test]
   fn tycheck_object_literal() {
-    let code = "{{ a: 1, b: 2 }}";
+    let code = "new { a: 1, b: 2 }";
     let tycheck = tycheck(code);
 
     expect_type_for_definition(
@@ -160,7 +160,7 @@ mod expressions {
   #[test]
   fn tycheck_object_property_accessor() {
     let code = "
-      let obj = {{ a: 1, b: 2 }};
+      let obj = new { a: 1, b: 2 };
       obj.b
     ";
     let tycheck = tycheck(code);
@@ -171,7 +171,7 @@ mod expressions {
   #[test]
   fn tycheck_object_property_accessor_function_call() {
     let code = "
-      let obj = {{ a: 1, b: f() = 2 }};
+      let obj = new { a: 1, b: f() = 2 };
       obj.b()
     ";
     let tycheck = tycheck(code);
@@ -182,7 +182,7 @@ mod expressions {
   #[test]
   fn tycheck_object_property_accessor_function_call_with_argument() {
     let code = "
-      let obj = {{ a: 1, b: f(x) = x }};
+      let obj = new { a: 1, b: f(x) = x };
       obj.b(2)
     ";
     let tycheck = tycheck(code);
@@ -251,7 +251,7 @@ mod expressions {
   #[test]
   fn tycheck_function_named_finger() {
     let code = "
-      f finger() { {{}} }
+      f finger() { new {} }
     ";
     let tycheck = tycheck(code);
 
@@ -483,7 +483,7 @@ mod expressions {
   fn tycheck_function_with_object_argument() {
     let code = "
       let a = f(x) = x.a;
-      a({{ a: 1 }})
+      a(new { a: 1 })
     ";
     let tycheck = tycheck(code);
 
@@ -493,8 +493,8 @@ mod expressions {
   #[test]
   fn tycheck_function_with_object_argument_returning_new_object() {
     let code = "
-      let a = f(x) = {{ a: x.a }};
-      a({{ a: 1 }})
+      let a = f(x) = new { a: x.a };
+      a(new { a: 1 })
     ";
     let tycheck = tycheck(code);
 
@@ -510,8 +510,8 @@ mod expressions {
   #[test]
   fn tycheck_curried_function_with_object_arguments_returning_new_object() {
     let code = "
-      let b = f(x) = f(y) = {{ asd: x.a + y.b }};
-      b({{ a: 1 }})({{ b: 2 }})
+      let b = f(x) = f(y) = new { asd: x.a + y.b };
+      b(new { a: 1 })(new { b: 2 })
     ";
 
     let tycheck = tycheck(code);
@@ -532,7 +532,7 @@ mod expressions {
         x.a
       };
 
-      a({{ a: \"nice\" }})
+      a(new { a: \"nice\" })
     ";
     let tycheck = tycheck(code);
 
@@ -544,7 +544,7 @@ mod expressions {
     let code = "
     let a = f(x) = x.a;
 
-    a({{ a: \"nice\" }})
+    a(new { a: \"nice\" })
   ";
     let tycheck = tycheck(code);
 
@@ -585,7 +585,7 @@ mod expressions {
   #[test]
   fn tycheck_object_literal_immediate_property_access() {
     let code = "
-      let a = {{ a: 1 }}.a;
+      let a = new { a: 1 }.a;
     ";
     let tycheck = tycheck(code);
 
@@ -595,7 +595,7 @@ mod expressions {
   #[test]
   fn tycheck_object_literal_nested_property_access() {
     let code = "
-      let a = {{ a: {{ b: 1 }} }}.a.b;
+      let a = new { a: new { b: 1 } }.a.b;
     ";
     let tycheck = tycheck(code);
 
@@ -611,7 +611,7 @@ mod expressions {
         a + b
       };
 
-      a({{ a: 1, b: 2 }})
+      a(new { a: 1, b: 2 })
     ";
     let tycheck = tycheck(code);
 
@@ -791,7 +791,7 @@ mod typecheck_diagnostics {
         animal.moo()
       };
 
-      moo({{ bark: f() = \"bark\" }})
+      moo(new { bark: f() = \"bark\" })
     ";
     let tycheck = tycheck(code);
     assert!(tycheck.diagnostics.has_errors());
@@ -815,7 +815,7 @@ mod typecheck_diagnostics {
         animal.moo()
       };
 
-      let pet = {{ bark: f() = \"bark\" }};
+      let pet = new { bark: f() = \"bark\" };
       moo(pet)
     ";
     let tycheck = tycheck(code);
@@ -862,7 +862,7 @@ mod typecheck_diagnostics {
   /// Full ariadne-style human output for a parameter object missing a required method.
   #[test]
   fn parameter_constraint_missing_method_human_snapshot() {
-    let code = "let moo = f(animal) {\n  animal.moo()\n};\n\nmoo({{ bark: f() = \"bark\" }})\n";
+    let code = "let moo = f(animal) {\n  animal.moo()\n};\n\nmoo(new { bark: f() = \"bark\" })\n";
     let tycheck = tycheck(code);
     assert!(tycheck.diagnostics.has_errors());
     // Snapshot only this diagnostic: re-inferring the body after substitution can emit

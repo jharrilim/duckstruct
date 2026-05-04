@@ -1,6 +1,6 @@
-let Person = f(name) = {{
+let Person = f(name) = new {
   name: name,
-}};
+};
 
 let p = Person("duck");
 

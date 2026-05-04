@@ -355,11 +355,11 @@ mod tests {
   #[test]
   fn parse_object_literal() {
     let code = r#"
-      {{
+      new {
         x: 1,
         y: "yes",
         z: f(x) = x + 1,
-      }}
+      }
     "#;
     parse_snapshot!(code);
   }
@@ -367,15 +367,15 @@ mod tests {
   #[test]
   fn parse_nested_object_literal() {
     let code = r#"
-      {{
+      new {
         x: 1,
         y: "yes",
         z: f(x) = x + 1,
-        a: {{
+        a: new {
           b: [2],
           c: "no",
-        }}
-      }}
+        }
+      }
     "#;
     parse_snapshot!(code);
   }

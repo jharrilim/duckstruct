@@ -5,8 +5,8 @@ expression: output
 [type::parameter_constraint] Error: object anonymous must provide `moo()`
    ╭─[ test.ds:5:5 ]
    │
- 5 │ moo({{ bark: f() = "bark" }})
-   │     ────────────┬───────────  
-   │                 ╰───────────── object anonymous must provide `moo()`
+ 5 │ moo(new { bark: f() = "bark" })
+   │     ─────────────┬────────────  
+   │                  ╰────────────── object anonymous must provide `moo()`
 ───╯
 

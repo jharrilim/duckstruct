@@ -11,6 +11,29 @@ use tycheck::{
 
 use crate::CodeGenerator;
 
+/// Constant [`Ty`] as a JS literal. [`Ty::Display`] uses duckstruct surface syntax for objects (`new` + braces);
+/// JS object literals must use plain `{ ... }`, including when nested in arrays.
+fn ty_as_js_literal(ty: &Ty) -> Option<String> {
+  match ty {
+    Ty::Number(Some(_)) | Ty::String(Some(_)) | Ty::Boolean(Some(_)) => Some(ty.to_string()),
+    Ty::Array(Some(elts)) => {
+      let mut parts = Vec::new();
+      for t in elts {
+        parts.push(ty_as_js_literal(t)?);
+      }
+      Some(format!("[{}]", parts.join(", ")))
+    }
+    Ty::Object(Some(o)) => {
+      let mut parts = Vec::new();
+      for (k, t) in o.iter() {
+        parts.push(format!("{}: {}", k, ty_as_js_literal(t)?));
+      }
+      Some(format!("{{ {} }}", parts.join(", ")))
+    }
+    _ => None,
+  }
+}
+
 pub struct JsGenerator<'tycheck> {
   tycheck: &'tycheck TyCheck,
   /// When generating a dependency module's bundle, prefix for top-level names and refs.
@@ -138,50 +161,46 @@ impl<'tycheck> JsGenerator<'tycheck> {
   }
 
   pub fn generate_expr(&self, expr: &TypedDatabaseIdx) -> String {
-    let hir_db = self.tycheck.hir_db.clone();
-    let expr = match self.tycheck.ty_db.expr(expr) {
-      TypedExpr::VariableRef { var, ty } => {
-        if ty.has_value() {
-          format!("{}", ty)
-        } else {
-          self.prefixed_var(var)
-        }
+    let expr_node = self.tycheck.ty_db.expr(expr);
+    let ty = expr_node.ty();
+    if ty.has_value() {
+      if let Some(s) = ty_as_js_literal(&ty) {
+        return s;
       }
+    }
+    let expr = match expr_node {
+      TypedExpr::VariableRef { var, .. } => self.prefixed_var(var),
       TypedExpr::FunctionParameter { name, ty } => name.to_string(),
-      TypedExpr::FunctionCall { def, args, ty, ret } => {
-        if ty.has_value() {
-          format!("{}", ty)
+      TypedExpr::FunctionCall { def, args, ty: _, ret: _ } => {
+        let args_str = args
+          .iter()
+          .map(|a| self.generate_expr(a))
+          .collect::<Vec<_>>()
+          .join(", ");
+
+        let callee = match self.tycheck.ty_db.expr(def) {
+          TypedExpr::FunctionDef(FunctionDef { name, .. }) => name.as_deref().unwrap_or(""),
+          TypedExpr::VariableRef { var, .. } => var.as_str(),
+          TypedExpr::StructConstructor { name } => name.as_str(),
+          _ => "",
+        };
+
+        if callee == "print" {
+          format!("console.log({})", args_str)
         } else {
-          let args_str = args
-            .iter()
-            .map(|a| self.generate_expr(a))
-            .collect::<Vec<_>>()
-            .join(", ");
-
-          let callee = match self.tycheck.ty_db.expr(def) {
-            TypedExpr::FunctionDef(FunctionDef { name, .. }) => name.as_deref().unwrap_or(""),
-            TypedExpr::VariableRef { var, .. } => var.as_str(),
-            TypedExpr::StructConstructor { name } => name.as_str(),
-            _ => "",
+          let lhs = match self.tycheck.ty_db.expr(def) {
+            TypedExpr::FunctionDef(FunctionDef { name, .. }) => match name {
+              Some(s) => s.clone(),
+              None => "".to_string(),
+            },
+            TypedExpr::VariableRef { var, .. } => var.clone(),
+            TypedExpr::StructConstructor { name } => name.clone(),
+            _ => {
+              let expr = self.tycheck.ty_db.expr(def);
+              expr.ty().to_string()
+            }
           };
-
-          if callee == "print" {
-            format!("console.log({})", args_str)
-          } else {
-            let lhs = match self.tycheck.ty_db.expr(def) {
-              TypedExpr::FunctionDef(FunctionDef { name, .. }) => match name {
-                Some(s) => s.clone(),
-                None => "".to_string(),
-              },
-              TypedExpr::VariableRef { var, .. } => var.clone(),
-              TypedExpr::StructConstructor { name } => name.clone(),
-              _ => {
-                let expr = self.tycheck.ty_db.expr(def);
-                expr.ty().to_string()
-              }
-            };
-            format!("{}({})", lhs, args_str)
-          }
+          format!("{}({})", lhs, args_str)
         }
       }
       TypedExpr::Number { val: Some(val) } => val.to_string(),
@@ -191,50 +210,34 @@ impl<'tycheck> JsGenerator<'tycheck> {
         None => "\"\"".to_string(),
       },
       TypedExpr::Boolean { val } => todo!(),
-      TypedExpr::Array { vals, ty } => {
-        if ty.has_value() {
-          format!("{}", ty)
-        } else {
-          let vals = vals
-            .as_ref()
-            .unwrap()
-            .iter()
-            .map(|a| self.generate_expr(a))
-            .collect::<Vec<_>>()
-            .join(", ");
-          format!("[{}]", vals)
-        }
+      TypedExpr::Array { vals, .. } => {
+        let vals = vals
+          .as_ref()
+          .unwrap()
+          .iter()
+          .map(|a| self.generate_expr(a))
+          .collect::<Vec<_>>()
+          .join(", ");
+        format!("[{}]", vals)
       }
-      TypedExpr::Binary { op, lhs, rhs, ty } => {
-        if ty.has_value() {
-          format!("{}", ty)
-        } else {
-          let lhs = self.generate_expr(lhs);
-          let rhs = self.generate_expr(rhs);
-          format!("{} {} {}", lhs, op, rhs)
-        }
+      TypedExpr::Binary { op, lhs, rhs, .. } => {
+        let lhs = self.generate_expr(lhs);
+        let rhs = self.generate_expr(rhs);
+        format!("{} {} {}", lhs, op, rhs)
       }
-      TypedExpr::Unary { op, expr, ty } => {
-        if ty.has_value() {
-          format!("{}", ty)
-        } else {
-          let expr = self.generate_expr(expr);
-          format!("{}{}", op, expr)
-        }
+      TypedExpr::Unary { op, expr, .. } => {
+        let expr = self.generate_expr(expr);
+        format!("{}{}", op, expr)
       }
-      TypedExpr::Block { stmts, ty } => {
-        if ty.has_value() {
-          format!("{}", ty)
-        } else {
-          let stmts = stmts
-            .iter()
-            .map(|s| self.generate_stmt("", s))
-            .collect::<Vec<_>>();
-          // return last statment
-          let last = stmts.last().unwrap();
-          let stmts = stmts[..stmts.len() - 1].join("\n return ");
-          format!("(() => {{ {} }}())", stmts)
-        }
+      TypedExpr::Block { stmts, .. } => {
+        let stmts = stmts
+          .iter()
+          .map(|s| self.generate_stmt("", s))
+          .collect::<Vec<_>>();
+        // return last statment
+        let last = stmts.last().unwrap();
+        let stmts = stmts[..stmts.len() - 1].join("\n return ");
+        format!("(() => {{ {} }}())", stmts)
       }
       TypedExpr::FunctionDef(FunctionDef {
         name,
@@ -263,20 +266,14 @@ impl<'tycheck> JsGenerator<'tycheck> {
         condition,
         then_branch,
         else_branch,
-        ty,
+        ..
       } => {
-        if ty.has_value() {
-          format!("{}", ty)
-        } else {
-          let condition = self.generate_expr(condition);
-          let then_branch = self.generate_expr(then_branch);
-          let else_branch = self.generate_expr(else_branch);
-          format!("{} ? {} : {}", condition, then_branch, else_branch)
-        }
+        let condition = self.generate_expr(condition);
+        let then_branch = self.generate_expr(then_branch);
+        let else_branch = self.generate_expr(else_branch);
+        format!("{} ? {} : {}", condition, then_branch, else_branch)
       }
-      TypedExpr::Object { fields, ty } => {
-        println!("fields: {:?}", fields);
-        println!("ty: {:?}", ty);
+      TypedExpr::Object { fields, .. } => {
         let fields = fields
           .iter()
           .map(|(k, v)| format!("{}: {}", k, self.generate_expr(v)))
@@ -284,13 +281,9 @@ impl<'tycheck> JsGenerator<'tycheck> {
           .join(", ");
         format!("{{ {} }}", fields)
       }
-      TypedExpr::ObjectFieldAccess { object, field, ty } => {
-        if ty.has_value() {
-          format!("{}", ty)
-        } else {
-          let object = self.generate_expr(object);
-          format!("{}.{}", object, field)
-        }
+      TypedExpr::ObjectFieldAccess { object, field, .. } => {
+        let object = self.generate_expr(object);
+        format!("{}.{}", object, field)
       }
       TypedExpr::StructConstructor { name } => name.clone(),
       TypedExpr::StructInstance { .. } => "({})".to_string(),
@@ -302,54 +295,50 @@ impl<'tycheck> JsGenerator<'tycheck> {
         fold_acc,
         fold_index,
         body,
-        ty,
+        ..
       } => {
-        if ty.has_value() {
-          format!("{}", ty)
-        } else {
-          let iter_e = self.generate_expr(iterable);
-          let idx_var = fold_index
-            .clone()
-            .unwrap_or_else(|| "__ds_k".to_string());
-          let where_guard = match where_clause.as_ref() {
-            Some(w) => {
-              let w_e = self.generate_expr(w);
-              format!("if (!({})) continue;\n          ", w_e)
-            }
-            None => String::new(),
-          };
-          let body_e = self.generate_expr(body);
-          let (setup, ret_name) = if let Some(acc_n) = fold_acc {
-            let init_e = acc_init
-              .as_ref()
-              .map(|i| self.generate_expr(i))
-              .unwrap_or_else(|| "undefined".to_string());
-            (
-              format!("let {} = {};", acc_n, init_e),
-              acc_n.clone(),
-            )
-          } else {
-            let setup_line = match acc_init.as_ref() {
-              Some(i) => format!("let __ds_out = {};", self.generate_expr(i)),
-              None => "let __ds_out;".to_string(),
-            };
-            (setup_line, "__ds_out".to_string())
-          };
-          format!(
-            "(((__ds_iter) => {{\n        {}\n        for (let {} = 0; {} < __ds_iter.length; {}++) {{\n          const {} = __ds_iter[{}];\n          {}{} = {};\n        }}\n        return {};\n      }})({}))",
-            setup,
-            idx_var,
-            idx_var,
-            idx_var,
-            binding,
-            idx_var,
-            where_guard,
-            ret_name,
-            body_e,
-            ret_name,
-            iter_e
+        let iter_e = self.generate_expr(iterable);
+        let idx_var = fold_index
+          .clone()
+          .unwrap_or_else(|| "__ds_k".to_string());
+        let where_guard = match where_clause.as_ref() {
+          Some(w) => {
+            let w_e = self.generate_expr(w);
+            format!("if (!({})) continue;\n          ", w_e)
+          }
+          None => String::new(),
+        };
+        let body_e = self.generate_expr(body);
+        let (setup, ret_name) = if let Some(acc_n) = fold_acc {
+          let init_e = acc_init
+            .as_ref()
+            .map(|i| self.generate_expr(i))
+            .unwrap_or_else(|| "undefined".to_string());
+          (
+            format!("let {} = {};", acc_n, init_e),
+            acc_n.clone(),
           )
-        }
+        } else {
+          let setup_line = match acc_init.as_ref() {
+            Some(i) => format!("let __ds_out = {};", self.generate_expr(i)),
+            None => "let __ds_out;".to_string(),
+          };
+          (setup_line, "__ds_out".to_string())
+        };
+        format!(
+          "(((__ds_iter) => {{\n        {}\n        for (let {} = 0; {} < __ds_iter.length; {}++) {{\n          const {} = __ds_iter[{}];\n          {}{} = {};\n        }}\n        return {};\n      }})({}))",
+          setup,
+          idx_var,
+          idx_var,
+          idx_var,
+          binding,
+          idx_var,
+          where_guard,
+          ret_name,
+          body_e,
+          ret_name,
+          iter_e
+        )
       }
       TypedExpr::Unresolved => todo!(),
       TypedExpr::Error => todo!("typedexpr errorrrr"),

@@ -64,12 +64,6 @@ pub enum TokenKind {
   #[token("::")]
   DoubleColon,
 
-  #[token("{{")]
-  DoubleLeftBrace,
-
-  #[token("}}")]
-  DoubleRightBrace,
-
   #[token("{")]
   LeftBrace,
 
@@ -223,8 +217,6 @@ impl fmt::Display for TokenKind {
       Self::Equals => "'='",
       Self::LeftParenthesis => "'('",
       Self::RightParenthesis => "')'",
-      Self::DoubleLeftBrace => "'{{'",
-      Self::DoubleRightBrace => "'}}'",
       Self::LeftBrace => "'{'",
       Self::RightBrace => "'}'",
       Self::LeftBracket => "'['",
@@ -361,12 +353,9 @@ mod tests {
   }
 
   #[test]
-  fn lex_double_left_brace() {
-    check("{{", TokenKind::DoubleLeftBrace);
-  }
-
-  #[test]
-  fn lex_double_right_brace() {
-    check("}}", TokenKind::DoubleRightBrace);
+  fn lex_double_open_brace_as_two_left_braces() {
+    let mut lexer = Lexer::new("{{");
+    assert_eq!(lexer.next().unwrap().kind, TokenKind::LeftBrace);
+    assert_eq!(lexer.next().unwrap().kind, TokenKind::LeftBrace);
   }
 }
