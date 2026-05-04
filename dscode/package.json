@@ -39,7 +39,7 @@
 		],
 		"configuration": {
 			"type": "object",
-			"title": "Example configuration",
+			"title": "Duckstruct language server",
 			"properties": {
 				"languageServerExample.maxNumberOfProblems": {
 					"scope": "resource",
@@ -61,8 +61,8 @@
 				"languageServerExample.duckstructPath": {
 					"scope": "resource",
 					"type": "string",
-					"default": "duckstruct",
-					"description": "Path to the duckstruct binary (for diagnostics). Use 'duckstruct' if on PATH, or e.g. absolute path to target/debug/duckstruct."
+					"default": "ds",
+					"description": "Path to the Duckstruct CLI binary used for diagnostics (`check --json`). Default `ds` matches the workspace binary name; use an absolute path (e.g. target/debug/ds) if it is not on PATH."
 				}
 			}
 		}

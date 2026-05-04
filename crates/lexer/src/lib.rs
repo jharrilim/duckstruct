@@ -25,16 +25,13 @@ impl<'a> Iterator for Lexer<'a> {
     let kind = self.inner.next()?;
     let text = self.inner.slice();
     let line = self.inner.extras.line_heads.len();
-    let line_index = *self.inner.extras.line_heads.last().unwrap_or(&0);
 
+    // Absolute byte offsets in the full source. (Previously ranges were line-relative, which
+    // broke multi-line diagnostics and any consumer treating `TextRange` as file offsets.)
     let range = {
       let Range { start, end } = self.inner.span();
-      let start = start - line_index;
-      let end = end - line_index;
-
       let start = TextSize::try_from(start).unwrap();
       let end = TextSize::try_from(end).unwrap();
-
       TextRange::new(start, end)
     };
 
@@ -51,6 +48,8 @@ impl<'a> Iterator for Lexer<'a> {
 pub struct Token<'a> {
   pub kind: TokenKind,
   pub text: &'a str,
+  /// Byte range in the full source (`TextSize` offsets from the start of the file).
   pub range: TextRange,
+  /// 0-based line index for this token (handy for messages; spans use [`Self::range`]).
   pub line: usize,
 }

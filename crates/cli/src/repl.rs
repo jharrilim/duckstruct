@@ -1,6 +1,7 @@
 //! Interactive REPL.
 
 use codegen::js::JsGenerator;
+use diagnostics::{bundle_from_parse_errors, emit_human_string, HumanEmitConfig};
 use parser::parse;
 use rustyline::{
   self, error::ReadlineError, highlight::MatchingBracketHighlighter,
@@ -53,7 +54,23 @@ impl ReplSession {
     };
 
     let parse = parse(&lines);
-    let root = ast::Root::cast(parse.syntax()).unwrap();
+    if !parse.errors.is_empty() {
+      let b = bundle_from_parse_errors(&parse.errors);
+      let msg = emit_human_string(&lines, &b, &HumanEmitConfig::from_env("REPL"));
+      eprint!("{}", msg);
+      if line
+        .as_ref()
+        .map(|l| l.starts_with("f ") || l.starts_with("let "))
+        .unwrap_or(false)
+      {
+        self.statements.pop();
+      }
+      return;
+    }
+    let Some(root) = ast::Root::cast(parse.syntax()) else {
+      eprintln!("failed to build AST from source");
+      return;
+    };
 
     let hir_db = hir::lower(root.clone());
     let mut tycheck = TyCheck::new(hir_db);
@@ -61,7 +78,7 @@ impl ReplSession {
     tycheck.infer();
 
     if tycheck.diagnostics.has_errors() {
-      tycheck.diagnostics.print_errors_with_source(&lines);
+      tycheck.diagnostics.print_errors_with_source(&lines, "REPL");
       if line
         .map(|l| l.starts_with("f ") || l.starts_with("let "))
         .unwrap_or(false)

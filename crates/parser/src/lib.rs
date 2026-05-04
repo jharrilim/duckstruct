@@ -7,6 +7,7 @@ mod expressions;
 mod marker;
 mod operators;
 mod parse_error;
+pub use parse_error::ParseError;
 pub mod parser;
 mod parsers;
 mod sink;
@@ -582,6 +583,29 @@ mod tests {
       let parsed = parse(code);
       assert_eq!(parsed.errors.len(), 1);
     }
+
+    #[test]
+    fn parse_error_incomplete_let_recovery_span_on_following_let_line() {
+      let code = "let x =\nlet y = 1";
+      let parsed = parse(code);
+      let nl = code.find('\n').unwrap();
+      let start: usize = parsed.errors[0].range.start().into();
+      assert!(start > nl, "error should be anchored past the first newline");
+    }
+
+    #[test]
+    fn parse_error_junk_after_equals_on_second_let_line() {
+      let code = "let a = 123;\nlet b = )'(;\n";
+      let parsed = parse(code);
+      assert!(!parsed.errors.is_empty());
+      let start: usize = parsed.errors[0].range.start().into();
+      let paren = code.find(')').expect("`)` token");
+      assert_eq!(
+        start, paren,
+        "first error should start at the stray `)` on the second statement"
+      );
+    }
+
 
     #[test]
     fn parse_error_on_lone_binary_op() {

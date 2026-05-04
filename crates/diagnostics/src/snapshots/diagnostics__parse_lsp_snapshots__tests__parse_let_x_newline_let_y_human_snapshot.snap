@@ -1,0 +1,12 @@
+---
+source: crates/diagnostics/src/parse_lsp_snapshots.rs
+expression: "snapshot_human(src, &bundle)"
+---
+[parse::syntax] Error: expected expression, found 'let'
+   ╭─[ test.ds:2:1 ]
+   │
+ 2 │ let y = 1
+   │ ─┬─  
+   │  ╰─── expected expression, found 'let'
+───╯
+

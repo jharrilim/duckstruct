@@ -1,89 +1,51 @@
-use std::fmt::Display;
+use diagnostics::{emit_human_string, Diagnostic, DiagnosticBundle, HumanEmitConfig, TextRange};
 
-use syntax::TextRange;
-
-/// Returns (line_1based, column_1based) for the start of the range, or None if out of bounds.
-fn line_column(source: &str, range: TextRange) -> Option<(usize, usize)> {
-  let start = range.start().into();
-  if source.is_empty() || start > source.len() {
-    return None;
-  }
-  let line = 1 + source.bytes().take(start).filter(|&b| b == b'\n').count();
-  let line_start = source
-    .bytes()
-    .enumerate()
-    .rev()
-    .take(start)
-    .find(|(_, b)| *b == b'\n')
-    .map(|(i, _)| i + 1)
-    .unwrap_or(0);
-  let column = 1 + start - line_start;
-  Some((line, column))
-}
-
+/// Type checker diagnostics (shared model with CLI / LSP).
 #[derive(Debug, Default)]
 pub struct Diagnostics {
-  pub errors: Vec<Error>,
+  pub bundle: DiagnosticBundle,
 }
 
 impl Diagnostics {
   pub fn has_errors(&self) -> bool {
-    !self.errors.is_empty()
+    self.bundle.has_errors()
+  }
+
+  /// Stable error code + message + primary span.
+  pub fn push_error(&mut self, code: &str, message: String, span: TextRange) {
+    self.bundle.push(Diagnostic::error(code, message, span));
+  }
+
+  pub fn push(&mut self, diagnostic: Diagnostic) {
+    self.bundle.push(diagnostic);
+  }
+
+  /// All diagnostics with severity [`diagnostics::Severity::Error`].
+  pub fn errors(&self) -> impl Iterator<Item = &Diagnostic> {
+    self.bundle.errors()
+  }
+
+  pub fn items(&self) -> &[Diagnostic] {
+    &self.bundle.items
   }
 
   pub fn print_errors(&self) {
-    for error in &self.errors {
-      println!("{}", error);
+    for d in &self.bundle.items {
+      println!("{}", d.message);
     }
   }
 
-  /// Print errors with source location (line, column) when source is provided.
-  /// If source is empty, only the message is printed (e.g. for tests).
-  pub fn print_errors_with_source(&self, source: &str) {
-    for line in self.format_errors_with_source(source) {
-      println!("{}", line);
+  /// Print errors with rustc-style source snippets when `source` is non-empty.
+  pub fn print_errors_with_source(&self, source: &str, file_label: &str) {
+    if source.is_empty() {
+      self.print_errors();
+      return;
     }
-  }
-
-  /// Format errors with source location (line, column) when source is provided.
-  /// Returns one string per error, for testing or custom display.
-  pub fn format_errors_with_source(&self, source: &str) -> Vec<String> {
-    self
-      .errors
-      .iter()
-      .map(|error| {
-        if let Some((line, col)) = line_column(source, error.span()) {
-          format!("error at line {}, column {}: {}", line, col, error.message())
-        } else {
-          format!("error: {}", error.message())
-        }
-      })
-      .collect()
-  }
-
-  pub fn push_error(&mut self, message: String, span: TextRange) {
-    self.errors.push(Error { message, span });
-  }
-}
-
-#[derive(Debug, Default)]
-pub struct Error {
-  message: String,
-  span: TextRange,
-}
-
-impl Error {
-  pub fn span(&self) -> TextRange {
-    self.span
-  }
-
-  pub fn message(&self) -> &str {
-    &self.message
-  }
-}
-
-impl Display for Error {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}", self.message)
+    let cfg = HumanEmitConfig {
+      colors: std::env::var_os("NO_COLOR").is_none(),
+      file_label: file_label.to_string(),
+    };
+    let out = emit_human_string(source, &self.bundle, &cfg);
+    eprint!("{}", out);
   }
 }

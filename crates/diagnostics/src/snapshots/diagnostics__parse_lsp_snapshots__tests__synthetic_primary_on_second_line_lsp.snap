@@ -1,0 +1,21 @@
+---
+source: crates/diagnostics/src/parse_lsp_snapshots.rs
+expression: "snapshot_lsp_json(src, &bundle)"
+---
+[
+  {
+    "range": {
+      "start": {
+        "line": 1,
+        "character": 8
+      },
+      "end": {
+        "line": 1,
+        "character": 14
+      }
+    },
+    "message": "unknown name `wobble`",
+    "severity": 1,
+    "code": "test::synthetic"
+  }
+]

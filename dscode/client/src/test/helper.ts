@@ -17,6 +17,12 @@ export let platformEol: string;
 export async function activate(docUri: vscode.Uri) {
 	// The extensionId is `publisher.name` from package.json
 	const ext = vscode.extensions.getExtension('vscode-samples.lsp-sample')!;
+	const dsPath = process.env.DUCKSTRUCT_E2E_DS_PATH;
+	if (dsPath) {
+		await vscode.workspace
+			.getConfiguration('languageServerExample', docUri)
+			.update('duckstructPath', dsPath, vscode.ConfigurationTarget.Workspace);
+	}
 	await ext.activate();
 	try {
 		doc = await vscode.workspace.openTextDocument(docUri);

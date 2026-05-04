@@ -7,14 +7,41 @@ import * as vscode from 'vscode';
 import * as assert from 'assert';
 import { getDocUri, activate } from './helper';
 
+function sleep(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForDiagnostics(
+	docUri: vscode.Uri,
+	opts: { min: number; timeoutMs: number }
+): Promise<vscode.Diagnostic[]> {
+	const deadline = Date.now() + opts.timeoutMs;
+	while (Date.now() < deadline) {
+		const d = vscode.languages.getDiagnostics(docUri);
+		if (d.length >= opts.min) {
+			return d;
+		}
+		await sleep(200);
+	}
+	return vscode.languages.getDiagnostics(docUri);
+}
+
 suite('Should get diagnostics', () => {
 	const docUri = getDocUri('diagnostics.ds');
 
 	test('Diagnoses parse errors in duckstruct', async () => {
 		await activate(docUri);
-		const actualDiagnostics = vscode.languages.getDiagnostics(docUri);
-		// When duckstruct binary is on PATH (or duckstructPath setting): expect one parse error for "let x =" (incomplete)
-		assert.ok(actualDiagnostics.length >= 0);
+		const requireDiagnostics = Boolean(process.env.DUCKSTRUCT_E2E_DS_PATH);
+		const actualDiagnostics = await waitForDiagnostics(docUri, {
+			min: requireDiagnostics ? 1 : 0,
+			timeoutMs: 20_000
+		});
+		assert.ok(
+			actualDiagnostics.length >= (requireDiagnostics ? 1 : 0),
+			requireDiagnostics
+				? 'expected at least one diagnostic (set DUCKSTRUCT_E2E_DS_PATH and ensure ds check --json works)'
+				: 'diagnostics'
+		);
 		if (actualDiagnostics.length >= 1) {
 			assert.ok(actualDiagnostics[0].message.length > 0, 'diagnostic message');
 			assert.strictEqual(actualDiagnostics[0].severity, vscode.DiagnosticSeverity.Error);

@@ -34,10 +34,10 @@ async function testCompletion(
 		position
 	)) as vscode.CompletionList;
 
-	assert.ok(actualCompletionList.items.length >= 2);
-	expectedCompletionList.items.forEach((expectedItem, i) => {
-		const actualItem = actualCompletionList.items[i];
-		assert.equal(actualItem.label, expectedItem.label);
-		assert.equal(actualItem.kind, expectedItem.kind);
-	});
+	assert.ok(actualCompletionList.items.length >= expectedCompletionList.items.length);
+	for (const expectedItem of expectedCompletionList.items) {
+		const actualItem = actualCompletionList.items.find((i) => i.label === expectedItem.label);
+		assert.ok(actualItem, `missing completion item ${expectedItem.label}`);
+		assert.strictEqual(actualItem!.kind, expectedItem.kind);
+	}
 }

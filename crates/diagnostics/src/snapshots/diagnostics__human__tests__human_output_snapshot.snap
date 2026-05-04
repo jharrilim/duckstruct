@@ -1,0 +1,13 @@
+---
+source: crates/diagnostics/src/human.rs
+assertion_line: 117
+expression: out
+---
+[type::cannot_call] Error: cannot call this expression
+   ╭─[ test.ds:2:12 ]
+   │
+ 2 │ let y = x();
+   │            ┬  
+   │            ╰── cannot call this expression
+───╯
+

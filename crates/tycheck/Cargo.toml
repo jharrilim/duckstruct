@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 ast = { path = "../ast" }
 data-structures = { path = "../data-structures" }
+diagnostics = { path = "../diagnostics" }
 hir = { path = "../hir" }
 syntax = { path = "../syntax" }
 distance = "0.4.0"

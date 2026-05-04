@@ -107,8 +107,9 @@ impl<'l, 'input> Parser<'l, 'input> {
   // Consume the current token and add it to the AST
   pub(crate) fn bump(&mut self) {
     self.expected_kinds.clear();
-    self.source.next_token().unwrap();
-    self.events.push(Event::AddToken);
+    if self.source.next_token().is_some() {
+      self.events.push(Event::AddToken);
+    }
   }
 
   pub(crate) fn at(&mut self, kind: TokenKind) -> bool {

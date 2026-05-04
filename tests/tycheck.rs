@@ -1,5 +1,6 @@
 use ast::Root;
 use data_structures::FxIndexMap;
+use diagnostics as diag_emit;
 
 use parser::parse;
 use tycheck::{typed_hir::Ty, TyCheck};
@@ -20,8 +21,9 @@ pub fn expect_type_for_definition(tycheck: &TyCheck, def: &str, ty: Ty) {
     "unexpected errors: {:?}",
     tycheck
       .diagnostics
-      .errors
+      .items()
       .iter()
+      .filter(|e| e.is_error())
       .map(|e| e.message().to_string())
       .collect::<Vec<_>>()
   );
@@ -721,8 +723,7 @@ mod loops {
     assert!(
       tycheck
         .diagnostics
-        .errors
-        .iter()
+        .errors()
         .any(|e| e.message().contains("boolean")),
       "expected boolean-related diagnostic"
     );
@@ -770,7 +771,7 @@ mod structs {
     let tycheck = tycheck(code);
 
     assert!(tycheck.diagnostics.has_errors());
-    let first = tycheck.diagnostics.errors.first().unwrap();
+    let first = tycheck.diagnostics.errors().next().unwrap();
     assert!(
       first.message().contains("new"),
       "expected hint to use `new` struct syntax, got: {}",
@@ -779,7 +780,7 @@ mod structs {
   }
 }
 
-mod diagnostics {
+mod typecheck_diagnostics {
   use super::*;
 
   #[test]
@@ -788,7 +789,7 @@ mod diagnostics {
     let tycheck = tycheck(code);
 
     assert!(tycheck.diagnostics.has_errors(), "expected type error for invalid code");
-    let first = tycheck.diagnostics.errors.first().unwrap();
+    let first = tycheck.diagnostics.errors().next().unwrap();
     assert!(
       first.message().contains("Undefined variable") || first.message().contains("Cannot call"),
       "expected error message, got: {}",
@@ -802,17 +803,21 @@ mod diagnostics {
     let tycheck = tycheck(code);
 
     assert!(tycheck.diagnostics.has_errors());
-    let formatted = tycheck.diagnostics.format_errors_with_source(code);
-    assert!(!formatted.is_empty());
-    let output = formatted.join("\n");
-    assert!(
-      output.contains("line 1"),
-      "formatted error should include line number, got: {}",
-      output
+    let output = diag_emit::emit_human_string(
+      code,
+      &tycheck.diagnostics.bundle,
+      &diag_emit::HumanEmitConfig {
+        colors: false,
+        file_label: "test.ds".into(),
+      },
     );
     assert!(
-      output.contains("error at") && output.contains("column"),
-      "formatted error should include location prefix, got: {}",
+      !output.is_empty(),
+      "human diagnostic output should be non-empty"
+    );
+    assert!(
+      output.contains("x()") || output.contains("Error"),
+      "expected snippet or error header in output, got: {}",
       output
     );
   }

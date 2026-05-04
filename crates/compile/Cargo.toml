@@ -12,6 +12,7 @@ llvm = ["codegen/llvm"]
 
 [dependencies]
 ast = { path = "../ast" }
+diagnostics = { path = "../diagnostics" }
 toml = "0.8"
 serde = { version = "1", features = ["derive"] }
 codegen = { path = "../codegen" }

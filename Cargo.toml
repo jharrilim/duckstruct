@@ -28,6 +28,7 @@ tycheck = { path = "./crates/tycheck" }
 project-root = "0.2.2"
 
 [dev-dependencies]
+diagnostics = { path = "./crates/diagnostics" }
 insta = { version = "1.21.0", features = ["yaml", "serde"] }
 serde = { version = "1.0.145", features = ["derive"] }
 tempfile = "3"

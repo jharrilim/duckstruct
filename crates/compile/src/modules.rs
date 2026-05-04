@@ -6,6 +6,7 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use ast::Root;
+use diagnostics::{bundle_from_parse_errors, emit_human_string, HumanEmitConfig};
 use duckstruct_std;
 use hir;
 use parser::parse;
@@ -98,7 +99,12 @@ pub fn load_module_tree(
     .map_err(|e| format!("Failed to read {}: {}", entry_path.display(), e))?;
   let parse = parse(&source);
   if !parse.errors.is_empty() {
-    return Err(format!("Parse errors: {:?}", parse.errors));
+    let b = bundle_from_parse_errors(&parse.errors);
+    return Err(emit_human_string(
+      &source,
+      &b,
+      &HumanEmitConfig::from_env(entry_path.to_string_lossy().as_ref()),
+    ));
   }
   let ast = Root::cast(parse.syntax())
     .ok_or_else(|| "Failed to build AST".to_string())?;
@@ -170,10 +176,11 @@ fn load_deps_recurse(
       .map_err(|e| format!("Failed to read {}: {}", dep_path.display(), e))?;
     let dep_parse = parse(&dep_source);
     if !dep_parse.errors.is_empty() {
-      return Err(format!(
-        "Parse errors in {}: {:?}",
-        dep_path.display(),
-        dep_parse.errors
+      let b = bundle_from_parse_errors(&dep_parse.errors);
+      return Err(emit_human_string(
+        &dep_source,
+        &b,
+        &HumanEmitConfig::from_env(dep_path.to_string_lossy().as_ref()),
       ));
     }
     let dep_ast = Root::cast(dep_parse.syntax())
@@ -191,6 +198,13 @@ fn load_deps_recurse(
     let dep_hir = hir::lower(dep_ast);
     let mut dep_tycheck = TyCheck::new(dep_hir);
     dep_tycheck.infer();
+    if dep_tycheck.diagnostics.has_errors() {
+      return Err(emit_human_string(
+        &dep_source,
+        &dep_tycheck.diagnostics.bundle,
+        &HumanEmitConfig::from_env(dep_path.to_string_lossy().as_ref()),
+      ));
+    }
 
     dep_order.push(LoadedModule {
       name: mod_name,

@@ -291,7 +291,8 @@ impl TyCheck {
   ) -> TypedDatabaseIdx {
     if !fields.is_empty() {
       self.diagnostics.push_error(
-        "struct literals with fields are not yet supported".into(),
+        "type::error",
+        "struct literals with fields are not yet supported".to_string(),
         ast.span(),
       );
       return self.ty_db.alloc(TypedExpr::Error);
@@ -303,13 +304,13 @@ impl TyCheck {
         let Some(def) = scope.def(var) else {
           self
             .diagnostics
-            .push_error(format!("undefined `{}`", var), ast.span());
+            .push_error("type::error", format!("undefined `{}`", var), ast.span());
           return self.ty_db.alloc(TypedExpr::Error);
         };
         match self.ty_db.expr(&def) {
           TypedExpr::StructConstructor { name } => name.clone(),
           _ => {
-            self.diagnostics.push_error(
+            self.diagnostics.push_error("type::error",
               format!("`{}` is not a struct type", var),
               ast.span(),
             );
@@ -321,19 +322,19 @@ impl TyCheck {
         let Some(map) = module_map else {
           self
             .diagnostics
-            .push_error("unknown module path".into(), ast.span());
+            .push_error("type::error", "unknown module path".to_string(), ast.span());
           return self.ty_db.alloc(TypedExpr::Error);
         };
         if path.len() < 2 {
           self
             .diagnostics
-            .push_error("invalid struct literal type".into(), ast.span());
+            .push_error("type::error", "invalid struct literal type".to_string(), ast.span());
           return self.ty_db.alloc(TypedExpr::Error);
         }
         let mod_key = path[0..path.len() - 1].join("::");
         let item_name = path.last().unwrap();
         let Some(dep) = map.get(&mod_key) else {
-          self.diagnostics.push_error(
+          self.diagnostics.push_error("type::error",
             format!("unknown module `{}`", mod_key),
             ast.span(),
           );
@@ -342,7 +343,7 @@ impl TyCheck {
         let Some(typed_stmt) = dep.ty_db.definition(item_name) else {
           self
             .diagnostics
-            .push_error(format!("unknown item `{}`", item_name), ast.span());
+            .push_error("type::error", format!("unknown item `{}`", item_name), ast.span());
           return self.ty_db.alloc(TypedExpr::Error);
         };
         match typed_stmt {
@@ -352,14 +353,14 @@ impl TyCheck {
             ..
           } => name.clone(),
           TypedStmt::StructDef { pub_vis: false, .. } => {
-            self.diagnostics.push_error(
+            self.diagnostics.push_error("type::error",
               format!("struct `{}` is not public", item_name),
               ast.span(),
             );
             return self.ty_db.alloc(TypedExpr::Error);
           }
           _ => {
-            self.diagnostics.push_error(
+            self.diagnostics.push_error("type::error",
               format!("`{}` is not a struct in this module", item_name),
               ast.span(),
             );
@@ -370,7 +371,7 @@ impl TyCheck {
       _ => {
         self
           .diagnostics
-          .push_error("invalid struct literal type".into(), ast.span());
+          .push_error("type::error", "invalid struct literal type".to_string(), ast.span());
         return self.ty_db.alloc(TypedExpr::Error);
       }
     };
@@ -416,7 +417,7 @@ impl TyCheck {
         match self.query_object_name(object) {
           Some(name) => {
             if let Some(similar_name) = scope.def_name_similar_to(name) {
-              self.diagnostics.push_error(
+              self.diagnostics.push_error("type::error",
                 format!(
                   "Cannot access field `{}` on {}. Did you mean `{}`?",
                   field, name, similar_name
@@ -424,14 +425,14 @@ impl TyCheck {
                 ast.span(),
               );
             } else {
-              self.diagnostics.push_error(
+              self.diagnostics.push_error("type::error",
                 format!("Cannot access field `{}` on {}.", field, name),
                 ast.span(),
               );
             }
           }
           None => {
-            self.diagnostics.push_error(
+            self.diagnostics.push_error("type::error",
               format!("Cannot access field `{}` on {}.", field, ty),
               ast.span(),
             );
@@ -507,7 +508,7 @@ impl TyCheck {
                 Ty::Object(Some(fields))
               }
               _ => {
-                self.diagnostics.push_error(
+                self.diagnostics.push_error("type::error",
                   format!(
                     "Cannot access field `{}` on non-object type. Type: {:?}",
                     field, original_ty
@@ -570,7 +571,7 @@ impl TyCheck {
         let else_ty = self.ty_db.expr(&else_branch).ty();
 
         if !then_ty.type_eq(&else_ty) {
-          self.diagnostics.push_error(
+          self.diagnostics.push_error("type::error",
             format!(
               "Type mismatch in conditional expression: {} and {}",
               then_ty, else_ty
@@ -591,7 +592,7 @@ impl TyCheck {
       _ => {
         self
           .diagnostics
-          .push_error("Condition must be a boolean".to_string(), ast.span());
+          .push_error("type::error", "Condition must be a boolean".to_string(), ast.span());
         let then_branch = self.ty_db.alloc(TypedExpr::Error);
         let else_branch = self.ty_db.alloc(TypedExpr::Error);
         self.ty_db.alloc(TypedExpr::Conditional {
@@ -687,14 +688,15 @@ impl TyCheck {
       _ => {
         self
           .diagnostics
-          .push_error("for-loop binding must be a simple name".into(), span);
+          .push_error("type::error", "for-loop binding must be a simple name".to_string(), span);
         return self.ty_db.alloc(TypedExpr::Error);
       }
     };
 
     if fold_params.is_some() && acc_init.is_none() {
       self.diagnostics.push_error(
-        "fold parameters `|acc, i|` require an accumulator initializer `| expr |`".into(),
+        "type::error",
+        "fold parameters `|acc, i|` require an accumulator initializer `| expr |`".to_string(),
         span,
       );
       return self.ty_db.alloc(TypedExpr::Error);
@@ -758,7 +760,7 @@ impl TyCheck {
               _ => {
                 self
                   .diagnostics
-                  .push_error("where clause must be boolean".into(), span);
+                  .push_error("type::error", "where clause must be boolean".to_string(), span);
                 determinate_ok = false;
                 scope.pop_frame();
                 break;
@@ -805,7 +807,7 @@ impl TyCheck {
         Some(init_idx) => {
           let init_ty = self.ty_db.expr(init_idx).ty().clone();
           if !init_ty.type_eq(&body_ty) {
-            self.diagnostics.push_error(
+            self.diagnostics.push_error("type::error",
               format!(
                 "Type mismatch in for-loop: initializer {} and body {}",
                 init_ty, body_ty
@@ -917,7 +919,7 @@ impl TyCheck {
     match lhs_expr.clone() {
       TypedExpr::FunctionParameter { name: _, ty: _ } => *lhs,
       TypedExpr::StructConstructor { name } => {
-        self.diagnostics.push_error(
+        self.diagnostics.push_error("type::error",
           format!(
             "construct struct `{}` with `new` and `{{ }}`, e.g. `new {} {{ }}`",
             name, name
@@ -935,7 +937,7 @@ impl TyCheck {
             // Imported proxy (same idx): type the call from the variable's function type to avoid infinite recursion.
             if let Ty::Function { ret, params, .. } = ty {
               if args.len() != params.len() {
-                self.diagnostics.push_error(
+                self.diagnostics.push_error("type::error",
                   format!(
                     "function expected {} arguments, but got {}",
                     params.len(),
@@ -964,7 +966,7 @@ impl TyCheck {
           None => {
             self
               .diagnostics
-              .push_error(format!("Undefined variable `{}`", var), ast.span());
+              .push_error("type::error", format!("Undefined variable `{}`", var), ast.span());
             self.ty_db.alloc(TypedExpr::Error)
           }
         }
@@ -1005,7 +1007,7 @@ impl TyCheck {
         closure_scope,
       }) => {
         if args.len() != params.len() {
-          self.diagnostics.push_error(
+          self.diagnostics.push_error("type::error",
             format!(
               "function `{}` expected {} arguments, but got {}",
               name.unwrap_or_default(),
@@ -1053,7 +1055,7 @@ impl TyCheck {
             TypedExpr::VariableRef { .. } => *lhs,
             TypedExpr::FunctionParameter { .. } => *lhs,
             _ => {
-              self.diagnostics.push_error(
+              self.diagnostics.push_error("type::error",
                 format!("Cannot call field `{}` on non-object type `{}`", field, ty),
                 ast.span(),
               );
@@ -1063,7 +1065,7 @@ impl TyCheck {
           None => {
             self
               .diagnostics
-              .push_error(format!("Undefined variable `{}`", var), ast.span());
+              .push_error("type::error", format!("Undefined variable `{}`", var), ast.span());
             self.ty_db.alloc(TypedExpr::Error)
           }
         },
@@ -1073,7 +1075,7 @@ impl TyCheck {
             self.infer_function_call_impl(scope, &field, args, ast, module_map)
           }
           None => {
-            self.diagnostics.push_error(
+            self.diagnostics.push_error("type::error",
               format!("Object does not have field `{}`", field),
               ast.span(),
             );
@@ -1081,7 +1083,7 @@ impl TyCheck {
           }
         },
         _ => {
-          self.diagnostics.push_error(
+          self.diagnostics.push_error("type::error",
             format!(
               "Cannot call function on non-object. {} {:#?}",
               field, object
@@ -1101,7 +1103,7 @@ impl TyCheck {
             module_map,
           ),
           _ => {
-            self.diagnostics.push_error(
+            self.diagnostics.push_error("type::error",
               "Cannot call `block` that does not return a function".to_string(),
               ast.span(),
             );
@@ -1111,14 +1113,14 @@ impl TyCheck {
       }
       // An error here means the user probably typo'd
       TypedExpr::Error => {
-        self.diagnostics.push_error(
+        self.diagnostics.push_error("type::error",
           format!("Cannot call `{:?}`", self.ty_db.expr(lhs)),
           ast.span(),
         );
         self.ty_db.alloc(TypedExpr::Error)
       }
       _ => {
-        self.diagnostics.push_error(
+        self.diagnostics.push_error("type::error",
           format!("Cannot call `{:?}`", self.ty_db.expr(lhs)),
           ast.span(),
         );
@@ -1199,7 +1201,7 @@ impl TyCheck {
         Ty::Number(Some(n)) => Ty::Number(Some(-n)),
         Ty::Number(None) => Ty::Number(None),
         _ => {
-          self.diagnostics.push_error(
+          self.diagnostics.push_error("type::error",
             format!("cannot apply unary operator `-` to type `{}`", expr_ty),
             ast.span(),
           );
@@ -1218,7 +1220,7 @@ impl TyCheck {
         Ty::Instance(_) => Ty::Boolean(None),
         Ty::Generic => Ty::Boolean(None),
         _ => {
-          self.diagnostics.push_error(
+          self.diagnostics.push_error("type::error",
             format!("cannot apply unary operator `!` to type `{}`", expr_ty),
             ast.span(),
           );

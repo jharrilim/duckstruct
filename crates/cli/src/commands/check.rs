@@ -1,12 +1,20 @@
-//! `check` command: parse and report diagnostics as JSON (for LSP/editors).
+//! `check` command: parse, typecheck, and report diagnostics as JSON (for LSP/editors).
 
 use std::io::Read;
 use std::path::PathBuf;
 
-use serde::Serialize;
+use ast::Root;
+use diagnostics::{bundle_from_parse_errors, bundle_to_lsp_json};
+use hir::lower;
+use parser::parse;
+use tycheck::TyCheck;
 
-/// Run the check command. Reads from path or stdin, parses, and prints LSP-style diagnostics as JSON.
-/// Caller must ensure `json` is true (exits with error otherwise).
+/// Run the check command. Reads from path or stdin, parses, typechecks when parse succeeds,
+/// and prints LSP-style diagnostics as JSON.
+///
+/// When reading from stdin, set env **`DUCKSTRUCT_LSP_DOCUMENT_URI`** to the editor's `file://`
+/// URI so JSON `related_information` locations match the open document (used by the VS Code
+/// language server). When unset, stdin mode uses `file://<stdin>`.
 pub fn run(path: Option<PathBuf>, json: bool) {
   if !json {
     eprintln!("check requires --json");
@@ -23,66 +31,23 @@ pub fn run(path: Option<PathBuf>, json: bool) {
       s
     }
   };
-  let parse_result = parser::parse(&source);
-  let diagnostics: Vec<LspDiagnostic> = parse_result
-    .errors
-    .iter()
-    .map(|e| {
-      let start_byte: u32 = e.range.start().into();
-      let end_byte: u32 = e.range.end().into();
-      let (start_line, start_char) = offset_to_line_character(&source, start_byte as usize);
-      let (end_line, end_char) = offset_to_line_character(&source, end_byte as usize);
-      LspDiagnostic {
-        range: LspRange {
-          start: LspPosition {
-            line: start_line,
-            character: start_char,
-          },
-          end: LspPosition {
-            line: end_line,
-            character: end_char,
-          },
-        },
-        message: e.to_string(),
-        severity: 1, // Error
-      }
-    })
-    .collect();
-  println!("{}", serde_json::to_string(&diagnostics).unwrap());
-}
 
-fn offset_to_line_character(source: &str, byte_offset: usize) -> (u32, u32) {
-  let mut line: u32 = 0;
-  let mut line_start = 0;
-  for (i, c) in source.char_indices() {
-    if i >= byte_offset {
-      let character = (byte_offset - line_start) as u32;
-      return (line, character);
-    }
-    if c == '\n' {
-      line += 1;
-      line_start = i + 1;
+  let uri = std::env::var("DUCKSTRUCT_LSP_DOCUMENT_URI")
+    .ok()
+    .or_else(|| path.as_ref().map(|p| format!("file://{}", p.display())))
+    .unwrap_or_else(|| "file://<stdin>".to_string());
+
+  let parse_result = parse(&source);
+  let mut bundle = bundle_from_parse_errors(&parse_result.errors);
+
+  if parse_result.errors.is_empty() {
+    if let Some(root) = Root::cast(parse_result.syntax()) {
+      let hir = lower(root);
+      let mut tycheck = TyCheck::new(hir);
+      tycheck.infer();
+      bundle.extend_bundle(tycheck.diagnostics.bundle.clone());
     }
   }
-  let character = (byte_offset.saturating_sub(line_start)) as u32;
-  (line, character)
-}
 
-#[derive(Serialize)]
-struct LspDiagnostic {
-  range: LspRange,
-  message: String,
-  severity: u8,
-}
-
-#[derive(Serialize)]
-struct LspRange {
-  start: LspPosition,
-  end: LspPosition,
-}
-
-#[derive(Serialize)]
-struct LspPosition {
-  line: u32,
-  character: u32,
+  println!("{}", bundle_to_lsp_json(&source, &uri, &bundle));
 }

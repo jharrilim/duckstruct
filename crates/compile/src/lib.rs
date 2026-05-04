@@ -2,6 +2,9 @@ mod manifest;
 mod modules;
 
 use std::path::Path;
+
+use diagnostics::{bundle_from_parse_errors, emit_human_string, HumanEmitConfig};
+use parser::ParseError;
 #[cfg(feature = "llvm")]
 use std::process::Command;
 
@@ -46,6 +49,19 @@ fn link_object_to_executable(obj_path: &Path, exe_path: &Path) -> Result<(), Str
 pub enum TargetLang {
   Javascript,
   Llvm,
+}
+
+fn format_parse_errors(source: &str, file_label: &str, errors: &[ParseError]) -> String {
+  let b = bundle_from_parse_errors(errors);
+  emit_human_string(source, &b, &HumanEmitConfig::from_env(file_label))
+}
+
+fn format_tycheck_errors(source: &str, file_label: &str, tycheck: &TyCheck) -> String {
+  emit_human_string(
+    source,
+    &tycheck.diagnostics.bundle,
+    &HumanEmitConfig::from_env(file_label),
+  )
 }
 
 impl From<manifest::Backend> for TargetLang {
@@ -101,7 +117,7 @@ impl Compiler {
   pub fn compile_js(&self, source: &str) -> Result<String, String> {
     let parse = parse(source);
     if !parse.errors.is_empty() {
-      return Err(format!("{:?}", parse.errors));
+      return Err(format_parse_errors(source, "<input>", &parse.errors));
     }
     let ast = match Root::cast(parse.syntax()) {
       Some(ast) => ast,
@@ -110,6 +126,9 @@ impl Compiler {
     let hir = lower(ast);
     let mut tycheck = TyCheck::new(hir);
     tycheck.infer();
+    if tycheck.diagnostics.has_errors() {
+      return Err(format_tycheck_errors(source, "<input>", &tycheck));
+    }
     Ok(JsGenerator::new(&tycheck).generate())
   }
 
@@ -117,7 +136,7 @@ impl Compiler {
   pub fn compile_llvm(&self, source: &str) -> Result<String, String> {
     let parse = parse(source);
     if !parse.errors.is_empty() {
-      return Err(format!("{:?}", parse.errors));
+      return Err(format_parse_errors(source, "<input>", &parse.errors));
     }
     let ast = match Root::cast(parse.syntax()) {
       Some(ast) => ast,
@@ -126,6 +145,9 @@ impl Compiler {
     let hir = lower(ast);
     let mut tycheck = TyCheck::new(hir);
     tycheck.infer();
+    if tycheck.diagnostics.has_errors() {
+      return Err(format_tycheck_errors(source, "<input>", &tycheck));
+    }
     LlvmGenerator::new(&tycheck).generate_llvm()
   }
 
@@ -174,7 +196,11 @@ impl Compiler {
     };
     let parse = parse(&source);
     if !parse.errors.is_empty() {
-      return Err(format!("Parse errors: {:?}", parse.errors));
+      return Err(format_parse_errors(
+        &source,
+        &entry_path.to_string_lossy(),
+        &parse.errors,
+      ));
     }
     let ast = Root::cast(parse.syntax())
       .ok_or_else(|| "Failed to generate AST from source".to_string())?;
@@ -202,6 +228,13 @@ impl Compiler {
           let hir = lower(ast.clone());
           let mut tycheck = TyCheck::new(hir);
           tycheck.infer_with_modules(None, prelude_ref, global_external_fns_ref);
+          if tycheck.diagnostics.has_errors() {
+            return Err(format_tycheck_errors(
+              &source,
+              &entry_path.to_string_lossy(),
+              &tycheck,
+            ));
+          }
           let ext_names: std::collections::HashSet<String> =
             global_external_fns.iter().map(|(n, _)| n.clone()).collect();
           let code = JsGenerator::new(&tycheck)
@@ -217,6 +250,13 @@ impl Compiler {
             let hir = lower(ast.clone());
             let mut tycheck = TyCheck::new(hir);
             tycheck.infer_with_modules(None, prelude_ref, global_external_fns_ref);
+            if tycheck.diagnostics.has_errors() {
+              return Err(format_tycheck_errors(
+                &source,
+                &entry_path.to_string_lossy(),
+                &tycheck,
+              ));
+            }
             let external_fns_map: std::collections::HashMap<String, usize> =
               global_external_fns.into_iter().collect();
             let generator = LlvmGenerator::new(&tycheck)
@@ -251,6 +291,13 @@ impl Compiler {
         prelude_ref,
         global_external_fns_ref,
       );
+      if entry_tycheck.diagnostics.has_errors() {
+        return Err(format_tycheck_errors(
+          &source,
+          &entry_path.to_string_lossy(),
+          &entry_tycheck,
+        ));
+      }
 
       let all_deps_are_stdlib = deps
         .iter()
@@ -374,7 +421,7 @@ impl Compiler {
   pub fn eval(&self, source: &str) -> Result<String, String> {
     let parse = parse(source);
     if !parse.errors.is_empty() {
-      return Err(format!("{:?}", parse.errors));
+      return Err(format_parse_errors(source, "<eval>", &parse.errors));
     }
     let ast = match Root::cast(parse.syntax()) {
       Some(ast) => ast,
@@ -383,6 +430,9 @@ impl Compiler {
     let hir = lower(ast);
     let mut tycheck = TyCheck::new(hir);
     tycheck.infer();
+    if tycheck.diagnostics.has_errors() {
+      return Err(format_tycheck_errors(source, "<eval>", &tycheck));
+    }
     if let Some(def) = tycheck.ty_db.definition("") {
       let val = tycheck.ty_db.expr(def.value());
       Ok(val.ty().to_string())

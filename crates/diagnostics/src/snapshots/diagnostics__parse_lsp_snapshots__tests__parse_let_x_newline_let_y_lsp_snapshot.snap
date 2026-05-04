@@ -1,0 +1,21 @@
+---
+source: crates/diagnostics/src/parse_lsp_snapshots.rs
+expression: "snapshot_lsp_json(src, &bundle)"
+---
+[
+  {
+    "range": {
+      "start": {
+        "line": 1,
+        "character": 0
+      },
+      "end": {
+        "line": 1,
+        "character": 3
+      }
+    },
+    "message": "expected expression, found 'let'",
+    "severity": 1,
+    "code": "parse::syntax"
+  }
+]

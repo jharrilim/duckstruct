@@ -1,0 +1,33 @@
+---
+source: crates/diagnostics/src/parse_lsp_snapshots.rs
+expression: "snapshot_human(src, &bundle)"
+---
+[parse::syntax] Error: expected expression, found ')'
+   ╭─[ test.ds:2:9 ]
+   │
+ 2 │ let b = )'(;
+   │         ┬  
+   │         ╰── expected expression, found ')'
+───╯
+[parse::syntax] Error: expected expression, found an unrecognized token
+   ╭─[ test.ds:2:10 ]
+   │
+ 2 │ let b = )'(;
+   │          ┬  
+   │          ╰── expected expression, found an unrecognized token
+───╯
+[parse::syntax] Error: expected expression, found ';'
+   ╭─[ test.ds:2:12 ]
+   │
+ 2 │ let b = )'(;
+   │            ┬  
+   │            ╰── expected expression, found ';'
+───╯
+[parse::syntax] Error: expected ')'
+   ╭─[ test.ds:2:13 ]
+   │
+ 2 │ let b = )'(;
+   │             ┬  
+   │             ╰── expected ')'
+───╯
+

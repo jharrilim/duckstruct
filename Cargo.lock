@@ -9,6 +9,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
+name = "ariadne"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "36f5e3dca4e09a6f340a61a0e9c7b61e030c69fc27bf29d73218f7e5e3b7638f"
+dependencies = [
+ "unicode-width",
+ "yansi",
+]
+
+[[package]]
 name = "ast"
 version = "0.1.0"
 dependencies = [
@@ -107,6 +117,7 @@ dependencies = [
  "clap",
  "codegen",
  "compile",
+ "diagnostics",
  "hir",
  "home",
  "parser",
@@ -143,6 +154,7 @@ dependencies = [
  "ast",
  "codegen",
  "data-structures",
+ "diagnostics",
  "duckstruct-std",
  "hir",
  "lexer",
@@ -180,6 +192,19 @@ dependencies = [
  "indexmap 1.9.1",
  "la-arena",
  "rustc-hash",
+]
+
+[[package]]
+name = "diagnostics"
+version = "0.1.0"
+dependencies = [
+ "ariadne",
+ "insta",
+ "parser",
+ "serde",
+ "serde_json",
+ "syntax",
+ "text-size",
 ]
 
 [[package]]
@@ -224,6 +249,7 @@ dependencies = [
  "codegen",
  "compile",
  "data-structures",
+ "diagnostics",
  "hir",
  "insta",
  "lexer",
@@ -1109,6 +1135,7 @@ version = "0.1.0"
 dependencies = [
  "ast",
  "data-structures",
+ "diagnostics",
  "distance",
  "hir",
  "syntax",
@@ -1402,6 +1429,12 @@ checksum = "56c1936c4cc7a1c9ab21a1ebb602eb942ba868cbd44a99cb7cdc5892335e1c85"
 dependencies = [
  "linked-hash-map",
 ]
+
+[[package]]
+name = "yansi"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cfe53a6657fd280eaa890a3bc59152892ffa3e30101319d168b781ed6529b049"
 
 [[package]]
 name = "zmij"

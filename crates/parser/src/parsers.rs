@@ -310,7 +310,10 @@ fn named_f(p: &mut Parser, m: Marker) -> CompletedMarker {
       block_expr(p);
       m.complete(p, SyntaxKind::NamedFunction)
     }
-    _ => panic!("nooo"),
+    _ => {
+      p.error_expected_one_of(&[TokenKind::Equals, TokenKind::LeftBrace]);
+      m.complete(p, SyntaxKind::NamedFunction)
+    }
   }
 }
 

@@ -13,9 +13,9 @@ pub fn run(path: PathBuf) {
         None => TargetLang::Javascript,
       };
       if let Err(err) = Compiler::new().compile_file(entry_path, project_root, target) {
-        println!("Compilation failed: {}", err);
+        eprintln!("Compilation failed: {}", err);
       }
     }
-    Err(err) => println!("Compilation failed: {}", err),
+    Err(err) => eprintln!("Compilation failed: {}", err),
   }
 }

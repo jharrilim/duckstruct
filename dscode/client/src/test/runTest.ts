@@ -4,7 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 import * as path from 'path';
 
-import { runTests } from '@vscode/test-electron';
+import {
+	downloadAndUnzipVSCode,
+	resolveCliPathFromVSCodeExecutablePath,
+	runTests
+} from '@vscode/test-electron';
 
 async function main() {
 	try {
@@ -16,10 +20,32 @@ async function main() {
 		// Passed to --extensionTestsPath
 		const extensionTestsPath = path.resolve(__dirname, './index');
 
-		// Download VS Code, unzip it and run the integration test
-		await runTests({ extensionDevelopmentPath, extensionTestsPath });
+		const workspace =
+			process.env.CODE_TESTS_WORKSPACE && process.env.CODE_TESTS_WORKSPACE.length > 0
+				? path.resolve(process.env.CODE_TESTS_WORKSPACE)
+				: path.join(extensionDevelopmentPath, 'client', 'testFixture');
+
+		const downloadOptions = {
+			extensionDevelopmentPath,
+			extensionTestsPath
+		};
+
+		// Match runTests() so version resolution (from engines) stays identical.
+		let vscodeExecutablePath = await downloadAndUnzipVSCode(downloadOptions);
+
+		// `downloadDirToExecutablePath` points at `.../MacOS/Electron`, which is a stub that does not
+		// accept extension-test CLI flags. Use the `bin/code` launcher (runs Code + cli.js) instead.
+		if (process.platform === 'darwin') {
+			vscodeExecutablePath = resolveCliPathFromVSCodeExecutablePath(vscodeExecutablePath);
+		}
+
+		await runTests({
+			...downloadOptions,
+			vscodeExecutablePath,
+			launchArgs: [workspace]
+		});
 	} catch (err) {
-		console.error('Failed to run tests');
+		console.error('Failed to run tests', err);
 		process.exit(1);
 	}
 }

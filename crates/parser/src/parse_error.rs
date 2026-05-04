@@ -18,47 +18,50 @@ pub struct ParseError {
   pub line: usize,
 }
 
-impl fmt::Display for ParseError {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl ParseError {
+  /// Human-readable error text without embedding source offsets (use [`Self::range`] for spans).
+  pub fn message_body(&self) -> String {
     match &self.expected {
-      Expectations::Expression => write!(
-        f,
-        "error at line {}, col {}..{}: expected expression, but found {}",
-        self.line,
-        u32::from(self.range.start()),
-        u32::from(self.range.end()),
-        self.found.unwrap()
-      ),
+      Expectations::Expression => {
+        let found = self
+          .found
+          .map(|k| format!("{}", k))
+          .unwrap_or_else(|| "end of input".to_string());
+        format!("expected expression, found {}", found)
+      }
       Expectations::Tokens(tokens) => {
-        write!(
-          f,
-          "error at line {}, col {}..{}: expected ",
-          self.line,
-          u32::from(self.range.start()),
-          u32::from(self.range.end()),
-        )?;
-
         let num_expected = tokens.len();
         let is_first = |idx| idx == 0;
         let is_last = |idx| idx == num_expected - 1;
 
+        let mut s = String::from("expected ");
         for (idx, expected_kind) in tokens.iter().enumerate() {
           if is_first(idx) {
-            write!(f, "{}", expected_kind)?;
+            s.push_str(&format!("{}", expected_kind));
           } else if is_last(idx) {
-            write!(f, " or {}", expected_kind)?;
+            s.push_str(&format!(" or {}", expected_kind));
           } else {
-            write!(f, ", {}", expected_kind)?;
+            s.push_str(&format!(", {}", expected_kind));
           }
         }
 
         if let Some(found) = self.found {
-          write!(f, ", but found {}", found)?;
+          s.push_str(&format!(", found {}", found));
         }
-
-        Ok(())
+        s
       }
     }
+  }
+}
+
+impl fmt::Display for ParseError {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(
+      f,
+      "parse error on line {}: {}",
+      self.line + 1,
+      self.message_body()
+    )
   }
 }
 
@@ -79,7 +82,7 @@ mod tests {
       line: 0,
     };
 
-    assert_eq!(format!("{}", error), output);
+    assert_eq!(error.message_body(), output);
   }
 
   #[test]
@@ -88,7 +91,7 @@ mod tests {
       vec![TokenKind::Equals],
       Some(TokenKind::Identifier),
       10..20,
-      "error at line 0, col 10..20: expected '=', but found identifier",
+      "expected '=', found identifier",
     );
   }
 
@@ -98,7 +101,7 @@ mod tests {
       vec![TokenKind::RightParenthesis],
       None,
       5..6,
-      "error at line 0, col 5..6: expected ')'",
+      "expected ')'",
     );
   }
 
@@ -108,7 +111,7 @@ mod tests {
       vec![TokenKind::Plus, TokenKind::Minus],
       Some(TokenKind::Equals),
       0..1,
-      "error at line 0, col 0..1: expected '+' or '-', but found '='",
+      "expected '+' or '-', found '='",
     );
   }
 
@@ -123,7 +126,7 @@ mod tests {
       ],
       Some(TokenKind::Let),
       100..105,
-      "error at line 0, col 100..105: expected number, identifier, '-' or '(', but found 'let'",
+      "expected number, identifier, '-' or '(', found 'let'",
     );
   }
 }

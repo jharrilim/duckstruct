@@ -8,6 +8,7 @@ ast = { path = "../ast" }
 clap = { version = "4.0.17", features = ["derive"] }
 codegen = { path = "../codegen" }
 compile = { path = "../compile" }
+diagnostics = { path = "../diagnostics" }
 hir = { path = "../hir" }
 home = "0.5.4"
 parser = { path = "../parser" }

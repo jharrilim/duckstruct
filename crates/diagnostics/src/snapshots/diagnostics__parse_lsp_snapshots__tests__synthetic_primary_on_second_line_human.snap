@@ -1,0 +1,12 @@
+---
+source: crates/diagnostics/src/parse_lsp_snapshots.rs
+expression: "snapshot_human(src, &bundle)"
+---
+[test::synthetic] Error: unknown name `wobble`
+   ╭─[ test.ds:2:9 ]
+   │
+ 2 │ let b = wobble;
+   │         ───┬──  
+   │            ╰──── unknown name `wobble`
+───╯
+

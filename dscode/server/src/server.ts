@@ -2,8 +2,7 @@
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
-import { execFile } from 'child_process';
-import { fileURLToPath } from 'url';
+import { spawn } from 'child_process';
 import {
 	createConnection,
 	TextDocuments,
@@ -89,14 +88,71 @@ interface ExampleSettings {
 }
 
 // The global settings, used when the `workspace/configuration` request is not supported by the client.
-const defaultSettings: ExampleSettings = { maxNumberOfProblems: 1000, duckstructPath: 'duckstruct' };
+const defaultSettings: ExampleSettings = { maxNumberOfProblems: 1000, duckstructPath: 'ds' };
 let globalSettings: ExampleSettings = defaultSettings;
 
-// LSP diagnostic from Rust check --json
+/**
+ * JSON array element from `duckstruct check --json` (LSP-aligned).
+ * - `range`: 0-based line, `character` is UTF-16 offset within the line (LSP).
+ * - `severity`: 1 = Error, 2 = Warning (matches LSP DiagnosticSeverity).
+ * - `code`, `related_information`: optional; forwarded when the client supports related info.
+ */
 interface CheckDiagnostic {
 	range: { start: { line: number; character: number }; end: { line: number; character: number } };
 	message: string;
 	severity: number;
+	code?: string;
+	/** Matches Rust serde field name on `LspDiagnostic`. */
+	related_information?: Array<{
+		location: { uri: string; range: CheckDiagnostic['range'] };
+		message: string;
+	}>;
+}
+
+function severityFromCheck(s: number): DiagnosticSeverity {
+	switch (s) {
+		case 1:
+			return DiagnosticSeverity.Error;
+		case 2:
+			return DiagnosticSeverity.Warning;
+		case 3:
+			return DiagnosticSeverity.Information;
+		case 4:
+			return DiagnosticSeverity.Hint;
+		default:
+			return DiagnosticSeverity.Error;
+	}
+}
+
+function checkDiagnosticToLsp(d: CheckDiagnostic): Diagnostic {
+	const out: Diagnostic = {
+		range: {
+			start: { line: d.range.start.line, character: d.range.start.character },
+			end: { line: d.range.end.line, character: d.range.end.character }
+		},
+		message: d.message,
+		severity: severityFromCheck(d.severity),
+		source: 'duckstruct'
+	};
+	if (d.code) {
+		out.code = d.code;
+	}
+	if (d.related_information && hasDiagnosticRelatedInformationCapability) {
+		out.relatedInformation = d.related_information.map((ri) => ({
+			location: {
+				uri: ri.location.uri,
+				range: {
+					start: {
+						line: ri.location.range.start.line,
+						character: ri.location.range.start.character
+					},
+					end: { line: ri.location.range.end.line, character: ri.location.range.end.character }
+				}
+			},
+			message: ri.message
+		}));
+	}
+	return out;
 }
 
 // Cache the settings of all open documents
@@ -149,53 +205,60 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
 		connection.sendDiagnostics({ uri, diagnostics: [] });
 		return;
 	}
-	const filePath = fileURLToPath(uri);
-	const duckstructPath = settings.duckstructPath || 'duckstruct';
+	const duckstructPath = settings.duckstructPath || defaultSettings.duckstructPath;
+	const source = textDocument.getText();
 
+	// Run check on the in-memory buffer so diagnostics match unsaved edits. The CLI reads stdin
+	// and honors env `DUCKSTRUCT_LSP_DOCUMENT_URI` for JSON / relatedInformation URIs.
 	const diagnostics: Diagnostic[] = await new Promise((resolve) => {
-		execFile(duckstructPath, ['check', '--json', filePath], { timeout: 5000 }, (err: Error | null, stdout: string | Buffer, _stderr: string | Buffer) => {
-			const out = (typeof stdout === 'string' ? stdout : stdout.toString()).trim();
-			if (err) {
-				// Binary missing or non-zero exit (e.g. parse errors are still printed to stdout)
-				if (out) {
-					try {
-						const raw: CheckDiagnostic[] = JSON.parse(out);
-						resolve(
-							raw.map((d) => ({
-								range: {
-									start: { line: d.range.start.line, character: d.range.start.character },
-									end: { line: d.range.end.line, character: d.range.end.character }
-								},
-								message: d.message,
-								severity: d.severity === 1 ? DiagnosticSeverity.Error : DiagnosticSeverity.Warning,
-								source: 'duckstruct'
-							}))
-						);
-						return;
-					} catch (_e) {
-						// fall through to empty
-					}
-				}
+		const child = spawn(duckstructPath, ['check', '--json'], {
+			env: { ...process.env, DUCKSTRUCT_LSP_DOCUMENT_URI: uri },
+			stdio: ['pipe', 'pipe', 'pipe']
+		});
+
+		let stdout = '';
+		let stderr = '';
+		const timer = setTimeout(() => child.kill('SIGTERM'), 30_000);
+
+		child.stdout.setEncoding('utf8');
+		child.stderr.setEncoding('utf8');
+		child.stdout.on('data', (chunk: string) => {
+			stdout += chunk;
+		});
+		child.stderr.on('data', (chunk: string) => {
+			stderr += chunk;
+		});
+
+		child.on('error', (err: NodeJS.ErrnoException) => {
+			clearTimeout(timer);
+			connection.console.error(
+				`duckstruct check failed (${duckstructPath}): ${err.message}`
+			);
+			resolve([]);
+		});
+
+		child.on('close', () => {
+			clearTimeout(timer);
+			const out = stdout.trim();
+			const errText = stderr.trim();
+			if (errText) {
+				connection.console.warn(`duckstruct: ${errText}`);
+			}
+			if (!out) {
 				resolve([]);
 				return;
 			}
 			try {
-				const raw: CheckDiagnostic[] = JSON.parse(out || '[]');
-				resolve(
-					raw.map((d) => ({
-						range: {
-							start: { line: d.range.start.line, character: d.range.start.character },
-							end: { line: d.range.end.line, character: d.range.end.character }
-						},
-						message: d.message,
-						severity: d.severity === 1 ? DiagnosticSeverity.Error : DiagnosticSeverity.Warning,
-						source: 'duckstruct'
-					}))
-				);
-			} catch (_e) {
+				const raw: CheckDiagnostic[] = JSON.parse(out);
+				resolve(raw.map(checkDiagnosticToLsp));
+			} catch (e) {
+				connection.console.error(`duckstruct check: invalid JSON (${e})`);
 				resolve([]);
 			}
 		});
+
+		child.stdin.write(source, 'utf8');
+		child.stdin.end();
 	});
 
 	connection.sendDiagnostics({ uri, diagnostics });
