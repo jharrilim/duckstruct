@@ -1,9 +1,11 @@
 #![allow(dead_code, unused)]
 
 /// Generate javascript code from the typed hir
-use std::collections::HashMap;
+use std::cell::RefCell;
+use std::collections::{HashMap, HashSet};
 
 use tycheck::{
+  primitive_methods::{PrimitiveMethodDescriptor, PrimitiveReceiverKind},
   typed_db::TypedDatabaseIdx,
   typed_hir::{FunctionDef, Ty, TypedExpr, TypedStmt},
   TyCheck,
@@ -44,6 +46,12 @@ pub struct JsGenerator<'tycheck> {
   import_map: Option<HashMap<String, (String, String)>>,
   /// Builtin names (e.g. print) that are not emitted as defs; calls are emitted as console.log etc.
   external_functions: Option<std::collections::HashSet<String>>,
+  /// Primitive method table consulted when emitting `recv.method(args)` calls; methods with a
+  /// `js_call` are routed through it instead of the literal `recv.method(args)` form.
+  primitive_methods: Option<&'static [PrimitiveMethodDescriptor]>,
+  /// Runtime asset ids recorded whenever a `js_call`-bearing primitive method is emitted.
+  /// The compile driver reads this after `generate_js` to assemble the prepended runtime.
+  used_runtime_ids: RefCell<HashSet<&'static str>>,
 }
 
 impl<'tycheck> CodeGenerator for JsGenerator<'tycheck> {
@@ -60,7 +68,40 @@ impl<'tycheck> JsGenerator<'tycheck> {
       module_pub_names: None,
       import_map: None,
       external_functions: None,
+      primitive_methods: None,
+      used_runtime_ids: RefCell::new(HashSet::new()),
     }
+  }
+
+  /// Provide the primitive method table to route calls like `arr.push(x)` through a custom
+  /// runtime emitter when the method's descriptor sets `js_call`.
+  pub fn with_primitive_methods(
+    mut self,
+    methods: &'static [PrimitiveMethodDescriptor],
+  ) -> Self {
+    self.primitive_methods = Some(methods);
+    self
+  }
+
+  /// Snapshot of the runtime ids recorded during this generator's `generate_js`. Stable
+  /// identifiers (e.g. `"primitive_list"`) keyed off `JsRuntimeAsset::id`.
+  pub fn used_runtime_ids(&self) -> HashSet<&'static str> {
+    self.used_runtime_ids.borrow().clone()
+  }
+
+  fn lookup_primitive(
+    &self,
+    receiver_ty: &Ty,
+    name: &str,
+  ) -> Option<&'static PrimitiveMethodDescriptor> {
+    let methods = self.primitive_methods?;
+    let kind = match receiver_ty {
+      Ty::Array(_) => PrimitiveReceiverKind::Array,
+      _ => return None,
+    };
+    methods
+      .iter()
+      .find(|d| d.receiver == kind && d.name == name)
   }
 
   /// Skip emitting defs for these names (stdlib builtins like print; calls are special-cased in generate_expr).
@@ -180,6 +221,17 @@ impl<'tycheck> JsGenerator<'tycheck> {
 
         if let TypedExpr::ObjectFieldAccess { object, field, .. } = self.tycheck.ty_db.expr(def) {
           let recv = self.generate_expr(object);
+          let recv_ty = self.tycheck.ty_db.expr(object).ty();
+          if let Some(desc) = self.lookup_primitive(&recv_ty, field.as_str()) {
+            if let Some(emit) = desc.js_call {
+              if let Some(rt) = desc.js_runtime {
+                self.used_runtime_ids.borrow_mut().insert(rt.id);
+              }
+              let args_v: Vec<String> =
+                args.iter().map(|a| self.generate_expr(a)).collect();
+              return emit(&recv, &args_v);
+            }
+          }
           return format!("{}.{}({})", recv, field, args_str);
         }
 

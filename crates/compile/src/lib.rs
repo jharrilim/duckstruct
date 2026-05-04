@@ -11,7 +11,7 @@ use parser::ParseError;
 use std::process::Command;
 
 use ast::Root;
-use codegen::{js::JsGenerator, CodeGenerator};
+use codegen::js::JsGenerator;
 use hir::lower;
 use parser::parse;
 use tycheck::TyCheck;
@@ -63,6 +63,18 @@ fn format_tycheck_errors(source: &str, file_label: &str, tycheck: &TyCheck) -> S
     &tycheck.diagnostics.bundle,
     &HumanEmitConfig::from_env(file_label),
   )
+}
+
+/// Prepend the JS runtime block before the generated body. Empty runtime returns the body
+/// unchanged so projects that never touch a routed primitive method don't ship dead code.
+fn prepend_runtime(runtime: &str, body: &str) -> String {
+  if runtime.is_empty() {
+    body.to_string()
+  } else if runtime.ends_with('\n') {
+    format!("{}{}", runtime, body)
+  } else {
+    format!("{}\n{}", runtime, body)
+  }
 }
 
 impl From<manifest::Backend> for TargetLang {
@@ -135,7 +147,11 @@ impl Compiler {
     if tycheck.diagnostics.has_errors() {
       return Err(format_tycheck_errors(source, "<input>", &tycheck));
     }
-    Ok(JsGenerator::new(&tycheck).generate())
+    let generator = JsGenerator::new(&tycheck)
+      .with_primitive_methods(duckstruct_std::PRIMITIVE_METHODS);
+    let body = generator.generate_js();
+    let runtime = duckstruct_std::js_runtime_for_ids(&generator.used_runtime_ids());
+    Ok(prepend_runtime(&runtime, &body))
   }
 
   #[cfg(feature = "llvm")]
@@ -253,10 +269,13 @@ impl Compiler {
           }
           let ext_names: std::collections::HashSet<String> =
             global_external_fns.iter().map(|(n, _)| n.clone()).collect();
-          let code = JsGenerator::new(&tycheck)
-            .with_external_functions(ext_names)
-            .generate_js();
-          (code, None::<std::path::PathBuf>)
+          let generator = JsGenerator::new(&tycheck)
+            .with_primitive_methods(duckstruct_std::PRIMITIVE_METHODS)
+            .with_external_functions(ext_names);
+          let body = generator.generate_js();
+          let runtime =
+            duckstruct_std::js_runtime_for_ids(&generator.used_runtime_ids());
+          (prepend_runtime(&runtime, &body), None::<std::path::PathBuf>)
         }
         TargetLang::Llvm => {
           #[cfg(not(feature = "llvm"))]
@@ -328,6 +347,8 @@ impl Compiler {
       match target {
         TargetLang::Javascript => {
           let mut bundle = String::new();
+          let mut combined_runtime_ids: std::collections::HashSet<&'static str> =
+            std::collections::HashSet::new();
           for dep in &deps {
             let pub_names: std::collections::HashSet<String> = dep
               .tycheck
@@ -349,9 +370,11 @@ impl Compiler {
               })
               .collect();
             let prefix = format!("__{}__", dep.name.replace("::", "__"));
-            let dep_js = JsGenerator::new(&dep.tycheck)
-              .with_prefix(&prefix, pub_names)
-              .generate_js();
+            let dep_generator = JsGenerator::new(&dep.tycheck)
+              .with_primitive_methods(duckstruct_std::PRIMITIVE_METHODS)
+              .with_prefix(&prefix, pub_names);
+            let dep_js = dep_generator.generate_js();
+            combined_runtime_ids.extend(dep_generator.used_runtime_ids());
             if !dep_js.is_empty() {
               bundle.push_str(&dep_js);
               bundle.push('\n');
@@ -376,13 +399,16 @@ impl Compiler {
             .iter()
             .map(|(n, _)| n.clone())
             .collect();
-          let entry_js = JsGenerator::new(&entry_tycheck)
+          let entry_generator = JsGenerator::new(&entry_tycheck)
+            .with_primitive_methods(duckstruct_std::PRIMITIVE_METHODS)
             .with_import_map(import_map)
-            .with_external_functions(ext_names)
-            .generate_js();
+            .with_external_functions(ext_names);
+          let entry_js = entry_generator.generate_js();
+          combined_runtime_ids.extend(entry_generator.used_runtime_ids());
           bundle.push_str(&entry_js);
 
-          (bundle, None)
+          let runtime = duckstruct_std::js_runtime_for_ids(&combined_runtime_ids);
+          (prepend_runtime(&runtime, &bundle), None)
         }
         TargetLang::Llvm => {
           if !all_deps_are_stdlib {
@@ -466,5 +492,77 @@ impl Compiler {
     } else {
       Err("No value to evaluate".to_string())
     }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  /// Constant-fold path: receiver and arg are both compile-time known, so the call's `Ty`
+  /// becomes `Ty::Array(Some([..]))` with full values and codegen emits a JS literal. The
+  /// list runtime must NOT be prepended because no `js_call` was invoked.
+  #[test]
+  fn js_push_constant_emits_array_literal_without_runtime() {
+    let out = Compiler::new()
+      .compile_js("let a = [1]; let b = a.push(2);")
+      .expect("compile ok");
+    assert!(
+      out.contains("[1, 2]"),
+      "expected literal [1, 2] in output, got: {}",
+      out
+    );
+    assert!(
+      !out.contains("Duckstruct.Lib.Primitive.List"),
+      "constant push must not invoke runtime, got: {}",
+      out
+    );
+  }
+
+  /// Non-constant path: `[x]` carries `Ty::Generic` so the partial-evaluated `Ty`
+  /// (`Array(Some([Generic, Number(Some(1.0))]))`) can't be rendered as a literal. Codegen
+  /// routes the call through `Duckstruct.Lib.Primitive.List.push` and the driver prepends
+  /// the list runtime once, before any usage.
+  #[test]
+  fn js_push_nonconstant_routes_to_runtime_and_prepends_source() {
+    // Force the call to live in a `let` value so codegen actually emits it (the block-body
+    // codegen drops the trailing expression — pre-existing bug; using a `let` sidesteps it).
+    let out = Compiler::new()
+      .compile_js("f wrap(x) { let r = [x].push(1); r } wrap(2)")
+      .expect("compile ok");
+    assert!(
+      out.contains("Duckstruct.Lib.Primitive.List.push("),
+      "expected runtime call, got: {}",
+      out
+    );
+    assert!(
+      out.contains("Duckstruct.Lib.Primitive.List = Duckstruct.Lib.Primitive.List ||"),
+      "runtime preamble missing, got: {}",
+      out
+    );
+    let preamble_idx = out
+      .find("Duckstruct.Lib.Primitive.List = Duckstruct.Lib.Primitive.List ||")
+      .unwrap();
+    let call_idx = out.find("Duckstruct.Lib.Primitive.List.push(").unwrap();
+    assert!(
+      preamble_idx < call_idx,
+      "runtime should be prepended before usage, got: {}",
+      out
+    );
+  }
+
+  /// Sanity: a program that never invokes a routed primitive method must not include any
+  /// runtime preamble. The empty-runtime branch of `prepend_runtime` should leave the body
+  /// untouched.
+  #[test]
+  fn js_no_primitive_routing_means_no_runtime() {
+    let out = Compiler::new()
+      .compile_js("let a = [1, 2]; let b = a.length();")
+      .expect("compile ok");
+    assert!(
+      !out.contains("Duckstruct.Lib"),
+      "no primitive method routed; runtime must be absent, got: {}",
+      out
+    );
   }
 }

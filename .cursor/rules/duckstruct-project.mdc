@@ -26,6 +26,12 @@ Rough front-to-back compiler order, then supporting crates:
 - **`data-structures`** — Shared utilities (e.g. `la_arena` re-exports, `FxIndexMap` helpers).
 - **`std`** (package name **`duckstruct-std`**) — Standard library sources: builtins/globals per backend, modules like `file`, exposed to the compiler as pre-typechecked modules.
 
+## Testing
+
+- **Unit tests** live next to the code: `#[cfg(test)]` modules inside workspace crates (and occasionally small focused tests in `src/` files).
+- **Integration / end-to-end tests** for the compiler and language behavior live under the workspace root **`tests/`** (e.g. `tests/tycheck.rs`, `tests/compiler.rs`); they exercise multiple crates together like a real build would.
+- **Snapshot tests** use **`insta`**. Insta will write the `.snap` files in **`snapshots/`** dirs when the tests run. Snapshots are especially useful for large structured output (AST dumps, serialized trees) and for **human-readable diagnostic** output so review diffs stay readable.
+
 ## Type system
 
 duckstruct uses **constraint-style type checking on function parameters** (requirements on parameters rather than only nominal types). When changing inference, diagnostics, or call typing, preserve that model and align with existing `tycheck` / parser behavior instead of assuming a conventional nominal-only system.

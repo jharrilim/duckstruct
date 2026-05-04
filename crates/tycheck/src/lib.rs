@@ -6,4 +6,4 @@ pub mod typed_db;
 pub mod typed_hir;
 
 pub use inference::TyCheck;
-pub use primitive_methods::{PrimitiveMethodDescriptor, PrimitiveReceiverKind};
+pub use primitive_methods::{JsRuntimeAsset, PrimitiveMethodDescriptor, PrimitiveReceiverKind};

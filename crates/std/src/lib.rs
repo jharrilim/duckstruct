@@ -20,6 +20,24 @@ pub use globals::{external_functions_for_backend, globals_for_backend};
 pub use primitive_methods::PRIMITIVE_METHODS;
 pub use registry::Backend;
 
+/// Concatenate JS runtime sources for the given ids (collected from `JsGenerator::used_runtime_ids`).
+/// Multiple descriptors may share the same `id`; the same source is emitted at most once.
+pub fn js_runtime_for_ids(ids: &std::collections::HashSet<&'static str>) -> String {
+  let mut seen: std::collections::HashSet<&'static str> = std::collections::HashSet::new();
+  let mut out = String::new();
+  for d in PRIMITIVE_METHODS {
+    if let Some(rt) = d.js_runtime {
+      if ids.contains(rt.id) && seen.insert(rt.id) {
+        out.push_str(rt.source);
+        if !rt.source.ends_with('\n') {
+          out.push('\n');
+        }
+      }
+    }
+  }
+  out
+}
+
 use registry::build_module_tycheck;
 use tycheck::typed_hir::TypedExpr;
 
@@ -142,7 +160,7 @@ mod tests {
   use tycheck::TyCheck;
 
   #[test]
-  fn array_length_typechecks_with_primitive_table() {
+  fn array_length_evaluates_constant_receiver_to_concrete_number() {
     let code = "let xs = [1, 2, 3];\nxs.length()";
     let root = Root::cast(parse(code).syntax()).expect("parse");
     let hir = lower(root);
@@ -154,11 +172,31 @@ mod tests {
       tycheck.diagnostics.items()
     );
     let v = tycheck.ty_db.definition("").expect("final expr").value();
-    assert_eq!(tycheck.ty_db.expr(v).ty(), Ty::Number(None));
+    assert_eq!(tycheck.ty_db.expr(v).ty(), Ty::Number(Some(3.0)));
   }
 
+  /// Same evaluation works on non-constant elements: only the array's static element
+  /// count matters, so `[a, 1, 2].length()` is still constant-folded.
   #[test]
-  fn array_push_typechecks_with_primitive_table() {
+  fn array_length_evaluates_when_elements_are_nonconst() {
+    let code = "f stamp(a) { [a, 1, 2].length() }\nstamp(0)";
+    let root = Root::cast(parse(code).syntax()).expect("parse");
+    let hir = lower(root);
+    let mut tycheck = TyCheck::new(hir);
+    tycheck.infer_with_modules(None, None, None, Some(PRIMITIVE_METHODS));
+    assert!(
+      !tycheck.diagnostics.has_errors(),
+      "{:?}",
+      tycheck.diagnostics.items()
+    );
+    let v = tycheck.ty_db.definition("").expect("final expr").value();
+    assert_eq!(tycheck.ty_db.expr(v).ty(), Ty::Number(Some(3.0)));
+  }
+
+  /// Constant receiver + arg: the evaluator folds `[1,2].push(3)` to `[1,2,3]` so the
+  /// call's `Ty` carries the full array (and codegen can emit a literal).
+  #[test]
+  fn array_push_evaluator_appends_element() {
     let code = "let xs = [1, 2];\nxs.push(3)";
     let root = Root::cast(parse(code).syntax()).expect("parse");
     let hir = lower(root);
@@ -170,7 +208,31 @@ mod tests {
       tycheck.diagnostics.items()
     );
     let v = tycheck.ty_db.definition("").expect("final expr").value();
-    assert_eq!(tycheck.ty_db.expr(v).ty(), Ty::Number(None));
+    assert_eq!(
+      tycheck.ty_db.expr(v).ty(),
+      Ty::Array(Some(vec![
+        Ty::Number(Some(1.0)),
+        Ty::Number(Some(2.0)),
+        Ty::Number(Some(3.0)),
+      ]))
+    );
+  }
+
+  /// Schematic signature: the function-pointer signature for `push` returns
+  /// `Ty::Array(None)`. Driving the descriptor directly proves the deferred path
+  /// (used when the evaluator returns `None`) yields an array, not a number.
+  #[test]
+  fn array_push_signature_falls_back_to_array_none() {
+    let push_desc = PRIMITIVE_METHODS
+      .iter()
+      .find(|d| d.name == "push")
+      .expect("push descriptor");
+    let recv = Ty::Array(None);
+    let sig = (push_desc.signature)(&recv).expect("signature");
+    match sig {
+      Ty::Function { ret: Some(ret), .. } => assert_eq!(*ret, Ty::Array(None)),
+      other => panic!("expected fn returning Array(None), got {:?}", other),
+    }
   }
 
   #[test]

@@ -468,7 +468,7 @@ impl TyCheck {
       Ty::Array(_) => {
         let receiver_ty = self.ty_db.expr(&typed_object).ty().clone();
         if let Some(desc) = self.lookup_primitive_descriptor(&receiver_ty, field) {
-          desc.function_ty_for_receiver(&receiver_ty).unwrap_or_else(|| {
+          (desc.signature)(&receiver_ty).unwrap_or_else(|| {
             self.diagnostics.push_error(
               "type::error",
               format!(
@@ -1185,7 +1185,7 @@ impl TyCheck {
         let object_ty = self.ty_db.expr(&object).ty();
         if let Ty::Array(_) = &object_ty {
           if let Some(desc) = self.lookup_primitive_descriptor(&object_ty, field.as_str()) {
-            if let Some(Ty::Function { params, ret }) = desc.function_ty_for_receiver(&object_ty) {
+            if let Some(Ty::Function { params, ret }) = (desc.signature)(&object_ty) {
               if args.len() != params.len() {
                 self.diagnostics.push_error(
                   "type::error",
@@ -1212,7 +1212,13 @@ impl TyCheck {
                   );
                 }
               }
-              let ret_ty = ret.map(|b| *b).unwrap_or(Ty::Generic);
+              let mut ret_ty = ret.map(|b| *b).unwrap_or(Ty::Generic);
+              if let Some(eval_fn) = desc.evaluate {
+                let arg_tys: Vec<Ty> = args.iter().map(|a| self.ty_db.expr(a).ty()).collect();
+                if let Some(constant) = eval_fn(&object_ty, &arg_tys) {
+                  ret_ty = constant;
+                }
+              }
               let ret_idx = self.ty_db.alloc(TypedExpr::Unresolved);
               return self.ty_db.alloc(TypedExpr::FunctionCall {
                 args: args.clone(),
