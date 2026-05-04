@@ -13,3 +13,11 @@ llvm = ["inkwell"]
 [dependencies]
 tycheck = { path = "../tycheck" }
 inkwell = { version = "0.8", features = ["llvm21-1"], optional = true }
+
+[dev-dependencies]
+ast = { path = "../ast" }
+duckstruct-std = { path = "../std" }
+hir = { path = "../hir" }
+parser = { path = "../parser" }
+tempfile = "3"
+insta = "1.43.2"

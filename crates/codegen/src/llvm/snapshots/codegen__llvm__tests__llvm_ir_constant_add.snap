@@ -1,0 +1,16 @@
+---
+source: crates/codegen/src/llvm/mod.rs
+expression: normalize_llvm_ir(&ir)
+---
+; ModuleID = 'main'
+source_filename = "main"
+
+@g_v = global double 0.000000e+00
+
+declare ptr @malloc(i64)
+
+define i32 @main() {
+entry:
+  store double 3.000000e+00, ptr @g_v, align 8
+  ret i32 0
+}

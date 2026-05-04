@@ -39,6 +39,106 @@ impl<'tycheck> CodeGenerator for LlvmGenerator<'tycheck> {
   }
 }
 
+#[cfg(test)]
+mod tests {
+  use super::LlvmGenerator;
+
+  use ast::Root;
+  use hir::lower;
+  use insta::assert_snapshot;
+  use parser::parse;
+  use tempfile::NamedTempFile;
+  use tycheck::TyCheck;
+
+  fn llvm_for(source: &str) -> String {
+    let parse = parse(source);
+    assert!(
+      parse.errors.is_empty(),
+      "parse errors: {:?}",
+      parse.errors
+    );
+    let ast = Root::cast(parse.syntax()).expect("cast root");
+    let hir = lower(ast);
+    let mut tycheck = TyCheck::new(hir);
+    tycheck.infer_with_modules(
+      None,
+      None,
+      None,
+      Some(duckstruct_std::PRIMITIVE_METHODS),
+    );
+    assert!(
+      !tycheck.diagnostics.has_errors(),
+      "tycheck errors: {:?}",
+      tycheck.diagnostics.items()
+    );
+    LlvmGenerator::new(&tycheck)
+      .generate_llvm()
+      .expect("llvm generation")
+  }
+
+  /// Make snapshots stable across small formatter/whitespace shifts.
+  fn normalize_llvm_ir(ir: &str) -> String {
+    let mut out = String::new();
+    for line in ir.lines() {
+      out.push_str(line.trim_end());
+      out.push('\n');
+    }
+    out
+  }
+
+  #[test]
+  fn llvm_ir_contains_main_and_user_function() {
+    let ir = llvm_for("f forty_two() { 40 + 2 }\nforty_two()");
+    assert!(ir.contains("define i32 @main()"), "ir:\n{}", ir);
+    assert!(ir.contains("define double @f_forty_two()"), "ir:\n{}", ir);
+  }
+
+  #[test]
+  fn llvm_ir_array_push_length_has_malloc_declaration() {
+    let ir = llvm_for("f wrap(x) { let ys = [x].push(1); ys.length() }\nwrap(2)");
+    assert!(ir.contains("@malloc"), "ir:\n{}", ir);
+    assert!(ir.contains("define double @f_wrap"), "ir:\n{}", ir);
+  }
+
+  #[test]
+  fn llvm_can_emit_object_file_smoke() {
+    let parse = parse("40 + 2");
+    assert!(parse.errors.is_empty(), "parse errors: {:?}", parse.errors);
+    let ast = Root::cast(parse.syntax()).expect("cast root");
+    let hir = lower(ast);
+    let mut tycheck = TyCheck::new(hir);
+    tycheck.infer_with_modules(
+      None,
+      None,
+      None,
+      Some(duckstruct_std::PRIMITIVE_METHODS),
+    );
+    assert!(
+      !tycheck.diagnostics.has_errors(),
+      "tycheck errors: {:?}",
+      tycheck.diagnostics.items()
+    );
+    let file = NamedTempFile::new().expect("tmp file");
+    LlvmGenerator::new(&tycheck)
+      .compile_to_object_file(file.path())
+      .expect("emit object");
+    let md = std::fs::metadata(file.path()).expect("metadata");
+    assert!(md.len() > 0, "object file is empty");
+  }
+
+  #[test]
+  fn llvm_ir_snapshot_constant_add() {
+    let ir = llvm_for("let v = 1 + 2\nv");
+    assert_snapshot!("llvm_ir_constant_add", normalize_llvm_ir(&ir));
+  }
+
+  #[test]
+  fn llvm_ir_snapshot_array_push_length_path() {
+    let ir = llvm_for("f wrap(x) { let ys = [x].push(1); ys.length() }\nwrap(2)");
+    assert_snapshot!("llvm_ir_array_push_length_path", normalize_llvm_ir(&ir));
+  }
+}
+
 impl<'tycheck> LlvmGenerator<'tycheck> {
   pub fn new(tycheck: &'tycheck TyCheck) -> Self {
     Self {
