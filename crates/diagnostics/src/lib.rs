@@ -14,7 +14,9 @@ pub use lsp::{
   LspRange, RelatedInformation,
 };
 pub use parse_bridge::{bundle_from_parse_errors, diagnostic_from_parse_error};
-pub use position::byte_offset_to_line_character_utf16;
+pub use position::{
+  byte_offset_to_line_character_utf16, line_character_utf16_to_byte_offset,
+};
 
 pub use syntax::TextRange;
 

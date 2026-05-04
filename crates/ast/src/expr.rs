@@ -199,6 +199,10 @@ impl VariableRef {
     self.0.first_token().unwrap().text().to_string()
   }
 
+  pub fn name_token(&self) -> SyntaxToken {
+    self.0.first_token().unwrap()
+  }
+
   pub fn span(&self) -> TextRange {
     self.0.text_range()
   }
@@ -220,6 +224,16 @@ impl PathExpr {
 
   pub fn span(&self) -> TextRange {
     self.0.text_range()
+  }
+
+  /// Last path segment identifier (e.g. `bar` in `foo::bar`).
+  pub fn last_ident_token(&self) -> Option<SyntaxToken> {
+    self
+      .0
+      .children_with_tokens()
+      .filter_map(SyntaxElement::into_token)
+      .filter(|t| t.kind() == SyntaxKind::Identifier)
+      .last()
   }
 }
 
@@ -479,6 +493,18 @@ impl ForExpression {
       })
   }
 
+  /// Loop variable identifier token (for IDE / navigation).
+  pub fn binding_ident_token(&self) -> Option<SyntaxToken> {
+    let for_pat = self
+      .0
+      .children()
+      .find(|c| c.kind() == SyntaxKind::ForPattern)?;
+    for_pat
+      .children_with_tokens()
+      .filter_map(SyntaxElement::into_token)
+      .find(|t| t.kind() == SyntaxKind::Identifier)
+  }
+
   pub fn iterable(&self) -> Option<Expr> {
     self
       .0
@@ -528,6 +554,22 @@ impl ForExpression {
     let acc = names.next()?;
     let idx = names.next()?;
     Some((acc, idx))
+  }
+
+  /// Identifier token for one of `| acc , i |` fold parameters.
+  pub fn fold_param_ident_token(&self, name: &str) -> Option<SyntaxToken> {
+    let node = self
+      .0
+      .children()
+      .find(|c| c.kind() == SyntaxKind::ForFoldParams)?;
+    node.children().find_map(|c| {
+      if c.kind() == SyntaxKind::Identifier {
+        let t = c.first_token()?;
+        (t.text() == name).then_some(t)
+      } else {
+        None
+      }
+    })
   }
 
   pub fn span(&self) -> TextRange {

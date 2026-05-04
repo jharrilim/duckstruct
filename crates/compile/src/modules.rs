@@ -89,12 +89,19 @@ pub struct LoadedModule {
 /// dependency modules in topological order. The entry is NOT typechecked here;
 /// the caller should typecheck it with a module map from deps.
 /// Detects circular dependencies. `project_root` is used to resolve `use root::...` paths.
+///
+/// When `entry_source_override` is set (e.g. LSP unsaved buffer), the entry module is parsed
+/// from that string; dependency modules are still read from disk.
 pub fn load_module_tree(
   entry_path: &Path,
   project_root: Option<&Path>,
+  entry_source_override: Option<&str>,
 ) -> Result<(hir::Database, Vec<LoadedModule>), String> {
-  let source = std::fs::read_to_string(entry_path)
-    .map_err(|e| format!("Failed to read {}: {}", entry_path.display(), e))?;
+  let source = match entry_source_override {
+    Some(s) => s.to_string(),
+    None => std::fs::read_to_string(entry_path)
+      .map_err(|e| format!("Failed to read {}: {}", entry_path.display(), e))?,
+  };
   let parse = parse(&source);
   if !parse.errors.is_empty() {
     let b = bundle_from_parse_errors(&parse.errors);
@@ -195,7 +202,7 @@ fn load_deps_recurse(
 
     let dep_hir = hir::lower(dep_ast);
     let mut dep_tycheck = TyCheck::new(dep_hir);
-    dep_tycheck.infer();
+    dep_tycheck.infer_with_modules(None, None, None, Some(duckstruct_std::PRIMITIVE_METHODS));
     if dep_tycheck.diagnostics.has_errors() {
       return Err(emit_human_string(
         &dep_source,
@@ -244,7 +251,7 @@ pub let ONE = 1;
     )
     .expect("write helper.ds");
 
-    let result = load_module_tree(&main_ds, None);
+    let result = load_module_tree(&main_ds, None, None);
     assert!(result.is_ok(), "load_module_tree failed: {:?}", result.err());
     let (_entry_hir, deps) = result.unwrap();
     assert_eq!(deps.len(), 1, "expected one dependency");
@@ -289,7 +296,7 @@ pub let TWO = 2;
     )
     .expect("write subdir/helper.ds");
 
-    let result = load_module_tree(&main_ds, None);
+    let result = load_module_tree(&main_ds, None, None);
     assert!(result.is_ok(), "load_module_tree failed: {:?}", result.err());
     let (_entry_hir, deps) = result.unwrap();
     assert_eq!(deps.len(), 1, "expected one dependency");
@@ -334,7 +341,7 @@ pub let foo = 42;
     )
     .expect("write foo.ds");
 
-    let result = load_module_tree(&main_ds, None);
+    let result = load_module_tree(&main_ds, None, None);
     assert!(result.is_ok(), "load_module_tree failed: {:?}", result.err());
     let (_entry_hir, deps) = result.unwrap();
     assert_eq!(deps.len(), 1, "expected one dependency");
@@ -379,7 +386,7 @@ pub let THREE = 3;
     )
     .expect("write lib/util.ds");
 
-    let result = load_module_tree(&main_ds, Some(root));
+    let result = load_module_tree(&main_ds, Some(root), None);
     assert!(result.is_ok(), "load_module_tree failed: {:?}", result.err());
     let (_entry_hir, deps) = result.unwrap();
     assert_eq!(deps.len(), 1, "expected one dependency");
@@ -412,7 +419,7 @@ read(0)
     )
     .expect("write main.ds");
 
-    let result = load_module_tree(&main_ds, None);
+    let result = load_module_tree(&main_ds, None, None);
     assert!(result.is_ok(), "load_module_tree failed: {:?}", result.err());
     let (_entry_hir, deps) = result.unwrap();
     assert_eq!(deps.len(), 1, "expected one dependency (file)");
@@ -447,7 +454,7 @@ use helper::{Foo};
     )
     .expect("write main.ds");
 
-    let result = load_module_tree(&main_ds, None);
+    let result = load_module_tree(&main_ds, None, None);
     assert!(result.is_ok(), "load_module_tree failed: {:?}", result.err());
     let (_entry_hir, deps) = result.unwrap();
     let dep = deps.iter().find(|d| d.name == "helper").expect("helper dep");
@@ -479,7 +486,7 @@ x
     )
     .expect("write main.ds");
 
-    let result = load_module_tree(&main_ds, None);
+    let result = load_module_tree(&main_ds, None, None);
     let err = match &result {
       Err(e) => e.clone(),
       Ok(_) => panic!("expected load_module_tree to fail with root:: and no manifest"),

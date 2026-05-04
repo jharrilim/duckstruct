@@ -44,7 +44,12 @@ pub fn run(path: Option<PathBuf>, json: bool) {
     if let Some(root) = Root::cast(parse_result.syntax()) {
       let hir = lower(root);
       let mut tycheck = TyCheck::new(hir);
-      tycheck.infer();
+      tycheck.infer_with_modules(
+        None,
+        None,
+        None,
+        Some(duckstruct_std::PRIMITIVE_METHODS),
+      );
       bundle.extend_bundle(tycheck.diagnostics.bundle.clone());
     }
   }

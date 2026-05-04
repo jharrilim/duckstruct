@@ -217,8 +217,15 @@ pub(super) fn let_stmt(p: &mut Parser) -> CompletedMarker {
   p.expect(TokenKind::Equals);
   p.bump();
 
+  let parse_errors_before = p.parse_errors_emitted;
   if expr(p).is_none() {
-    p.error();
+    if !p.at_end() {
+      p.error();
+    } else if p.parse_errors_emitted == parse_errors_before {
+      // `let x =` at EOF: no diagnostic from `expr` yet. `let b = )'(;\n` at EOF: `expr` already
+      // reported the bad initializer and line recovery consumed through `;` — skip a duplicate.
+      p.error();
+    }
   }
 
   m.complete(p, SyntaxKind::LetStatement)

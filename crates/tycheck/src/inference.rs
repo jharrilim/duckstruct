@@ -6,6 +6,8 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::diagnostics::Diagnostics;
+use crate::primitive_methods::PrimitiveMethodDescriptor;
+use crate::primitive_methods::PrimitiveReceiverKind;
 use crate::scope::Scope;
 use crate::typed_db::{TypedDatabase, TypedDatabaseIdx};
 use crate::typed_hir::{FunctionDef, Ty, TypedExpr, TypedStmt};
@@ -28,6 +30,13 @@ pub struct TyCheck {
   pub ty_db: TypedDatabase,
   #[allow(unused)]
   pub diagnostics: Diagnostics,
+  /// Types at **use sites** for variable and path reference HIR expressions.
+  ///
+  /// `infer_variable_ref` returns the defining expression's index, so hover cannot use the
+  /// returned `TypedDatabaseIdx` alone to distinguish a reference from its definition.
+  pub expr_ty_at_use_site: FxIndexMap<DatabaseIdx, Ty>,
+  /// Built-in methods on primitives (e.g. array `length`), from `duckstruct-std` when compiling.
+  pub(crate) primitive_methods: Option<&'static [PrimitiveMethodDescriptor]>,
 }
 
 impl TyCheck {
@@ -36,23 +45,33 @@ impl TyCheck {
       hir_db: Rc::new(hir_db),
       ty_db: TypedDatabase::default(),
       diagnostics: Diagnostics::default(),
+      expr_ty_at_use_site: FxIndexMap::default(),
+      primitive_methods: None,
     }
+  }
+
+  /// Type of a variable/path **reference** HIR expression, if recorded during inference.
+  pub fn ty_at_hir_expr(&self, idx: &DatabaseIdx) -> Option<Ty> {
+    self.expr_ty_at_use_site.get(idx).cloned()
   }
 
   /// Infers types for all statements in the HIR database.
   pub fn infer(&mut self) {
-    self.infer_with_modules(None, None, None);
+    self.infer_with_modules(None, None, None, None);
   }
 
   /// Infers types with an optional module map for resolving imports and path refs,
   /// an optional prelude (e.g. stdlib globals) injected into the initial scope,
-  /// and optional global external functions (name -> param count) that get function type in scope.
+  /// optional global external functions (name -> param count) that get function type in scope,
+  /// and optional built-in primitive methods (from `duckstruct-std`).
   pub fn infer_with_modules(
     &mut self,
     module_map: Option<&ModuleMap<'_>>,
     prelude: Option<&[(String, TypedExpr)]>,
     external_functions: Option<&[(String, usize)]>,
+    primitive_methods: Option<&'static [PrimitiveMethodDescriptor]>,
   ) {
+    self.primitive_methods = primitive_methods;
     let mut scope = Scope::default();
     if let Some(prelude_items) = prelude {
       for (name, expr) in prelude_items.iter() {
@@ -124,6 +143,26 @@ impl TyCheck {
     }
   }
 
+  fn lookup_primitive_descriptor(
+    &self,
+    receiver_ty: &Ty,
+    field: &str,
+  ) -> Option<&'static PrimitiveMethodDescriptor> {
+    let slice = self.primitive_methods.as_ref()?;
+    let kind = match receiver_ty {
+      Ty::Array(_) => PrimitiveReceiverKind::Array,
+      _ => return None,
+    };
+    slice
+      .iter()
+      .find(|d| d.receiver == kind && d.name == field)
+  }
+
+  fn is_primitive_builtin_field(&self, typed_object: &TypedDatabaseIdx, field: &str) -> bool {
+    let ty = self.ty_db.expr(typed_object).ty();
+    self.lookup_primitive_descriptor(&ty, field).is_some()
+  }
+
   pub fn infer_stmt(
     &mut self,
     scope: &mut Scope,
@@ -172,7 +211,13 @@ impl TyCheck {
     let expr = hir_db.get_expr(expr_idx);
 
     let expr = match expr {
-      Expr::VariableRef { var, .. } => return self.infer_variable_ref(scope, var),
+      Expr::VariableRef { var, .. } => {
+        let t = self.infer_variable_ref(scope, var);
+        self
+          .expr_ty_at_use_site
+          .insert(*expr_idx, self.ty_db.expr(&t).ty().clone());
+        return t;
+      }
       Expr::Number { n, .. } => TypedExpr::Number { val: Some(*n) },
       Expr::String { s, .. } => TypedExpr::String {
         val: Some(s.clone()),
@@ -217,7 +262,13 @@ impl TyCheck {
         fields,
         ast,
       } => return self.infer_struct_literal(scope, type_expr, fields, ast, module_map),
-      Expr::PathRef { path, .. } => return self.infer_path_ref(scope, path, module_map),
+      Expr::PathRef { path, .. } => {
+        let t = self.infer_path_ref(scope, path, module_map);
+        self
+          .expr_ty_at_use_site
+          .insert(*expr_idx, self.ty_db.expr(&t).ty().clone());
+        return t;
+      }
       Expr::Missing => {
         todo!("Handle expression missing: {:?}", expr);
       }
@@ -414,6 +465,33 @@ impl TyCheck {
         todo!("handle object with unknown fields");
       }
       Ty::Generic => Ty::Generic,
+      Ty::Array(_) => {
+        let receiver_ty = self.ty_db.expr(&typed_object).ty().clone();
+        if let Some(desc) = self.lookup_primitive_descriptor(&receiver_ty, field) {
+          desc.function_ty_for_receiver(&receiver_ty).unwrap_or_else(|| {
+            self.diagnostics.push_error(
+              "type::error",
+              format!(
+                "built-in method `{}` is not valid for receiver type {}",
+                field, receiver_ty
+              ),
+              ast.span(),
+            );
+            Ty::Error
+          })
+        } else {
+          let msg = if self.primitive_methods.is_none() {
+            format!(
+              "Unknown method `{}` on array (built-in array methods need the compiler stdlib table)",
+              field
+            )
+          } else {
+            format!("Unknown method `{}` on array", field)
+          };
+          self.diagnostics.push_error("type::error", msg, ast.span());
+          Ty::Error
+        }
+      }
       ty => {
         match self.query_object_name(object) {
           Some(name) => {
@@ -443,7 +521,9 @@ impl TyCheck {
       }
     };
 
-    self.propogate_object_field_constraint(scope, &typed_object, field, &field_ty, ast);
+    if !self.is_primitive_builtin_field(&typed_object, field) {
+      self.propogate_object_field_constraint(scope, &typed_object, field, &field_ty, ast);
+    }
 
     self.ty_db.alloc(TypedExpr::ObjectFieldAccess {
       object: typed_object,
@@ -460,6 +540,9 @@ impl TyCheck {
     field_ty: &Ty,
     ast: &ast::expr::ObjectFieldAccess,
   ) {
+    if self.is_primitive_builtin_field(object, field) {
+      return;
+    }
     // Propagate the type of the field to the object.
     match self.ty_db.expr(object) {
       TypedExpr::ObjectFieldAccess {
@@ -1098,8 +1181,50 @@ impl TyCheck {
         object,
         field,
         ty: _,
-      } => match self.ty_db.expr(&object) {
-        TypedExpr::FunctionParameter { .. } => {
+      } => {
+        let object_ty = self.ty_db.expr(&object).ty();
+        if let Ty::Array(_) = &object_ty {
+          if let Some(desc) = self.lookup_primitive_descriptor(&object_ty, field.as_str()) {
+            if let Some(Ty::Function { params, ret }) = desc.function_ty_for_receiver(&object_ty) {
+              if args.len() != params.len() {
+                self.diagnostics.push_error(
+                  "type::error",
+                  format!(
+                    "method `{}` expects {} arguments, got {}",
+                    field,
+                    params.len(),
+                    args.len()
+                  ),
+                  ast.span(),
+                );
+                return self.ty_db.alloc(TypedExpr::Error);
+              }
+              for ((formal, arg_idx), arg_ast) in params.iter().zip(args.iter()).zip(ast.args()) {
+                let actual = self.ty_db.expr(arg_idx).ty();
+                let object_label = Self::argument_object_label(&arg_ast);
+                if let Some(msg) =
+                  Ty::parameter_argument_constraint_message(&actual, formal, &object_label)
+                {
+                  self.diagnostics.push_error(
+                    "type::parameter_constraint",
+                    msg,
+                    arg_ast.span(),
+                  );
+                }
+              }
+              let ret_ty = ret.map(|b| *b).unwrap_or(Ty::Generic);
+              let ret_idx = self.ty_db.alloc(TypedExpr::Unresolved);
+              return self.ty_db.alloc(TypedExpr::FunctionCall {
+                args: args.clone(),
+                def: *lhs,
+                ret: ret_idx,
+                ty: ret_ty,
+              });
+            }
+          }
+        }
+        match self.ty_db.expr(&object) {
+          TypedExpr::FunctionParameter { .. } => {
           if let Err(message) =
             self.refine_function_parameter_method_from_call(&object, field.as_str(), args, ast)
           {
@@ -1161,6 +1286,7 @@ impl TyCheck {
           );
           self.ty_db.alloc(TypedExpr::Error)
         }
+      }
       },
       TypedExpr::Block { stmts, ty: _ } => {
         match stmts.last().map(|s| self.ty_db.expr(s.value()).ty()) {

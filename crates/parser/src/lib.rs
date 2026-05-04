@@ -597,7 +597,7 @@ mod tests {
     fn parse_error_junk_after_equals_on_second_let_line() {
       let code = "let a = 123;\nlet b = )'(;\n";
       let parsed = parse(code);
-      assert!(!parsed.errors.is_empty());
+      assert_eq!(parsed.errors.len(), 1);
       let start: usize = parsed.errors[0].range.start().into();
       let paren = code.find(')').expect("`)` token");
       assert_eq!(
@@ -606,6 +606,22 @@ mod tests {
       );
     }
 
+    #[test]
+    fn parse_multiline_bad_stmt_one_error_then_call_parses() {
+      let src = include_str!("../../../dscode/client/testFixture/parse-span.ds");
+      let parsed = parse(src);
+      assert_eq!(parsed.errors.len(), 1, "{:?}", parsed.errors);
+      let after_let_line = src.find("let x = 1 + 2\n").expect("let line") + "let x = 1 + 2\n".len();
+      let paren = after_let_line + src[after_let_line..].find(')').expect("stray `)` on expr line");
+      let start: usize = parsed.errors[0].range.start().into();
+      assert_eq!(start, paren);
+      let tree = parsed.debug_tree();
+      assert!(
+        tree.contains("FunctionCallExpression"),
+        "expected `print(x)` to parse; tree:\n{}",
+        tree
+      );
+    }
 
     #[test]
     fn parse_error_on_lone_binary_op() {

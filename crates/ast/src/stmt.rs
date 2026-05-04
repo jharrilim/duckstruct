@@ -176,6 +176,11 @@ impl VariableDef {
   pub fn value(&self) -> Option<Expr> {
     self.0.children().find_map(Expr::cast)
   }
+
+  /// `true` when this `let` is a direct child of the file root (not nested in a block).
+  pub fn is_top_level_in_source_file(&self) -> bool {
+    matches!(self.0.parent().map(|n| n.kind()), Some(SyntaxKind::Root))
+  }
 }
 
 #[derive(Debug)]

@@ -75,7 +75,12 @@ impl ReplSession {
     let hir_db = hir::lower(root.clone());
     let mut tycheck = TyCheck::new(hir_db);
 
-    tycheck.infer();
+    tycheck.infer_with_modules(
+      None,
+      None,
+      None,
+      Some(duckstruct_std::PRIMITIVE_METHODS),
+    );
 
     if tycheck.diagnostics.has_errors() {
       tycheck.diagnostics.print_errors_with_source(&lines, "REPL");

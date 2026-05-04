@@ -123,7 +123,7 @@ mod tests {
     let src = "let a = 123;\nlet b = )'(;\n";
     let bundle = bundle_from_parse_errors(&parse(src).errors);
     let lsp = bundle_to_lsp_diagnostics(src, "file:///test.ds", &bundle);
-    assert!(!lsp.is_empty());
+    assert_eq!(lsp.len(), 1, "same-line recovery should not cascade extra diagnostics");
     assert_eq!(lsp[0].range.start.line, 1, "first diagnostic on second physical line");
     assert_eq!(lsp[0].range.start.character, 8, "column at `)` after `let b = `");
     assert!(lsp[0].message.contains(')'), "{}", lsp[0].message);

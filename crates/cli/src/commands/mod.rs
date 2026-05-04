@@ -2,4 +2,5 @@
 
 pub mod check;
 pub mod compile;
+pub mod ide;
 pub mod init;

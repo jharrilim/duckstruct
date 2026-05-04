@@ -42,6 +42,35 @@ enum Command {
     #[arg(long)]
     json: bool,
   },
+
+  /// IDE support: hover types, go-to-definition, symbol export (JSON).
+  Ide {
+    #[command(subcommand)]
+    sub: IdeSub,
+  },
+}
+
+#[derive(Subcommand, Debug)]
+enum IdeSub {
+  /// Hover + definition at LSP position. Reads **source from stdin**; `--file` is the document path.
+  Query {
+    /// Path to the `.ds` file (for `use` / `root::` resolution; may differ from stdin when unsaved)
+    #[arg(long)]
+    file: PathBuf,
+    /// 0-based line (UTF-16 columns; matches LSP)
+    #[arg(long)]
+    line: u32,
+    #[arg(long)]
+    character: u32,
+    /// Project root (directory with duckstruct.toml), for imports
+    #[arg(long)]
+    project: Option<PathBuf>,
+  },
+  /// Top-level symbols for the project entrypoint and `use` dependencies (JSON array).
+  Symbols {
+    #[arg(long)]
+    project: PathBuf,
+  },
 }
 
 /// Re-export for use as the binary's main return type.
@@ -53,6 +82,19 @@ pub fn run() -> Result<()> {
 
   if let Some(Command::Check { path, json }) = args.command {
     commands::check::run(path, json);
+    return Ok(());
+  }
+
+  if let Some(Command::Ide { sub }) = args.command {
+    match sub {
+      IdeSub::Query {
+        file,
+        line,
+        character,
+        project,
+      } => commands::ide::run_query(file, line, character, project),
+      IdeSub::Symbols { project } => commands::ide::run_symbols(project),
+    }
     return Ok(());
   }
 

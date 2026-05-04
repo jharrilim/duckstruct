@@ -6,7 +6,8 @@ use crate::{
 };
 use data_structures::arena::{Arena, Idx};
 use data_structures::FxIndexMap;
-use syntax::SyntaxKind;
+use rowan::TextSize;
+use syntax::{SyntaxKind, TextRange};
 
 #[derive(Debug, Default)]
 pub struct Database {
@@ -14,6 +15,8 @@ pub struct Database {
   defs: FxIndexMap<String, Stmt>,
   /// Use statements (path segments, optional alias). Processed by tycheck with module map.
   pub uses: Vec<(Vec<String>, Option<String>)>,
+  /// Spans of variable and path reference expressions for IDE hover (HIR use sites).
+  ref_expr_hir_idx_by_span: FxIndexMap<TextRange, DatabaseIdx>,
 }
 
 impl Database {
@@ -27,6 +30,17 @@ impl Database {
 
   pub fn defs_iter(&self) -> Vec<(&String, &Stmt)> {
     self.defs.iter().collect()
+  }
+
+  /// Smallest registered variable/path reference span containing `byte_offset`, if any.
+  pub fn ref_hir_idx_at_byte_offset(&self, byte_offset: usize) -> Option<DatabaseIdx> {
+    let pos = TextSize::try_from(byte_offset).ok()?;
+    self
+      .ref_expr_hir_idx_by_span
+      .iter()
+      .filter(|(range, _)| range.start() <= pos && pos < range.end())
+      .min_by_key(|(range, _)| u32::from(range.len()))
+      .map(|(_, idx)| *idx)
   }
 
   pub fn lower(&mut self, ast: ast::Root) {
@@ -124,14 +138,24 @@ impl Database {
           b: ast.parse(),
           ast,
         }),
-        ast::Expr::VariableRef(ast) => self.exprs.alloc(Expr::VariableRef {
-          var: ast.name(),
-          ast,
-        }),
-        ast::Expr::PathExpr(ast) => self.exprs.alloc(Expr::PathRef {
-          path: ast.segments(),
-          ast,
-        }),
+        ast::Expr::VariableRef(ast) => {
+          let span = ast.span();
+          let idx = self.exprs.alloc(Expr::VariableRef {
+            var: ast.name(),
+            ast,
+          });
+          self.ref_expr_hir_idx_by_span.insert(span, idx);
+          idx
+        }
+        ast::Expr::PathExpr(ast) => {
+          let span = ast.span();
+          let idx = self.exprs.alloc(Expr::PathRef {
+            path: ast.segments(),
+            ast,
+          });
+          self.ref_expr_hir_idx_by_span.insert(span, idx);
+          idx
+        }
         ast::Expr::BinaryExpr(ast) => self.lower_binary(ast),
         ast::Expr::ParenExpr(ast) => self.lower_expr(ast.expr()),
         ast::Expr::UnaryExpr(ast) => self.lower_unary(ast),

@@ -178,6 +178,11 @@ impl<'tycheck> JsGenerator<'tycheck> {
           .collect::<Vec<_>>()
           .join(", ");
 
+        if let TypedExpr::ObjectFieldAccess { object, field, .. } = self.tycheck.ty_db.expr(def) {
+          let recv = self.generate_expr(object);
+          return format!("{}.{}({})", recv, field, args_str);
+        }
+
         let callee = match self.tycheck.ty_db.expr(def) {
           TypedExpr::FunctionDef(FunctionDef { name, .. }) => name.as_deref().unwrap_or(""),
           TypedExpr::VariableRef { var, .. } => var.as_str(),

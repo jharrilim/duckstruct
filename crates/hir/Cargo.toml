@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 ast = { path = "../ast" }
 data-structures = { path = "../data-structures" }
+rowan = "0.15.4"
 syntax = { path = "../syntax" }
 
 

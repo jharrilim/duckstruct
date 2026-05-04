@@ -17,6 +17,8 @@ pub struct Parser<'l, 'input> {
   pub(crate) source: Source<'l, 'input>,
   pub(crate) events: Vec<Event>,
   expected_kinds: Vec<TokenKind>,
+  /// Incremented for each [`Event::Error`] (used e.g. to avoid a redundant `let` rhs diagnostic).
+  pub(crate) parse_errors_emitted: usize,
 }
 
 impl<'l, 'input> Parser<'l, 'input> {
@@ -25,6 +27,7 @@ impl<'l, 'input> Parser<'l, 'input> {
       source: Source::new(tokens),
       events: Vec::new(),
       expected_kinds: Vec::new(),
+      parse_errors_emitted: 0,
     }
   }
 
@@ -72,6 +75,7 @@ impl<'l, 'input> Parser<'l, 'input> {
         range,
         line,
       }));
+      self.parse_errors_emitted += 1;
     } else {
       self.events.push(Event::Error(ParseError {
         expected: Expectations::Expression,
@@ -79,9 +83,29 @@ impl<'l, 'input> Parser<'l, 'input> {
         range,
         line,
       }));
+      self.parse_errors_emitted += 1;
     }
 
     if !self.at_recovery_set() && !self.at_end() {
+      let m = self.start();
+      self.bump();
+      m.complete(self, SyntaxKind::Error);
+      // Do not emit further diagnostics for junk on the same physical line; the next newline
+      // (or `let` in the recovery set) starts a clean resync so following lines parse normally.
+      self.recover_skip_rest_of_line(line);
+    }
+  }
+
+  /// After a diagnostic on `anchor_line`, consume remaining tokens on that line as `Error`
+  /// nodes without additional [`ParseError`] entries (see `error`).
+  fn recover_skip_rest_of_line(&mut self, anchor_line: usize) {
+    while !self.at_end() && !self.at_recovery_set() {
+      let Some(tok) = self.source.peek_token() else {
+        break;
+      };
+      if tok.line != anchor_line {
+        break;
+      }
       let m = self.start();
       self.bump();
       m.complete(self, SyntaxKind::Error);

@@ -118,6 +118,7 @@ dependencies = [
  "codegen",
  "compile",
  "diagnostics",
+ "duckstruct-std",
  "hir",
  "home",
  "parser",
@@ -433,6 +434,7 @@ version = "0.1.0"
 dependencies = [
  "ast",
  "data-structures",
+ "rowan",
  "syntax",
 ]
 

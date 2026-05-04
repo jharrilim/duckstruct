@@ -2,7 +2,10 @@
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
+import * as fs from 'fs';
+import * as path from 'path';
 import { spawn } from 'child_process';
+import { fileURLToPath } from 'url';
 import {
 	createConnection,
 	TextDocuments,
@@ -15,7 +18,12 @@ import {
 	CompletionItemKind,
 	TextDocumentPositionParams,
 	TextDocumentSyncKind,
-	InitializeResult
+	InitializeResult,
+	Hover,
+	MarkupKind,
+	Location,
+	Range,
+	Position
 } from 'vscode-languageserver/node';
 
 import {
@@ -32,6 +40,9 @@ const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 let hasConfigurationCapability = false;
 let hasWorkspaceFolderCapability = false;
 let hasDiagnosticRelatedInformationCapability = false;
+
+/** Resolved workspace roots (filesystem paths) for manifest discovery. */
+let workspaceFolderPaths: string[] = [];
 
 connection.onInitialize((params: InitializeParams) => {
 	const capabilities = params.capabilities;
@@ -50,13 +61,22 @@ connection.onInitialize((params: InitializeParams) => {
 		capabilities.textDocument.publishDiagnostics.relatedInformation
 	);
 
+	if (params.workspaceFolders && params.workspaceFolders.length > 0) {
+		workspaceFolderPaths = params.workspaceFolders.map((f) => fileURLToPath(f.uri));
+	} else if (params.rootUri) {
+		workspaceFolderPaths = [fileURLToPath(params.rootUri)];
+	} else {
+		workspaceFolderPaths = [];
+	}
+
 	const result: InitializeResult = {
 		capabilities: {
 			textDocumentSync: TextDocumentSyncKind.Incremental,
-			// Tell the client that this server supports code completion.
 			completionProvider: {
 				resolveProvider: true
-			}
+			},
+			hoverProvider: true,
+			definitionProvider: true
 		}
 	};
 	if (hasWorkspaceFolderCapability) {
@@ -75,8 +95,14 @@ connection.onInitialized(() => {
 		connection.client.register(DidChangeConfigurationNotification.type, undefined);
 	}
 	if (hasWorkspaceFolderCapability) {
-		connection.workspace.onDidChangeWorkspaceFolders(_event => {
-			connection.console.log('Workspace folder change event received.');
+		connection.workspace.onDidChangeWorkspaceFolders((event) => {
+			for (const f of event.removed) {
+				const p = fileURLToPath(f.uri);
+				workspaceFolderPaths = workspaceFolderPaths.filter((x) => x !== p);
+			}
+			for (const f of event.added) {
+				workspaceFolderPaths.push(fileURLToPath(f.uri));
+			}
 		});
 	}
 });
@@ -153,6 +179,120 @@ function checkDiagnosticToLsp(d: CheckDiagnostic): Diagnostic {
 		}));
 	}
 	return out;
+}
+
+/** JSON line from `ds ide query` (Rust `IdeQueryResult`). */
+interface IdeQueryJson {
+	hover?: string | null;
+	definition?: IdeLocationJson | null;
+	error?: string | null;
+}
+
+interface IdeLocationJson {
+	uri: string;
+	range: {
+		start: { line: number; character: number };
+		end: { line: number; character: number };
+	};
+}
+
+function duckstructProjectRootForFile(filePath: string): string | undefined {
+	for (const root of workspaceFolderPaths) {
+		const normRoot = path.resolve(root);
+		const normFile = path.resolve(filePath);
+		if (normFile === normRoot || normFile.startsWith(normRoot + path.sep)) {
+			const manifest = path.join(normRoot, 'duckstruct.toml');
+			if (fs.existsSync(manifest)) {
+				return normRoot;
+			}
+		}
+	}
+	let dir = path.dirname(path.resolve(filePath));
+	for (let i = 0; i < 100; i++) {
+		const manifest = path.join(dir, 'duckstruct.toml');
+		if (fs.existsSync(manifest)) {
+			return dir;
+		}
+		const parent = path.dirname(dir);
+		if (parent === dir) {
+			return undefined;
+		}
+		dir = parent;
+	}
+	return undefined;
+}
+
+function ideLocationToLsp(loc: IdeLocationJson): Location {
+	return {
+		uri: loc.uri,
+		range: Range.create(
+			Position.create(loc.range.start.line, loc.range.start.character),
+			Position.create(loc.range.end.line, loc.range.end.character)
+		)
+	};
+}
+
+async function runIdeQuery(
+	duckstructPath: string,
+	filePath: string,
+	source: string,
+	line: number,
+	character: number,
+	projectRoot: string | undefined
+): Promise<IdeQueryJson | null> {
+	const args = [
+		'ide',
+		'query',
+		'--file',
+		filePath,
+		'--line',
+		String(line),
+		'--character',
+		String(character)
+	];
+	if (projectRoot) {
+		args.push('--project', projectRoot);
+	}
+	return await new Promise((resolve) => {
+		const child = spawn(duckstructPath, args, {
+			stdio: ['pipe', 'pipe', 'pipe']
+		});
+		let stdout = '';
+		let stderr = '';
+		const timer = setTimeout(() => child.kill('SIGTERM'), 30_000);
+		child.stdout.setEncoding('utf8');
+		child.stderr.setEncoding('utf8');
+		child.stdout.on('data', (chunk: string) => {
+			stdout += chunk;
+		});
+		child.stderr.on('data', (chunk: string) => {
+			stderr += chunk;
+		});
+		child.on('error', (err: NodeJS.ErrnoException) => {
+			clearTimeout(timer);
+			connection.console.error(`duckstruct ide query (${duckstructPath}): ${err.message}`);
+			resolve(null);
+		});
+		child.on('close', () => {
+			clearTimeout(timer);
+			if (stderr.trim()) {
+				connection.console.warn(`duckstruct ide: ${stderr.trim()}`);
+			}
+			const out = stdout.trim();
+			if (!out) {
+				resolve(null);
+				return;
+			}
+			try {
+				resolve(JSON.parse(out) as IdeQueryJson);
+			} catch (e) {
+				connection.console.error(`duckstruct ide query: invalid JSON (${e})`);
+				resolve(null);
+			}
+		});
+		child.stdin.write(source, 'utf8');
+		child.stdin.end();
+	});
 }
 
 // Cache the settings of all open documents
@@ -269,6 +409,77 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
 connection.onDidChangeWatchedFiles(_change => {
 	// Monitored files have change in VSCode
 	connection.console.log('We received an file change event');
+});
+
+connection.onHover(async (params): Promise<Hover | null> => {
+	const uri = params.textDocument.uri;
+	if (!uri.startsWith('file:')) {
+		return null;
+	}
+	const doc = documents.get(uri);
+	if (!doc) {
+		return null;
+	}
+	const settings = await getDocumentSettings(uri);
+	const duckstructPath = settings.duckstructPath || defaultSettings.duckstructPath;
+	const fp = fileURLToPath(uri);
+	const project = duckstructProjectRootForFile(fp);
+	const q = await runIdeQuery(
+		duckstructPath,
+		fp,
+		doc.getText(),
+		params.position.line,
+		params.position.character,
+		project
+	);
+	if (!q) {
+		return null;
+	}
+	if (q.error) {
+		return {
+			contents: {
+				kind: MarkupKind.Markdown,
+				value: '```\n' + q.error + '\n```'
+			}
+		};
+	}
+	const h = q.hover;
+	if (h === null || h === undefined || h === '') {
+		return null;
+	}
+	return {
+		contents: {
+			kind: MarkupKind.Markdown,
+			value: '`' + h + '`'
+		}
+	};
+});
+
+connection.onDefinition(async (params): Promise<Location | null> => {
+	const uri = params.textDocument.uri;
+	if (!uri.startsWith('file:')) {
+		return null;
+	}
+	const doc = documents.get(uri);
+	if (!doc) {
+		return null;
+	}
+	const settings = await getDocumentSettings(uri);
+	const duckstructPath = settings.duckstructPath || defaultSettings.duckstructPath;
+	const fp = fileURLToPath(uri);
+	const project = duckstructProjectRootForFile(fp);
+	const q = await runIdeQuery(
+		duckstructPath,
+		fp,
+		doc.getText(),
+		params.position.line,
+		params.position.character,
+		project
+	);
+	if (!q?.definition) {
+		return null;
+	}
+	return ideLocationToLsp(q.definition);
 });
 
 // Duckstruct keywords and stdlib for completion

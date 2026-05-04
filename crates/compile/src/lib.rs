@@ -1,6 +1,8 @@
 mod manifest;
 mod modules;
 
+pub mod ide;
+
 use std::path::Path;
 
 use diagnostics::{bundle_from_parse_errors, emit_human_string, HumanEmitConfig};
@@ -124,7 +126,12 @@ impl Compiler {
     };
     let hir = lower(ast);
     let mut tycheck = TyCheck::new(hir);
-    tycheck.infer();
+    tycheck.infer_with_modules(
+      None,
+      None,
+      None,
+      Some(duckstruct_std::PRIMITIVE_METHODS),
+    );
     if tycheck.diagnostics.has_errors() {
       return Err(format_tycheck_errors(source, "<input>", &tycheck));
     }
@@ -143,7 +150,12 @@ impl Compiler {
     };
     let hir = lower(ast);
     let mut tycheck = TyCheck::new(hir);
-    tycheck.infer();
+    tycheck.infer_with_modules(
+      None,
+      None,
+      None,
+      Some(duckstruct_std::PRIMITIVE_METHODS),
+    );
     if tycheck.diagnostics.has_errors() {
       return Err(format_tycheck_errors(source, "<input>", &tycheck));
     }
@@ -226,7 +238,12 @@ impl Compiler {
         TargetLang::Javascript => {
           let hir = lower(ast.clone());
           let mut tycheck = TyCheck::new(hir);
-          tycheck.infer_with_modules(None, prelude_ref, global_external_fns_ref);
+          tycheck.infer_with_modules(
+            None,
+            prelude_ref,
+            global_external_fns_ref,
+            Some(duckstruct_std::PRIMITIVE_METHODS),
+          );
           if tycheck.diagnostics.has_errors() {
             return Err(format_tycheck_errors(
               &source,
@@ -248,7 +265,12 @@ impl Compiler {
           {
             let hir = lower(ast.clone());
             let mut tycheck = TyCheck::new(hir);
-            tycheck.infer_with_modules(None, prelude_ref, global_external_fns_ref);
+            tycheck.infer_with_modules(
+              None,
+              prelude_ref,
+              global_external_fns_ref,
+              Some(duckstruct_std::PRIMITIVE_METHODS),
+            );
             if tycheck.diagnostics.has_errors() {
               return Err(format_tycheck_errors(
                 &source,
@@ -277,7 +299,7 @@ impl Compiler {
       }
     } else {
       let (entry_hir, deps) =
-        modules::load_module_tree(&entry_path, project_root.as_deref())?;
+        modules::load_module_tree(&entry_path, project_root.as_deref(), None)?;
       let entry_uses = entry_hir.uses.clone();
       let mut module_map: std::collections::HashMap<String, &TyCheck> =
         std::collections::HashMap::new();
@@ -289,6 +311,7 @@ impl Compiler {
         Some(&module_map),
         prelude_ref,
         global_external_fns_ref,
+        Some(duckstruct_std::PRIMITIVE_METHODS),
       );
       if entry_tycheck.diagnostics.has_errors() {
         return Err(format_tycheck_errors(
@@ -428,7 +451,12 @@ impl Compiler {
     };
     let hir = lower(ast);
     let mut tycheck = TyCheck::new(hir);
-    tycheck.infer();
+    tycheck.infer_with_modules(
+      None,
+      None,
+      None,
+      Some(duckstruct_std::PRIMITIVE_METHODS),
+    );
     if tycheck.diagnostics.has_errors() {
       return Err(format_tycheck_errors(source, "<eval>", &tycheck));
     }
