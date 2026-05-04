@@ -1,3 +1,7 @@
 /target
 .idea
 tests/**/output/
+
+# Docusaurus
+docs/node_modules/
+docs/build/

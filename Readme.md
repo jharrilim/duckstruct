@@ -22,6 +22,22 @@ This allows Duckstruct to unify these value types at compile-time for the sake
 of optimization, but also (ideally, in the future) to support IDE type hints
 that can show both the value at any given point.
 
+## Documentation
+
+User-facing language documentation lives in `docs/` (Docusaurus).
+
+- Published site: `https://jharrilim.github.io/duckstruct/`
+- Local preview:
+
+```bash
+cd docs
+npm install
+npm start
+```
+
+GitHub Pages is deployed from `main` via GitHub Actions. In the repository
+settings, set **Pages → Build and deployment → Source: GitHub Actions**.
+
 ## Thoughts
 
 - Type inference should be fairly similar to a regular
