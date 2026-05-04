@@ -177,6 +177,8 @@ impl<'tycheck> JsGenerator<'tycheck> {
         format!("const {} = {};", name, value)
       }
       TypedStmt::StructDef { .. } => String::new(),
+      TypedStmt::TraitDef { .. } => String::new(),
+      TypedStmt::ImplDef { .. } => String::new(),
       TypedStmt::FunctionDef { value, pub_vis: _, .. } => {
         let (_stmt_name, params, body, _body_hir, _ty) = match self.tycheck.ty_db.expr(value) {
           TypedExpr::FunctionDef(FunctionDef {

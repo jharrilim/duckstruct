@@ -189,6 +189,80 @@ pub(super) fn struct_definition(p: &mut Parser) -> CompletedMarker {
   m.complete(p, SyntaxKind::StructStatement)
 }
 
+/// `trait Name { f method(...) ; ... }` or `pub trait Name { ... }`.
+pub(super) fn trait_definition(p: &mut Parser) -> CompletedMarker {
+  let m = p.start();
+  if p.at(TokenKind::Pub) {
+    p.bump();
+  }
+  p.expect(TokenKind::Trait);
+  p.bump();
+  p.expect(TokenKind::Identifier);
+  p.bump();
+  p.expect(TokenKind::LeftBrace);
+  p.bump();
+  loop {
+    match p.peek() {
+      Some(TokenKind::RightBrace) => {
+        p.bump();
+        break;
+      }
+      None => {
+        p.expected(TokenKind::RightBrace);
+        break;
+      }
+      Some(TokenKind::Function) => {
+        let mm = p.start();
+        p.bump();
+        p.expect(TokenKind::Identifier);
+        p.bump();
+        argument_list(p);
+        mm.complete(p, SyntaxKind::TraitMethodSignature);
+        if p.at(TokenKind::Semicolon) {
+          p.bump();
+        }
+      }
+      _ => p.error(),
+    }
+  }
+  m.complete(p, SyntaxKind::TraitStatement)
+}
+
+/// `impl Trait for Type { f method(...) { ... } }`.
+pub(super) fn impl_definition(p: &mut Parser) -> CompletedMarker {
+  let m = p.start();
+  p.expect(TokenKind::Impl);
+  p.bump();
+  p.expect(TokenKind::Identifier);
+  p.bump();
+  p.expect(TokenKind::For);
+  p.bump();
+  p.expect(TokenKind::Identifier);
+  p.bump();
+  p.expect(TokenKind::LeftBrace);
+  p.bump();
+  loop {
+    match p.peek() {
+      Some(TokenKind::RightBrace) => {
+        p.bump();
+        break;
+      }
+      None => {
+        p.expected(TokenKind::RightBrace);
+        break;
+      }
+      Some(TokenKind::Function) => {
+        let mm = p.start();
+        let inner = p.start();
+        function_definition_inner(p, inner);
+        mm.complete(p, SyntaxKind::ImplMethod);
+      }
+      _ => p.error(),
+    }
+  }
+  m.complete(p, SyntaxKind::ImplStatement)
+}
+
 pub(super) fn let_stmt(p: &mut Parser) -> CompletedMarker {
   let m = p.start();
   if p.at(TokenKind::Pub) {

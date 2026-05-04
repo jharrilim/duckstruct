@@ -1,0 +1,40 @@
+---
+source: crates/parser/src/lib.rs
+assertion_line: 548
+expression: "& parse.debug_tree()"
+info:
+  code: "\n      pub trait Renderable {\n        f render(x);\n        f name();\n      }\n    "
+---
+Root@0..81
+  Whitespace@0..7 "\n      "
+  TraitStatement@7..81
+    Pub@7..10 "pub"
+    Whitespace@10..11 " "
+    Trait@11..16 "trait"
+    Whitespace@16..17 " "
+    Identifier@17..27 "Renderable"
+    Whitespace@27..28 " "
+    LeftBrace@28..29 "{"
+    Whitespace@29..38 "\n        "
+    TraitMethodSignature@38..49
+      Function@38..39 "f"
+      Whitespace@39..40 " "
+      Identifier@40..46 "render"
+      ArgumentList@46..49
+        LeftParenthesis@46..47 "("
+        VariableReference@47..48
+          Identifier@47..48 "x"
+        RightParenthesis@48..49 ")"
+    Semicolon@49..50 ";"
+    Whitespace@50..59 "\n        "
+    TraitMethodSignature@59..67
+      Function@59..60 "f"
+      Whitespace@60..61 " "
+      Identifier@61..65 "name"
+      ArgumentList@65..67
+        LeftParenthesis@65..66 "("
+        RightParenthesis@66..67 ")"
+    Semicolon@67..68 ";"
+    Whitespace@68..75 "\n      "
+    RightBrace@75..76 "}"
+    Whitespace@76..81 "\n    "

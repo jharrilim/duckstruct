@@ -780,6 +780,88 @@ mod structs {
   }
 }
 
+mod traits {
+  use super::*;
+
+  #[test]
+  fn tycheck_trait_impl_for_struct_and_primitive() {
+    let code = "
+      trait Renderable {
+        f render(x);
+      }
+
+      struct Foo { }
+
+      impl Renderable for Foo {
+        f render(x) { x }
+      }
+
+      impl Renderable for number {
+        f render(x) { x }
+      }
+    ";
+    let tycheck = tycheck(code);
+    assert!(
+      !tycheck.diagnostics.has_errors(),
+      "unexpected errors: {:?}",
+      tycheck
+        .diagnostics
+        .items()
+        .iter()
+        .map(|e| e.message().to_string())
+        .collect::<Vec<_>>()
+    );
+  }
+
+  #[test]
+  fn tycheck_trait_impl_missing_required_method_errors() {
+    let code = "
+      trait Renderable {
+        f render(x);
+      }
+
+      struct Foo { }
+
+      impl Renderable for Foo {
+        f other(x) { x }
+      }
+    ";
+    let tycheck = tycheck(code);
+    assert!(tycheck.diagnostics.has_errors());
+    assert!(
+      tycheck
+        .diagnostics
+        .errors()
+        .any(|e| e.code == "type::trait_missing_method"),
+      "expected type::trait_missing_method diagnostic"
+    );
+  }
+
+  #[test]
+  fn tycheck_trait_impl_method_arity_mismatch_errors() {
+    let code = "
+      trait Renderable {
+        f render(x);
+      }
+
+      struct Foo { }
+
+      impl Renderable for Foo {
+        f render(x, y) { x + y }
+      }
+    ";
+    let tycheck = tycheck(code);
+    assert!(tycheck.diagnostics.has_errors());
+    assert!(
+      tycheck
+        .diagnostics
+        .errors()
+        .any(|e| e.code == "type::trait_method_mismatch"),
+      "expected type::trait_method_mismatch diagnostic"
+    );
+  }
+}
+
 mod typecheck_diagnostics {
   use std::collections::HashMap;
 
@@ -960,6 +1042,59 @@ mod typecheck_diagnostics {
       output.contains("x()") || output.contains("Error"),
       "expected snippet or error header in output, got: {}",
       output
+    );
+  }
+
+  #[test]
+  fn trait_impl_requires_trait_in_scope_from_imports() {
+    let dep_code = "
+      pub trait Renderable {
+        f render(x);
+      }
+    ";
+    let dep_root = Root::cast(parse(dep_code).syntax()).unwrap();
+    let dep_hir = hir::lower(dep_root);
+    let mut dep_tc = TyCheck::new(dep_hir);
+    dep_tc.infer();
+
+    let entry_code_missing_use = "
+      impl Renderable for number {
+        f render(x) { x }
+      }
+    ";
+    let entry_root_missing_use = Root::cast(parse(entry_code_missing_use).syntax()).unwrap();
+    let entry_hir_missing_use = hir::lower(entry_root_missing_use);
+    let mut entry_tc_missing_use = TyCheck::new(entry_hir_missing_use);
+    let mut map = HashMap::new();
+    map.insert("helper".to_string(), &dep_tc);
+    entry_tc_missing_use.infer_with_modules(Some(&map), None, None, None);
+    assert!(
+      entry_tc_missing_use
+        .diagnostics
+        .errors()
+        .any(|e| e.code == "type::trait_unknown"),
+      "expected unknown trait when trait is not imported into scope"
+    );
+
+    let entry_code_with_use = "
+      use helper::{Renderable};
+      impl Renderable for number {
+        f render(x) { x }
+      }
+    ";
+    let entry_root_with_use = Root::cast(parse(entry_code_with_use).syntax()).unwrap();
+    let entry_hir_with_use = hir::lower(entry_root_with_use);
+    let mut entry_tc_with_use = TyCheck::new(entry_hir_with_use);
+    entry_tc_with_use.infer_with_modules(Some(&map), None, None, None);
+    assert!(
+      !entry_tc_with_use.diagnostics.has_errors(),
+      "unexpected errors when trait is imported: {:?}",
+      entry_tc_with_use
+        .diagnostics
+        .items()
+        .iter()
+        .map(|e| e.message().to_string())
+        .collect::<Vec<_>>()
     );
   }
 }

@@ -28,6 +28,12 @@ pub enum TokenKind {
   #[token("struct")]
   Struct,
 
+  #[token("trait")]
+  Trait,
+
+  #[token("impl")]
+  Impl,
+
   #[token("if")]
   If,
 
@@ -182,6 +188,8 @@ impl fmt::Display for TokenKind {
       Self::Function => "'f'",
       Self::Boolean => "boolean",
       Self::Struct => "'struct'",
+      Self::Trait => "'trait'",
+      Self::Impl => "'impl'",
       Self::Let => "'let'",
       Self::If => "'if'",
       Self::Else => "'else'",

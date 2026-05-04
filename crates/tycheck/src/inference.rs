@@ -2,7 +2,7 @@
 //! It acts as a partial evaluator for code during type checking.
 //! It also has the ability to refine parameter types based on the context of the function call.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use crate::diagnostics::Diagnostics;
@@ -14,6 +14,7 @@ use crate::typed_hir::{FunctionDef, Ty, TypedExpr, TypedStmt};
 use ast::Expr as AstExpr;
 use data_structures::{index_map, FxIndexMap};
 use hir::{expr::Expr, pat::Pat, stmt::Stmt, DatabaseIdx};
+use syntax::{TextRange, TextSize};
 
 /// Map from module name to its type-checked state (for resolving `foo::bar` and use bindings).
 pub type ModuleMap<'a> = HashMap<String, &'a TyCheck>;
@@ -37,16 +38,30 @@ pub struct TyCheck {
   pub expr_ty_at_use_site: FxIndexMap<DatabaseIdx, Ty>,
   /// Built-in methods on primitives (e.g. array `length`), from `duckstruct-std` when compiling.
   pub(crate) primitive_methods: Option<&'static [PrimitiveMethodDescriptor]>,
+  trait_requirements: FxIndexMap<String, FxIndexMap<String, usize>>,
+  impl_registry: HashSet<(String, String)>,
+  struct_names: HashSet<String>,
 }
 
 impl TyCheck {
   pub fn new(hir_db: hir::Database) -> Self {
+    let struct_names = hir_db
+      .defs_iter()
+      .into_iter()
+      .filter_map(|(_, stmt)| match stmt {
+        Stmt::StructDef { name, .. } => Some(name.clone()),
+        _ => None,
+      })
+      .collect();
     Self {
       hir_db: Rc::new(hir_db),
       ty_db: TypedDatabase::default(),
       diagnostics: Diagnostics::default(),
       expr_ty_at_use_site: FxIndexMap::default(),
       primitive_methods: None,
+      trait_requirements: FxIndexMap::default(),
+      impl_registry: HashSet::default(),
+      struct_names,
     }
   }
 
@@ -121,12 +136,23 @@ impl TyCheck {
               let is_pub = match typed_stmt {
                 TypedStmt::VariableDef { pub_vis, .. }
                 | TypedStmt::FunctionDef { pub_vis, .. }
-                | TypedStmt::StructDef { pub_vis, .. } => {
+                | TypedStmt::StructDef { pub_vis, .. }
+                | TypedStmt::TraitDef { pub_vis, .. } => {
                   *pub_vis
                 }
                 _ => false,
               };
               if is_pub {
+                // Import trait requirements into the current module scope so impl validation
+                // can resolve traits only when they are explicitly brought into scope.
+                if matches!(typed_stmt, TypedStmt::TraitDef { .. }) {
+                  if let Some(reqs) = dep.trait_requirements.get(item_name) {
+                    let bind_name = alias.as_deref().unwrap_or(item_name);
+                    self
+                      .trait_requirements
+                      .insert(bind_name.to_string(), reqs.clone());
+                  }
+                }
                 let ty = dep.ty_db.expr(typed_stmt.value()).ty().clone();
                 let idx = self.ty_db.alloc(TypedExpr::VariableRef {
                   var: item_name.clone(),
@@ -195,6 +221,36 @@ impl TyCheck {
             name: name.clone(),
             value: ctor,
             pub_vis: *pub_vis,
+          }
+        }
+        Stmt::TraitDef {
+          name,
+          methods,
+          pub_vis,
+        } => {
+          let requirements = methods
+            .iter()
+            .map(|method| (method.name.clone(), method.params.len()))
+            .collect();
+          self.trait_requirements.insert(name.clone(), requirements);
+          let value = self.ty_db.alloc(TypedExpr::Unresolved);
+          TypedStmt::TraitDef {
+            name: name.clone(),
+            value,
+            pub_vis: *pub_vis,
+          }
+        }
+        Stmt::ImplDef {
+          trait_name,
+          for_type,
+          methods,
+        } => {
+          self.validate_trait_impl(scope, trait_name, for_type, methods, module_map);
+          let value = self.ty_db.alloc(TypedExpr::Unresolved);
+          TypedStmt::ImplDef {
+            trait_name: trait_name.clone(),
+            for_type: for_type.clone(),
+            value,
           }
         }
         Stmt::Expr(expr_idx) => TypedStmt::Expr(self.infer_expr(scope, expr_idx, module_map)),
@@ -325,7 +381,8 @@ impl TyCheck {
           let is_pub = match typed_stmt {
             TypedStmt::VariableDef { pub_vis, .. }
             | TypedStmt::FunctionDef { pub_vis, .. }
-            | TypedStmt::StructDef { pub_vis, .. } => *pub_vis,
+            | TypedStmt::StructDef { pub_vis, .. }
+            | TypedStmt::TraitDef { pub_vis, .. } => *pub_vis,
             _ => false,
           };
           if is_pub {
@@ -1751,6 +1808,113 @@ impl TyCheck {
     };
     scope.pop_frame();
     self.ty_db.alloc(TypedExpr::Block { stmts, ty })
+  }
+
+  fn is_allowed_trait_impl_target(&self, scope: &Scope, for_type: &str) -> bool {
+    const PRIMITIVES: &[&str] = &["number", "string", "boolean", "array", "object"];
+    if PRIMITIVES.contains(&for_type) {
+      return true;
+    }
+    if self.struct_names.contains(for_type) {
+      return true;
+    }
+    scope
+      .def(for_type)
+      .is_some_and(|idx| matches!(self.ty_db.expr(&idx), TypedExpr::StructConstructor { .. }))
+  }
+
+  fn validate_trait_impl(
+    &mut self,
+    scope: &mut Scope,
+    trait_name: &str,
+    for_type: &str,
+    methods: &[hir::stmt::ImplMethod],
+    module_map: Option<&ModuleMap<'_>>,
+  ) {
+    let fallback_span = methods
+      .first()
+      .and_then(|m| match self.hir_db.get_expr(&m.value) {
+        Expr::Function { ast, .. } => Some(ast.span()),
+        _ => None,
+      })
+      .unwrap_or_else(|| TextRange::empty(TextSize::from(0)));
+    let impl_key = (trait_name.to_string(), for_type.to_string());
+    if self.impl_registry.contains(&impl_key) {
+      self.diagnostics.push_error(
+        "type::trait_duplicate_impl",
+        format!("duplicate impl of trait `{trait_name}` for type `{for_type}`"),
+        fallback_span,
+      );
+      return;
+    }
+    self.impl_registry.insert(impl_key);
+
+    if !self.is_allowed_trait_impl_target(scope, for_type) {
+      self.diagnostics.push_error(
+        "type::trait_invalid_target",
+        format!(
+          "trait impl target `{for_type}` is invalid; only structs and primitives are allowed"
+        ),
+        fallback_span,
+      );
+      return;
+    }
+
+    let Some(required_methods) = self.trait_requirements.get(trait_name).cloned() else {
+      self.diagnostics.push_error(
+        "type::trait_unknown",
+        format!("unknown trait `{trait_name}`"),
+        fallback_span,
+      );
+      return;
+    };
+
+    let mut impl_signatures = FxIndexMap::default();
+    for method in methods {
+      let (params, body, ast) = match self.hir_db.get_expr(&method.value).clone() {
+        Expr::Function {
+          name: _,
+          params,
+          body,
+          ast,
+        } => (params, body, ast),
+        _ => continue,
+      };
+      self.infer_function(
+        scope,
+        &Some(method.name.clone()),
+        &params,
+        &body,
+        &ast,
+        module_map,
+      );
+      impl_signatures.insert(method.name.clone(), params.len());
+    }
+
+    for (required_name, required_arity) in required_methods {
+      match impl_signatures.get(&required_name) {
+        Some(arity) if *arity == required_arity => {}
+        Some(arity) => {
+          self.diagnostics.push_error(
+            "type::trait_method_mismatch",
+            format!(
+              "impl method `{required_name}` for trait `{trait_name}` has {} params, expected {}",
+              arity, required_arity
+            ),
+            fallback_span,
+          );
+        }
+        None => {
+          self.diagnostics.push_error(
+            "type::trait_missing_method",
+            format!(
+              "impl for `{for_type}` is missing required method `{required_name}` from trait `{trait_name}`"
+            ),
+            fallback_span,
+          );
+        }
+      }
+    }
   }
 
   fn query_object_name(&self, idx: &DatabaseIdx) -> Option<&str> {

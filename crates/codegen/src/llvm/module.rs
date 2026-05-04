@@ -130,6 +130,8 @@ pub(crate) fn build_module<'tycheck, 'ctx>(
         }
       }
       TypedStmt::StructDef { .. } => {}
+      TypedStmt::TraitDef { .. } => {}
+      TypedStmt::ImplDef { .. } => {}
       TypedStmt::FunctionDef { value, .. } => {
         let expr = tycheck.ty_db.expr(value);
         if let TypedExpr::FunctionDef(FunctionDef {

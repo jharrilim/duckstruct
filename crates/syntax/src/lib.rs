@@ -12,6 +12,8 @@ pub enum SyntaxKind {
   Function, // the keyword
   Boolean,  // true or false
   Struct,
+  Trait,
+  Impl,
   Let,
   If,
   Else,
@@ -62,6 +64,10 @@ pub enum SyntaxKind {
   // Statements
   LetStatement,
   StructStatement,
+  TraitStatement,
+  TraitMethodSignature,
+  ImplStatement,
+  ImplMethod,
   UseStatement,
   UsePath,
   UseList,
@@ -120,6 +126,8 @@ impl From<TokenKind> for SyntaxKind {
       TokenKind::Boolean => Self::Boolean,
       TokenKind::Function => Self::Function,
       TokenKind::Struct => Self::Struct,
+      TokenKind::Trait => Self::Trait,
+      TokenKind::Impl => Self::Impl,
       TokenKind::Let => Self::Let,
       TokenKind::If => Self::If,
       TokenKind::Else => Self::Else,

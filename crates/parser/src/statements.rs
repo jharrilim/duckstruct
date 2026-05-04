@@ -11,6 +11,7 @@ pub(super) fn stmt(p: &mut Parser) -> Option<CompletedMarker> {
       Some(TokenKind::Let) => Some(parsers::let_stmt(p)),
       Some(TokenKind::Function) => Some(parsers::function_definition(p)),
       Some(TokenKind::Struct) => Some(parsers::struct_definition(p)),
+      Some(TokenKind::Trait) => Some(parsers::trait_definition(p)),
       _ => {
         p.error();
         None
@@ -19,6 +20,8 @@ pub(super) fn stmt(p: &mut Parser) -> Option<CompletedMarker> {
     Some(TokenKind::Let) => Some(parsers::let_stmt(p)),
     Some(TokenKind::Function) => Some(parsers::function_definition(p)),
     Some(TokenKind::Struct) => Some(parsers::struct_definition(p)),
+    Some(TokenKind::Trait) => Some(parsers::trait_definition(p)),
+    Some(TokenKind::Impl) => Some(parsers::impl_definition(p)),
     _ => expr(p),
   };
 

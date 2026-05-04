@@ -360,7 +360,8 @@ impl Compiler {
                 let pub_vis = match stmt {
                   tycheck::typed_hir::TypedStmt::VariableDef { pub_vis, .. }
                   | tycheck::typed_hir::TypedStmt::FunctionDef { pub_vis, .. }
-                  | tycheck::typed_hir::TypedStmt::StructDef { pub_vis, .. } => *pub_vis,
+                  | tycheck::typed_hir::TypedStmt::StructDef { pub_vis, .. }
+                  | tycheck::typed_hir::TypedStmt::TraitDef { pub_vis, .. } => *pub_vis,
                   _ => false,
                 };
                 if pub_vis {
@@ -565,5 +566,13 @@ mod tests {
       "no primitive method routed; runtime must be absent, got: {}",
       out
     );
+  }
+
+  #[test]
+  fn js_compile_accepts_trait_and_impl_declarations() {
+    let out = Compiler::new().compile_js(
+      "trait Renderable { f render(x); } struct Foo { } impl Renderable for Foo { f render(x) { x } } let v = 1; v",
+    );
+    assert!(out.is_ok(), "compile should succeed, got: {:?}", out.err());
   }
 }

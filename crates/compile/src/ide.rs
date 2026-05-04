@@ -205,6 +205,14 @@ fn pub_def_binding_site(root: &Root, name: &str, file: &Path) -> Option<BindingS
           });
         }
       }
+      Stmt::TraitDef(def) if def.is_pub() => {
+        if def.name()?.text() == name {
+          return Some(BindingSite {
+            file: file.to_path_buf(),
+            range: def.name()?.text_range(),
+          });
+        }
+      }
       _ => {}
     }
   }
@@ -282,6 +290,16 @@ fn walk_stmt(
       ctx.define(name_tok.text().to_string(), site);
       None
     }
+    Stmt::TraitDef(def) => {
+      let name_tok = def.name()?;
+      let site = BindingSite {
+        file: ctx.current_file.to_path_buf(),
+        range: name_tok.text_range(),
+      };
+      ctx.define(name_tok.text().to_string(), site);
+      None
+    }
+    Stmt::ImplDef(_) => None,
     Stmt::Use(u) => {
       let segments = u.path().map(|p| p.segments()).unwrap_or_default();
       if segments.is_empty() {
@@ -761,7 +779,7 @@ fn find_let_in_stmt(stmt: Stmt, byte_offset: usize, stmt_from_root: bool) -> Opt
       }
       f.body().and_then(|b| find_let_in_expr(&b, byte_offset))
     }
-    Stmt::StructDef(_) | Stmt::Use(_) => None,
+    Stmt::StructDef(_) | Stmt::TraitDef(_) | Stmt::ImplDef(_) | Stmt::Use(_) => None,
     Stmt::Expr(e) => find_let_in_expr(&e, byte_offset),
   }
 }
@@ -1041,6 +1059,19 @@ fn collect_top_level_symbols_ast(
             module: module.to_string(),
             name: n.clone(),
             kind: "struct".into(),
+            ty: ty_display_for_def(tycheck, &n),
+            file: file.display().to_string(),
+            range: text_range_to_lsp_range(source, nt.text_range()),
+          });
+        }
+      }
+      Stmt::TraitDef(def) => {
+        if let Some(nt) = def.name() {
+          let n = nt.text().to_string();
+          out.push(IdeSymbol {
+            module: module.to_string(),
+            name: n.clone(),
+            kind: "trait".into(),
             ty: ty_display_for_def(tycheck, &n),
             file: file.display().to_string(),
             range: text_range_to_lsp_range(source, nt.text_range()),

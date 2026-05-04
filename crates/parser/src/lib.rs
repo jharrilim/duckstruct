@@ -538,6 +538,28 @@ mod tests {
   }
 
   #[test]
+  fn parse_trait_declaration() {
+    let code = r#"
+      pub trait Renderable {
+        f render(x);
+        f name();
+      }
+    "#;
+    parse_snapshot!(code);
+  }
+
+  #[test]
+  fn parse_impl_block() {
+    let code = r#"
+      impl Renderable for Foo {
+        f render(x) { x }
+        f name() { "foo" }
+      }
+    "#;
+    parse_snapshot!(code);
+  }
+
+  #[test]
   fn parse_path_expression_two_segments() {
     let code = "foo::bar";
     parse_snapshot!(code);

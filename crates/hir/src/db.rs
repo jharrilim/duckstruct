@@ -1,7 +1,7 @@
 use crate::{
   expr::{BinaryOp, Expr, UnaryOp},
   pat::Pat,
-  stmt::Stmt,
+  stmt::{ImplMethod, Stmt, TraitMethodSig},
   DatabaseIdx,
 };
 use data_structures::arena::{Arena, Idx};
@@ -61,6 +61,18 @@ impl Database {
         Stmt::StructDef { name, .. } => {
           self.defs.insert(name.clone(), stmt);
         }
+        Stmt::TraitDef { name, .. } => {
+          self.defs.insert(name.clone(), stmt);
+        }
+        Stmt::ImplDef {
+          trait_name,
+          for_type,
+          ..
+        } => {
+          self
+            .defs
+            .insert(format!("impl::{trait_name}::{for_type}"), stmt);
+        }
         Stmt::Expr(expr) => {
           self.defs.insert("".to_string(), Stmt::Expr(*expr));
         }
@@ -97,6 +109,33 @@ impl Database {
       ast::Stmt::StructDef(ast) => Stmt::StructDef {
         name: ast.name()?.text().to_string(),
         pub_vis: ast.is_pub(),
+      },
+      ast::Stmt::TraitDef(ast) => Stmt::TraitDef {
+        name: ast.name()?.text().to_string(),
+        methods: ast
+          .methods()
+          .map(|method| TraitMethodSig {
+            name: method
+              .name()
+              .map(|token| token.text().to_string())
+              .unwrap_or_default(),
+            params: method.params().map(|param| param.text().to_string()).collect(),
+          })
+          .collect(),
+        pub_vis: ast.is_pub(),
+      },
+      ast::Stmt::ImplDef(ast) => Stmt::ImplDef {
+        trait_name: ast.trait_name()?.text().to_string(),
+        for_type: ast.target_type()?.text().to_string(),
+        methods: ast
+          .methods()
+          .filter_map(|method| {
+            let function = method.function_def()?;
+            let name = function.name()?.text().to_string();
+            let value = self.lower_function(function.into());
+            Some(ImplMethod { name, value })
+          })
+          .collect(),
       },
       ast::Stmt::Expr(ast) => Stmt::Expr(self.lower_expr(Some(ast))),
     };

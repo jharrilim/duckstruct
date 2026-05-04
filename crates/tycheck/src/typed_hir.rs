@@ -24,6 +24,16 @@ pub enum TypedStmt {
     value: TypedDatabaseIdx,
     pub_vis: bool,
   },
+  TraitDef {
+    name: String,
+    value: TypedDatabaseIdx,
+    pub_vis: bool,
+  },
+  ImplDef {
+    trait_name: String,
+    for_type: String,
+    value: TypedDatabaseIdx,
+  },
   Expr(TypedDatabaseIdx),
 }
 
@@ -33,6 +43,8 @@ impl TypedStmt {
       TypedStmt::VariableDef { value, .. } => value,
       TypedStmt::FunctionDef { value, .. } => value,
       TypedStmt::StructDef { value, .. } => value,
+      TypedStmt::TraitDef { value, .. } => value,
+      TypedStmt::ImplDef { value, .. } => value,
       TypedStmt::Expr(value) => value,
     }
   }

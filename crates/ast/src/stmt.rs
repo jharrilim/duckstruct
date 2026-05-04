@@ -9,6 +9,8 @@ pub enum Stmt {
   VariableDef(VariableDef),
   FunctionDef(FunctionDef),
   StructDef(StructDef),
+  TraitDef(TraitDef),
+  ImplDef(ImplDef),
   Use(UseStatement),
   Expr(Expr),
 }
@@ -20,6 +22,8 @@ impl Stmt {
       SyntaxKind::NamedFunction => Self::FunctionDef(FunctionDef(node)),
       SyntaxKind::NamedFunctionExpression => Self::FunctionDef(FunctionDef(node)),
       SyntaxKind::StructStatement => Self::StructDef(StructDef(node)),
+      SyntaxKind::TraitStatement => Self::TraitDef(TraitDef(node)),
+      SyntaxKind::ImplStatement => Self::ImplDef(ImplDef(node)),
       SyntaxKind::UseStatement => Self::Use(UseStatement(node)),
       _ => Self::Expr(Expr::cast(node)?),
     };
@@ -32,6 +36,8 @@ impl Stmt {
       Stmt::VariableDef(def) => def.value(),
       Stmt::FunctionDef(def) => def.func(),
       Stmt::StructDef(_) => None,
+      Stmt::TraitDef(_) => None,
+      Stmt::ImplDef(_) => None,
       Stmt::Use(_) => None,
       Stmt::Expr(expr) => Some(expr.clone()),
     }
@@ -180,6 +186,114 @@ impl VariableDef {
   /// `true` when this `let` is a direct child of the file root (not nested in a block).
   pub fn is_top_level_in_source_file(&self) -> bool {
     matches!(self.0.parent().map(|n| n.kind()), Some(SyntaxKind::Root))
+  }
+}
+
+#[derive(Debug)]
+pub struct TraitDef(SyntaxNode);
+
+impl TraitDef {
+  pub fn is_pub(&self) -> bool {
+    self
+      .0
+      .children_with_tokens()
+      .next()
+      .and_then(SyntaxElement::into_token)
+      .map(|t| t.kind() == SyntaxKind::Pub)
+      == Some(true)
+  }
+
+  pub fn name(&self) -> Option<SyntaxToken> {
+    self
+      .0
+      .children_with_tokens()
+      .filter_map(SyntaxElement::into_token)
+      .find(|token| token.kind() == SyntaxKind::Identifier)
+  }
+
+  pub fn methods(&self) -> impl Iterator<Item = TraitMethodSignature> {
+    self.0.children().filter_map(TraitMethodSignature::cast)
+  }
+}
+
+#[derive(Debug)]
+pub struct ImplDef(SyntaxNode);
+
+impl ImplDef {
+  pub fn trait_name(&self) -> Option<SyntaxToken> {
+    self
+      .0
+      .children_with_tokens()
+      .filter_map(SyntaxElement::into_token)
+      .filter(|token| token.kind() == SyntaxKind::Identifier)
+      .next()
+  }
+
+  pub fn target_type(&self) -> Option<SyntaxToken> {
+    self
+      .0
+      .children_with_tokens()
+      .filter_map(SyntaxElement::into_token)
+      .filter(|token| token.kind() == SyntaxKind::Identifier)
+      .nth(1)
+  }
+
+  pub fn methods(&self) -> impl Iterator<Item = ImplMethod> {
+    self.0.children().filter_map(ImplMethod::cast)
+  }
+}
+
+#[derive(Debug, Clone)]
+pub struct TraitMethodSignature(SyntaxNode);
+
+impl TraitMethodSignature {
+  pub fn cast(node: SyntaxNode) -> Option<Self> {
+    if node.kind() == SyntaxKind::TraitMethodSignature {
+      Some(Self(node))
+    } else {
+      None
+    }
+  }
+
+  pub fn name(&self) -> Option<SyntaxToken> {
+    self
+      .0
+      .children_with_tokens()
+      .filter_map(SyntaxElement::into_token)
+      .find(|token| token.kind() == SyntaxKind::Identifier)
+  }
+
+  pub fn params(&self) -> impl Iterator<Item = SyntaxToken> {
+    self
+      .0
+      .children_with_tokens()
+      .find(|t| t.kind() == SyntaxKind::ArgumentList)
+      .unwrap()
+      .into_node()
+      .unwrap()
+      .children_with_tokens()
+      .filter(|token| token.kind() == SyntaxKind::VariableReference)
+      .map(|t| t.into_node().unwrap().first_token().unwrap())
+  }
+}
+
+#[derive(Debug, Clone)]
+pub struct ImplMethod(SyntaxNode);
+
+impl ImplMethod {
+  pub fn cast(node: SyntaxNode) -> Option<Self> {
+    if node.kind() == SyntaxKind::ImplMethod {
+      Some(Self(node))
+    } else {
+      None
+    }
+  }
+
+  pub fn function_def(&self) -> Option<FunctionDef> {
+    self.0.children().find_map(|node| match node.kind() {
+      SyntaxKind::NamedFunction | SyntaxKind::NamedFunctionExpression => Some(FunctionDef(node)),
+      _ => None,
+    })
   }
 }
 
