@@ -1,6 +1,7 @@
 use ast::Root;
 use data_structures::FxIndexMap;
 use diagnostics as diag_emit;
+use insta;
 
 use parser::parse;
 use tycheck::{typed_hir::Ty, TyCheck};
@@ -782,6 +783,108 @@ mod structs {
 
 mod typecheck_diagnostics {
   use super::*;
+
+  #[test]
+  fn parameter_constraint_reports_missing_method_on_argument_object() {
+    let code = "
+      let moo = f(animal) {
+        animal.moo()
+      };
+
+      moo({{ bark: f() = \"bark\" }})
+    ";
+    let tycheck = tycheck(code);
+    assert!(tycheck.diagnostics.has_errors());
+    let err = tycheck
+      .diagnostics
+      .items()
+      .iter()
+      .find(|d| d.code == "type::parameter_constraint")
+      .expect("expected type::parameter_constraint diagnostic");
+    assert!(
+      err.message.contains("object anonymous must provide `moo()`"),
+      "expected object anonymous + moo() message, got {:?}",
+      err.message
+    );
+  }
+
+  #[test]
+  fn parameter_constraint_message_uses_variable_argument_name() {
+    let code = "
+      let moo = f(animal) {
+        animal.moo()
+      };
+
+      let pet = {{ bark: f() = \"bark\" }};
+      moo(pet)
+    ";
+    let tycheck = tycheck(code);
+    assert!(tycheck.diagnostics.has_errors());
+    let err = tycheck
+      .diagnostics
+      .items()
+      .iter()
+      .find(|d| d.code == "type::parameter_constraint")
+      .expect("expected type::parameter_constraint diagnostic");
+    assert!(
+      err.message.contains("object pet must provide `moo()`"),
+      "expected object pet in message, got {:?}",
+      err.message
+    );
+  }
+
+  #[test]
+  fn parameter_constraint_message_uses_struct_type_name() {
+    let code = "
+      struct Cow { }
+
+      let moo = f(animal) {
+        animal.moo()
+      };
+
+      moo(new Cow { })
+    ";
+    let tycheck = tycheck(code);
+    assert!(tycheck.diagnostics.has_errors());
+    let err = tycheck
+      .diagnostics
+      .items()
+      .iter()
+      .find(|d| d.code == "type::parameter_constraint")
+      .expect("expected type::parameter_constraint diagnostic");
+    assert!(
+      err.message.contains("object Cow must provide `moo()`"),
+      "expected struct type name Cow in message, got {:?}",
+      err.message
+    );
+  }
+
+  /// Full ariadne-style human output for a parameter object missing a required method.
+  #[test]
+  fn parameter_constraint_missing_method_human_snapshot() {
+    let code = "let moo = f(animal) {\n  animal.moo()\n};\n\nmoo({{ bark: f() = \"bark\" }})\n";
+    let tycheck = tycheck(code);
+    assert!(tycheck.diagnostics.has_errors());
+    // Snapshot only this diagnostic: re-inferring the body after substitution can emit
+    // additional errors that are redundant with the caller-side constraint report.
+    let mut bundle = tycheck.diagnostics.bundle.clone();
+    bundle
+      .items
+      .retain(|d| d.code == "type::parameter_constraint");
+    assert!(
+      !bundle.items.is_empty(),
+      "expected type::parameter_constraint diagnostic"
+    );
+    let output = diag_emit::emit_human_string(
+      code,
+      &bundle,
+      &diag_emit::HumanEmitConfig {
+        colors: false,
+        file_label: "test.ds".into(),
+      },
+    );
+    insta::assert_snapshot!(output);
+  }
 
   #[test]
   fn invalid_code_reports_error_with_message() {

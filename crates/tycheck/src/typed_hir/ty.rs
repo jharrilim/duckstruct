@@ -97,6 +97,137 @@ impl Ty {
       _ => Truthiness::Unknown,
     }
   }
+
+  /// Whether `actual` can satisfy a use site that expects `required` (structural / use-site rules).
+  pub fn assignable_from(actual: &Ty, required: &Ty) -> bool {
+    match (required, actual) {
+      (Ty::Generic, _) | (_, Ty::Generic) => true,
+      (Ty::Error, _) | (_, Ty::Error) => true,
+      (Ty::Number(req), Ty::Number(act)) => match (req, act) {
+        (Some(a), Some(b)) => a == b,
+        _ => true,
+      },
+      (Ty::String(req), Ty::String(act)) => match (req, act) {
+        (Some(a), Some(b)) => a == b,
+        _ => true,
+      },
+      (Ty::Boolean(req), Ty::Boolean(act)) => match (req, act) {
+        (Some(a), Some(b)) => a == b,
+        _ => true,
+      },
+      (Ty::Array(req), Ty::Array(act)) => match (req, act) {
+        (None, _) | (_, None) => true,
+        (Some(rv), Some(av)) if rv.len() == av.len() => rv
+          .iter()
+          .zip(av.iter())
+          .all(|(r, a)| Self::assignable_from(a, r)),
+        _ => false,
+      },
+      (Ty::Object(req), Ty::Object(act)) => match (req, act) {
+        (None, _) | (_, None) => true,
+        (Some(rf), Some(af)) => rf.iter().all(|(name, r_ty)| {
+          if matches!(r_ty, Ty::Generic) {
+            return true;
+          }
+          match af.get(name) {
+            Some(a_ty) => Self::assignable_from(a_ty, r_ty),
+            None => false,
+          }
+        }),
+      },
+      (
+        Ty::Function {
+          params: rp,
+          ret: rr,
+        },
+        Ty::Function {
+          params: ap,
+          ret: ar,
+        },
+      ) => {
+        if rp.len() != ap.len() {
+          return false;
+        }
+        let params_ok = rp
+          .iter()
+          .zip(ap.iter())
+          .all(|(r_ty, a_ty)| Self::assignable_from(r_ty, a_ty));
+        let ret_ok = match (rr, ar) {
+          (None, None) => true,
+          (Some(r), Some(a)) => Self::assignable_from(a.as_ref(), r.as_ref()),
+          _ => true,
+        };
+        params_ok && ret_ok
+      }
+      (Ty::Instance(r), Ty::Instance(a)) => r == a,
+      _ => false,
+    }
+  }
+
+  /// Human-oriented explanation when a call argument does not meet a formal parameter's inferred constraint.
+  ///
+  /// `object_label` names the argument value in diagnostics (e.g. a variable name, or `"anonymous"`).
+  pub fn parameter_argument_constraint_message(
+    actual: &Ty,
+    required: &Ty,
+    object_label: &str,
+  ) -> Option<String> {
+    if Self::assignable_from(actual, required) {
+      return None;
+    }
+
+    if let Ty::Object(Some(req_fields)) = required {
+      let missing_field_msg = |name: &str, r_ty: &Ty| {
+        if matches!(r_ty, Ty::Function { .. }) {
+          format!("object {object_label} must provide `{name}()`")
+        } else {
+          format!("object {object_label} must provide `{name}`")
+        }
+      };
+
+      match actual {
+        Ty::Object(Some(act_fields)) => {
+          for (name, r_ty) in req_fields.iter() {
+            if matches!(r_ty, Ty::Generic) {
+              continue;
+            }
+            match act_fields.get(name) {
+              None => return Some(missing_field_msg(name, r_ty)),
+              Some(a_ty) if !Self::assignable_from(a_ty, r_ty) => {
+                return Some(format!(
+                  "object {object_label}: field `{name}` has incompatible type (expected {r_ty}, found {a_ty})"
+                ));
+              }
+              _ => {}
+            }
+          }
+        }
+        // Nominal struct instance: this representation has no open field map, so treat
+        // every required (non-generic) field as subject to the same missing-field messages.
+        Ty::Instance(_) => {
+          for (name, r_ty) in req_fields.iter() {
+            if matches!(r_ty, Ty::Generic) {
+              continue;
+            }
+            return Some(missing_field_msg(name, r_ty));
+          }
+        }
+        _ => {
+          if !matches!(actual, Ty::Generic) {
+            return Some(format!(
+              "object {object_label} does not match the parameter constraint (expected an object with required fields, found `{}`)",
+              actual
+            ));
+          }
+        }
+      }
+    }
+
+    Some(format!(
+      "object {object_label}: type `{}` is not assignable to parameter constraint `{}`",
+      actual, required
+    ))
+  }
 }
 
 pub enum Truthiness {

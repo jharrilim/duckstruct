@@ -1,0 +1,16 @@
+---
+description: duckstruct language — Rust implementation, constraint typing, LSP
+alwaysApply: true
+---
+
+# duckstruct
+
+This repository implements **duckstruct**, a programming language. The compiler, runtime pieces, and tooling are written in **Rust** (workspace crates under `crates/`).
+
+## Type system
+
+duckstruct uses **constraint-style type checking on function parameters** (requirements on parameters rather than only nominal types). When changing inference, diagnostics, or call typing, preserve that model and align with existing `tycheck` / parser behavior instead of assuming a conventional nominal-only system.
+
+## Language server
+
+The **VS Code extension and LSP server** live under **`dscode/`** (client, server, scripts). Editor behavior, protocol messages, and E2E tests belong there; keep Rust diagnostics and LSP surfaces consistent when you touch both sides.

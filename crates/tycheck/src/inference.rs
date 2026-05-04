@@ -9,6 +9,7 @@ use crate::diagnostics::Diagnostics;
 use crate::scope::Scope;
 use crate::typed_db::{TypedDatabase, TypedDatabaseIdx};
 use crate::typed_hir::{FunctionDef, Ty, TypedExpr, TypedStmt};
+use ast::Expr as AstExpr;
 use data_structures::{index_map, FxIndexMap};
 use hir::{expr::Expr, pat::Pat, stmt::Stmt, DatabaseIdx};
 
@@ -887,6 +888,38 @@ impl TyCheck {
     }
   }
 
+  /// Name for diagnostics when an argument is an object (or wrapped in parens/unary); otherwise `"anonymous"`.
+  fn argument_object_label(expr: &AstExpr) -> String {
+    match expr {
+      AstExpr::VariableRef(v) => v.name(),
+      AstExpr::PathExpr(p) => {
+        let s = p.segments().join("::");
+        if s.is_empty() {
+          "anonymous".to_string()
+        } else {
+          s
+        }
+      }
+      AstExpr::ParenExpr(p) => p
+        .expr()
+        .as_ref()
+        .map(Self::argument_object_label)
+        .unwrap_or_else(|| "anonymous".to_string()),
+      AstExpr::UnaryExpr(u) => u
+        .expr()
+        .as_ref()
+        .map(Self::argument_object_label)
+        .unwrap_or_else(|| "anonymous".to_string()),
+      AstExpr::StructLiteral(sl) => sl
+        .type_expr()
+        .as_ref()
+        .map(Self::argument_object_label)
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "anonymous".to_string()),
+      _ => "anonymous".to_string(),
+    }
+  }
+
   fn infer_function_call(
     &mut self,
     scope: &mut Scope,
@@ -1019,6 +1052,25 @@ impl TyCheck {
           return self.ty_db.alloc(TypedExpr::Error);
         }
 
+        for (((_param_name, formal_param_idx), arg_idx), arg_ast) in params
+          .iter()
+          .zip(args.iter())
+          .zip(ast.args())
+        {
+          let required = self.ty_db.expr(formal_param_idx).ty();
+          let actual = self.ty_db.expr(arg_idx).ty();
+          let object_label = Self::argument_object_label(&arg_ast);
+          if let Some(msg) =
+            Ty::parameter_argument_constraint_message(&actual, &required, &object_label)
+          {
+            self.diagnostics.push_error(
+              "type::parameter_constraint",
+              msg,
+              arg_ast.span(),
+            );
+          }
+        }
+
         let scope = &mut closure_scope.extend_frames(scope);
 
         let params: FxIndexMap<String, TypedDatabaseIdx> = params
@@ -1045,6 +1097,21 @@ impl TyCheck {
         field,
         ty: _,
       } => match self.ty_db.expr(&object) {
+        TypedExpr::FunctionParameter { .. } => {
+          if let Err(message) =
+            self.refine_function_parameter_method_from_call(&object, field.as_str(), args, ast)
+          {
+            self.diagnostics.push_error("type::error", message, ast.span());
+            return self.ty_db.alloc(TypedExpr::Error);
+          }
+          let ret = self.ty_db.alloc(TypedExpr::Unresolved);
+          self.ty_db.alloc(TypedExpr::FunctionCall {
+            args: args.clone(),
+            def: *lhs,
+            ret,
+            ty: Ty::Generic,
+          })
+        }
         TypedExpr::VariableRef { var, ty } => match scope.def(var) {
           Some(def) => match self.ty_db.expr(&def) {
             TypedExpr::Object { fields, ty: _ } => {
@@ -1127,6 +1194,81 @@ impl TyCheck {
         self.ty_db.alloc(TypedExpr::Error)
       }
     }
+  }
+
+  /// Refines a function-parameter object type when the callee is `param.method(...)` on that parameter.
+  fn refine_function_parameter_method_from_call(
+    &mut self,
+    param_idx: &TypedDatabaseIdx,
+    method: &str,
+    args: &[TypedDatabaseIdx],
+    _ast: &ast::expr::FunctionCall,
+  ) -> Result<(), String> {
+    let arg_tys: Vec<Ty> = args.iter().map(|a| self.ty_db.expr(a).ty()).collect();
+    let call_sig = Ty::Function {
+      params: arg_tys,
+      ret: Some(Box::new(Ty::Generic)),
+    };
+
+    let orig = self.ty_db.expr(param_idx).ty().clone();
+    let next = match orig {
+      Ty::Generic => Ty::Object(Some(index_map!(method.to_string() => call_sig.clone()))),
+      Ty::Object(None) => Ty::Object(Some(index_map!(method.to_string() => call_sig.clone()))),
+      Ty::Object(Some(fs)) => {
+        let merged = match fs.get(method) {
+          None | Some(Ty::Generic) => call_sig.clone(),
+          Some(Ty::Function {
+            params: ep,
+            ret: er,
+          }) => {
+            let Ty::Function {
+              params: cp,
+              ret: cr,
+            } = &call_sig
+            else {
+              unreachable!()
+            };
+            if ep.len() != cp.len() {
+              return Err(format!(
+                "method `{}` was previously called with {} arguments but here with {}",
+                method,
+                ep.len(),
+                cp.len()
+              ));
+            }
+            Ty::Function {
+              params: ep
+                .iter()
+                .zip(cp.iter())
+                .map(|(e, c)| if e == c { e.clone() } else { Ty::Generic })
+                .collect(),
+              ret: match (er.as_ref(), cr.as_ref()) {
+                (Some(e), Some(c)) if e == c => er.clone(),
+                _ => Some(Box::new(Ty::Generic)),
+              },
+            }
+          }
+          Some(bad) => {
+            return Err(format!(
+              "cannot call `{}()`; parameter already has field `{}` of type `{}`",
+              method, method, bad
+            ));
+          }
+        };
+        let mut fs = fs;
+        fs.insert(method.to_string(), merged);
+        Ty::Object(Some(fs))
+      }
+      other => {
+        return Err(format!(
+          "Cannot call `{}()` on non-object parameter type `{}`",
+          method, other
+        ));
+      }
+    };
+
+    self.ty_db.expr_mut(param_idx).replace_ty(next);
+    Ok(())
   }
 
   /// Infers the definition of a function as well as its parameters.
