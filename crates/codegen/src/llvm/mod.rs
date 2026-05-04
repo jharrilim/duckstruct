@@ -1,6 +1,9 @@
 //! Generate LLVM IR from the typed HIR.
-//! Supports a subset: numbers, functions, arithmetic, conditionals, blocks.
-//! Objects, arrays, strings, and for-loops are not yet supported.
+//! Supports a subset: numbers, functions, arithmetic, conditionals, blocks, and
+//! fixed-size arrays of numbers with `.length()` / `.push()` (duckstruct semantics:
+//! `push` returns the new array). Values are either `f64` scalars or array blobs
+//! (`pointer + length`); only scalars may appear in binops, `print`, or function
+//! parameters / returns — returning or passing arrays from user functions is rejected.
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -8,9 +11,9 @@ use std::path::Path;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
-use inkwell::targets::{CodeModel, FileType, InitializationConfig, RelocMode, Target};
-use inkwell::OptimizationLevel;
-use inkwell::values::{BasicMetadataValueEnum, BasicValueEnum, FunctionValue, PointerValue, ValueKind};
+use inkwell::values::{
+  BasicMetadataValueEnum, FunctionValue, PointerValue, ValueKind,
+};
 use tycheck::{
   typed_db::TypedDatabaseIdx,
   typed_hir::{BinaryOp, FunctionDef, Ty, TypedExpr, TypedStmt, UnaryOp},
@@ -18,6 +21,11 @@ use tycheck::{
 };
 
 use crate::CodeGenerator;
+
+mod array;
+mod module;
+
+use array::CompiledVal;
 
 pub struct LlvmGenerator<'tycheck> {
   tycheck: &'tycheck TyCheck,
@@ -49,9 +57,17 @@ impl<'tycheck> LlvmGenerator<'tycheck> {
     self
   }
 
+  pub(crate) fn tycheck(&self) -> &'tycheck TyCheck {
+    self.tycheck
+  }
+
+  pub(crate) fn external_functions(&self) -> &HashMap<String, usize> {
+    &self.external_functions
+  }
+
   pub fn generate_llvm(&self) -> Result<String, String> {
     let context = Context::create();
-    let module = self.build_module(&context)?;
+    let module = module::build_module(self, &context)?;
     Ok(module.print_to_string().to_string())
   }
 
@@ -59,236 +75,68 @@ impl<'tycheck> LlvmGenerator<'tycheck> {
   /// Initializes the native target and writes `.o` to the given path.
   pub fn compile_to_object_file(&self, path: &Path) -> Result<(), String> {
     let context = Context::create();
-    let module = self.build_module(&context)?;
-    Self::emit_object_file(&module, path)
+    let module = module::build_module(self, &context)?;
+    module::emit_object_file(&module, path)
   }
 
   /// Emit LLVM IR to `ir_path` and compile to native object file at `obj_path` in one pass.
   /// Builds the module once and runs LLVM's backend for the object file.
   pub fn compile_to_files(&self, ir_path: &Path, obj_path: &Path) -> Result<(), String> {
     let context = Context::create();
-    let module = self.build_module(&context)?;
+    let module = module::build_module(self, &context)?;
     std::fs::write(ir_path, module.print_to_string().to_string())
       .map_err(|e| format!("Failed to write IR: {}", e))?;
-    Self::emit_object_file(&module, obj_path)
-  }
-
-  fn emit_object_file(module: &Module, path: &Path) -> Result<(), String> {
-    Target::initialize_native(&InitializationConfig::default())
-      .map_err(|e| format!("Failed to initialize native target: {}", e))?;
-
-    let triple = inkwell::targets::TargetMachine::get_default_triple();
-    let target = Target::from_triple(&triple)
-      .map_err(|e| format!("Failed to get target for triple: {}", e))?;
-
-    let cpu = inkwell::targets::TargetMachine::get_host_cpu_name();
-    let cpu_str = cpu.to_str().map_err(|e| format!("Invalid host CPU name: {:?}", e))?;
-    let features = inkwell::targets::TargetMachine::get_host_cpu_features();
-    let features_str = features
-      .to_str()
-      .map_err(|e| format!("Invalid host CPU features: {:?}", e))?;
-
-    let target_machine = target
-      .create_target_machine(
-        &triple,
-        cpu_str,
-        features_str,
-        OptimizationLevel::Default,
-        RelocMode::Default,
-        CodeModel::Default,
-      )
-      .ok_or_else(|| "Failed to create target machine".to_string())?;
-
-    target_machine
-      .write_to_file(module, FileType::Object, path)
-      .map_err(|e| format!("Failed to write object file: {}", e))?;
-    Ok(())
-  }
-
-  /// Build the LLVM module (IR) from the typed HIR. Used by both IR emission and object compilation.
-  fn build_module<'ctx>(&self, context: &'ctx Context) -> Result<Module<'ctx>, String> {
-    let module = context.create_module("main");
-    let builder = context.create_builder();
-
-    let f64_type = context.f64_type();
-
-    // Global variable pointers (for loading on reference). Only constant initializers supported.
-    let mut global_ptrs: HashMap<String, PointerValue> = HashMap::new();
-    let mut functions: HashMap<String, FunctionValue> = HashMap::new();
-    // Top-level initializers and final expression to run from main().
-    let mut main_inits: Vec<(String, TypedDatabaseIdx)> = Vec::new();
-    let mut main_expr: Option<TypedDatabaseIdx> = None;
-
-    // Declare external (stdlib) functions. "print" is implemented below; others are linked later.
-    for (name, param_count) in &self.external_functions {
-      let param_tys: Vec<_> = (0..*param_count).map(|_| f64_type.into()).collect();
-      let fn_type = f64_type.fn_type(param_tys.as_slice(), false);
-      let fn_name = format!("f_{}", name.replace("-", "_"));
-      let decl = module.add_function(&fn_name, fn_type, None);
-      if name != "print" {
-        decl.set_linkage(inkwell::module::Linkage::External);
-      }
-      functions.insert(name.clone(), decl);
-    }
-
-    // Implement print by calling printf from libc (link with -lc).
-    if self.external_functions.get("print") == Some(&1) {
-      let print_fn = functions.get("print").copied().expect("print in external_functions");
-      crate::stdlib::add_print_implementation(
-        context,
-        &module,
-        &builder,
-        print_fn,
-        f64_type,
-      )?;
-    }
-
-    for (name, stmt) in self.tycheck.ty_db.defs_iter() {
-      match stmt {
-        TypedStmt::VariableDef { value, .. } => {
-          // Skip emitting a global for external (builtin) function names e.g. print.
-          if self.external_functions.contains_key(name) {
-            continue;
-          }
-          let (init_const, needs_runtime_init) = match self.tycheck.ty_db.expr(value) {
-            TypedExpr::Number { val: Some(v) } => (context.f64_type().const_float(*v), false),
-            _ => (context.f64_type().const_float(0.0), true),
-          };
-          let global_name = format!("g_{}", name.replace("-", "_"));
-          let global = module.add_global(f64_type, None, &global_name);
-          global.set_initializer(&init_const);
-          global_ptrs.insert(name.clone(), global.as_pointer_value());
-          if needs_runtime_init {
-            main_inits.push((name.clone(), *value));
-          }
-        }
-        TypedStmt::StructDef { .. } => {}
-        TypedStmt::FunctionDef { value, .. } => {
-          let expr = self.tycheck.ty_db.expr(value);
-          if let TypedExpr::FunctionDef(FunctionDef {
-            name: _,
-            params,
-            body,
-            ..
-          }) = expr
-          {
-            let param_tys: Vec<_> = (0..params.len()).map(|_| f64_type.into()).collect();
-            let fn_type = f64_type.fn_type(param_tys.as_slice(), false);
-            let fn_name = format!("f_{}", name.replace("-", "_"));
-            let func = module.add_function(&fn_name, fn_type, None);
-            let entry = context.append_basic_block(func, "entry");
-            builder.position_at_end(entry);
-
-            let mut local_map = HashMap::new();
-            for (i, (param_name, _)) in params.iter().enumerate() {
-              let param = func.get_nth_param(i as u32).unwrap();
-              let param_val = param.into_float_value();
-              local_map.insert(param_name.clone(), BasicValueEnum::FloatValue(param_val));
-            }
-
-            let ret_val = self.compile_expr_with_locals(
-              body,
-              context,
-              &module,
-              &builder,
-              &global_ptrs,
-              &functions,
-              &local_map,
-              Some(func),
-            )?;
-            if let BasicValueEnum::FloatValue(fv) = ret_val {
-              builder.build_return(Some(&fv)).map_err(|e| e.to_string())?;
-            } else {
-              return Err("function body must return f64".to_string());
-            }
-            functions.insert(name.clone(), func);
-          }
-        }
-        TypedStmt::Expr(expr) => {
-          main_expr = Some(*expr);
-        }
-      }
-    }
-
-    // Build main() to run top-level initializers and the last expression.
-    let i32_type = context.i32_type();
-    let main_type = i32_type.fn_type(&[], false);
-    let main_fn = module.add_function("main", main_type, None);
-    let entry = context.append_basic_block(main_fn, "entry");
-    builder.position_at_end(entry);
-    let empty_locals: HashMap<String, BasicValueEnum> = HashMap::new();
-    for (name, value_idx) in main_inits {
-      let ptr = global_ptrs.get(&name).copied().ok_or_else(|| format!("global {} not found", name))?;
-      let val = self.compile_expr_with_locals(
-        &value_idx,
-        context,
-        &module,
-        &builder,
-        &global_ptrs,
-        &functions,
-        &empty_locals,
-        None,
-      )?;
-      let f = val.into_float_value();
-      builder.build_store(ptr, f).map_err(|e| e.to_string())?;
-    }
-    if let Some(expr_idx) = main_expr {
-      let _ = self.compile_expr_with_locals(
-        &expr_idx,
-        context,
-        &module,
-        &builder,
-        &global_ptrs,
-        &functions,
-        &empty_locals,
-        None,
-      )?;
-    }
-    builder
-      .build_return(Some(&i32_type.const_int(0, false)))
-      .map_err(|e| e.to_string())?;
-
-    Ok(module)
+    module::emit_object_file(&module, obj_path)
   }
 
   #[allow(clippy::too_many_arguments)]
   #[allow(clippy::only_used_in_recursion)]
-  fn compile_expr_with_locals<'ctx>(
+  pub(crate) fn compile_expr_with_locals<'ctx>(
     &self,
     expr: &TypedDatabaseIdx,
     context: &'ctx Context,
     module: &Module<'ctx>,
     builder: &Builder<'ctx>,
     global_ptrs: &HashMap<String, PointerValue<'ctx>>,
+    global_arrays: &HashMap<String, (PointerValue<'ctx>, usize)>,
     functions: &HashMap<String, FunctionValue<'ctx>>,
-    locals: &HashMap<String, BasicValueEnum<'ctx>>,
+    locals: &HashMap<String, CompiledVal<'ctx>>,
     _current_fn: Option<FunctionValue<'ctx>>,
-  ) -> Result<BasicValueEnum<'ctx>, String> {
+  ) -> Result<CompiledVal<'ctx>, String> {
     let expr_node = self.tycheck.ty_db.expr(expr);
 
     match expr_node {
-      TypedExpr::Number { val: Some(v) } => {
-        Ok(context.f64_type().const_float(*v).into())
-      }
-      TypedExpr::Number { val: None } => {
-        Ok(context.f64_type().const_float(0.0).into())
-      }
+      TypedExpr::Number { val: Some(v) } => Ok(CompiledVal::Float(context.f64_type().const_float(*v))),
+      TypedExpr::Number { val: None } => Ok(CompiledVal::Float(context.f64_type().const_float(0.0))),
       TypedExpr::VariableRef { var, .. } => {
         if let Some(l) = locals.get(var) {
           return Ok(*l);
+        }
+        if let Some((storage_ptr, n)) = global_arrays.get(var) {
+          let data = array::ge_ptr_to_first_double(
+            builder,
+            context.f64_type(),
+            context.i32_type(),
+            *storage_ptr,
+            *n,
+          )?;
+          return Ok(CompiledVal::Array {
+            data_ptr: data,
+            len: *n,
+          });
         }
         if let Some(ptr) = global_ptrs.get(var) {
           let loaded = builder
             .build_load(context.f64_type(), *ptr, var)
             .map_err(|e| e.to_string())?;
-          return Ok(loaded);
+          return Ok(CompiledVal::Float(loaded.into_float_value()));
         }
         Err(format!("unknown variable: {}", var))
       }
       TypedExpr::Binary { op, lhs, rhs, ty } => {
         if ty.has_value() {
           if let Ty::Number(Some(v)) = ty {
-            return Ok(context.f64_type().const_float(*v).into());
+            return Ok(CompiledVal::Float(context.f64_type().const_float(*v)));
           }
         }
         let lhs_val = self.compile_expr_with_locals(
@@ -297,6 +145,7 @@ impl<'tycheck> LlvmGenerator<'tycheck> {
           module,
           builder,
           global_ptrs,
+          global_arrays,
           functions,
           locals,
           _current_fn,
@@ -307,12 +156,13 @@ impl<'tycheck> LlvmGenerator<'tycheck> {
           module,
           builder,
           global_ptrs,
+          global_arrays,
           functions,
           locals,
           _current_fn,
         )?;
-        let lhs_f = lhs_val.into_float_value();
-        let rhs_f = rhs_val.into_float_value();
+        let lhs_f = lhs_val.into_float()?;
+        let rhs_f = rhs_val.into_float()?;
         let result = match op {
           BinaryOp::Add => builder.build_float_add(lhs_f, rhs_f, "add").map_err(|e| e.to_string())?,
           BinaryOp::Sub => builder.build_float_sub(lhs_f, rhs_f, "sub").map_err(|e| e.to_string())?,
@@ -385,12 +235,12 @@ impl<'tycheck> LlvmGenerator<'tycheck> {
               .into_float_value()
           }
         };
-        Ok(result.into())
+        Ok(CompiledVal::Float(result))
       }
       TypedExpr::Unary { op, expr, ty } => {
         if ty.has_value() {
           if let Ty::Number(Some(v)) = ty {
-            return Ok(context.f64_type().const_float(*v).into());
+            return Ok(CompiledVal::Float(context.f64_type().const_float(*v)));
           }
         }
         let inner = self.compile_expr_with_locals(
@@ -399,11 +249,12 @@ impl<'tycheck> LlvmGenerator<'tycheck> {
           module,
           builder,
           global_ptrs,
+          global_arrays,
           functions,
           locals,
           _current_fn,
         )?;
-        let inner_f = inner.into_float_value();
+        let inner_f = inner.into_float()?;
         let result = match op {
           UnaryOp::Neg => builder.build_float_neg(inner_f, "neg").map_err(|e| e.to_string())?,
           UnaryOp::Not => {
@@ -418,15 +269,15 @@ impl<'tycheck> LlvmGenerator<'tycheck> {
               .into_float_value()
           }
         };
-        Ok(result.into())
+        Ok(CompiledVal::Float(result))
       }
       TypedExpr::Block { stmts, ty } => {
         if ty.has_value() {
           if let Ty::Number(Some(v)) = ty {
-            return Ok(context.f64_type().const_float(*v).into());
+            return Ok(CompiledVal::Float(context.f64_type().const_float(*v)));
           }
         }
-        let mut last: Option<BasicValueEnum> = None;
+        let mut last: Option<CompiledVal<'ctx>> = None;
         for stmt in stmts {
           let val = match stmt {
             TypedStmt::Expr(e) => Some(
@@ -436,6 +287,7 @@ impl<'tycheck> LlvmGenerator<'tycheck> {
                 module,
                 builder,
                 global_ptrs,
+                global_arrays,
                 functions,
                 locals,
                 _current_fn,
@@ -455,9 +307,14 @@ impl<'tycheck> LlvmGenerator<'tycheck> {
         else_branch,
         ty,
       } => {
+        if matches!(ty, Ty::Array(_)) {
+          return Err(
+            "LLVM backend: conditional expressions cannot yield arrays".to_string(),
+          );
+        }
         if ty.has_value() {
           if let Ty::Number(Some(v)) = ty {
-            return Ok(context.f64_type().const_float(*v).into());
+            return Ok(CompiledVal::Float(context.f64_type().const_float(*v)));
           }
         }
         let cond_val = self.compile_expr_with_locals(
@@ -466,11 +323,12 @@ impl<'tycheck> LlvmGenerator<'tycheck> {
           module,
           builder,
           global_ptrs,
+          global_arrays,
           functions,
           locals,
           _current_fn,
         )?;
-        let cond_f = cond_val.into_float_value();
+        let cond_f = cond_val.into_float()?;
         let zero = context.f64_type().const_float(0.0);
         let cond_bool = builder
           .build_float_compare(inkwell::FloatPredicate::ONE, cond_f, zero, "cond")
@@ -482,6 +340,7 @@ impl<'tycheck> LlvmGenerator<'tycheck> {
           module,
           builder,
           global_ptrs,
+          global_arrays,
           functions,
           locals,
           _current_fn,
@@ -492,21 +351,97 @@ impl<'tycheck> LlvmGenerator<'tycheck> {
           module,
           builder,
           global_ptrs,
+          global_arrays,
           functions,
           locals,
           _current_fn,
         )?;
-        let then_f = then_val.into_float_value();
-        let else_f = else_val.into_float_value();
-        let result = builder
-          .build_select(cond_bool, then_f, else_f, "select")
-          .map_err(|e| e.to_string())?;
-        Ok(result)
+        match (then_val, else_val) {
+          (CompiledVal::Float(then_f), CompiledVal::Float(else_f)) => {
+            let result = builder
+              .build_select(cond_bool, then_f, else_f, "select")
+              .map_err(|e| e.to_string())?;
+            Ok(CompiledVal::Float(result.into_float_value()))
+          }
+          _ => Err(
+            "LLVM backend: conditional branches must both produce numbers".to_string(),
+          ),
+        }
       }
       TypedExpr::FunctionCall { def, args, ty, .. } => {
         if ty.has_value() {
           if let Ty::Number(Some(v)) = ty {
-            return Ok(context.f64_type().const_float(*v).into());
+            return Ok(CompiledVal::Float(context.f64_type().const_float(*v)));
+          }
+        }
+        if let Ty::Array(Some(elems)) = ty {
+          if elems
+            .iter()
+            .all(|e| matches!(e, Ty::Number(Some(_))))
+          {
+            let vals: Vec<f64> = elems
+              .iter()
+              .map(|e| {
+                if let Ty::Number(Some(n)) = e {
+                  *n
+                } else {
+                  0.0
+                }
+              })
+              .collect();
+            return array::build_stack_array_from_f64s(context, builder, &vals);
+          }
+        }
+        if let TypedExpr::ObjectFieldAccess { object, field, .. } = self.tycheck.ty_db.expr(def) {
+          if field == "length" && args.is_empty() {
+            let arr = self.compile_expr_with_locals(
+              object,
+              context,
+              module,
+              builder,
+              global_ptrs,
+              global_arrays,
+              functions,
+              locals,
+              _current_fn,
+            )?;
+            return match arr {
+              CompiledVal::Array { len, .. } => Ok(CompiledVal::Float(
+                context.f64_type().const_float(len as f64),
+              )),
+              _ => Err("LLVM backend: `.length` requires an array receiver".to_string()),
+            };
+          }
+          if field == "push" && args.len() == 1 {
+            let arr = self.compile_expr_with_locals(
+              object,
+              context,
+              module,
+              builder,
+              global_ptrs,
+              global_arrays,
+              functions,
+              locals,
+              _current_fn,
+            )?;
+            let arg = self.compile_expr_with_locals(
+              &args[0],
+              context,
+              module,
+              builder,
+              global_ptrs,
+              global_arrays,
+              functions,
+              locals,
+              _current_fn,
+            )?
+            .into_float()?;
+            return match arr {
+              CompiledVal::Array { data_ptr, len } => {
+                array::llvm_array_append(context, module, builder, data_ptr, len, arg)
+              }
+              _ => Err("LLVM backend: `.push` requires an array receiver".to_string()),
+            };
           }
         }
         let callee = match self.tycheck.ty_db.expr(def) {
@@ -528,11 +463,12 @@ impl<'tycheck> LlvmGenerator<'tycheck> {
             module,
             builder,
             global_ptrs,
+            global_arrays,
             functions,
             locals,
             _current_fn,
           )?;
-          arg_vals.push(v.into_float_value());
+          arg_vals.push(v.into_float()?);
         }
         let args_meta: Vec<BasicMetadataValueEnum> = arg_vals
           .iter()
@@ -545,7 +481,7 @@ impl<'tycheck> LlvmGenerator<'tycheck> {
           ValueKind::Basic(bv) => bv,
           _ => return Err("call must return a value".to_string()),
         };
-        Ok(result)
+        Ok(CompiledVal::Float(result.into_float_value()))
       }
       TypedExpr::StructConstructor { .. } | TypedExpr::StructInstance { .. } => {
         Err("LLVM backend: struct types not yet supported".to_string())
@@ -554,7 +490,27 @@ impl<'tycheck> LlvmGenerator<'tycheck> {
       TypedExpr::FunctionParameter { .. } => Err("parameter should be in locals".to_string()),
       TypedExpr::String { .. } => Err("LLVM backend: strings not yet supported".to_string()),
       TypedExpr::Boolean { .. } => Err("LLVM backend: booleans not yet supported".to_string()),
-      TypedExpr::Array { .. } => Err("LLVM backend: arrays not yet supported".to_string()),
+      TypedExpr::Array { vals: Some(idxs), .. } => {
+        let mut elems = Vec::with_capacity(idxs.len());
+        for idx in idxs {
+          let v = self.compile_expr_with_locals(
+            idx,
+            context,
+            module,
+            builder,
+            global_ptrs,
+            global_arrays,
+            functions,
+            locals,
+            _current_fn,
+          )?;
+          elems.push(v.into_float()?);
+        }
+        array::build_stack_array_from_float_vals(context, builder, &elems)
+      }
+      TypedExpr::Array { vals: None, .. } => {
+        Err("LLVM backend: incomplete array literal".to_string())
+      }
       TypedExpr::Object { .. } => Err("LLVM backend: objects not yet supported".to_string()),
       TypedExpr::ObjectFieldAccess { .. } => Err("LLVM backend: object field access not yet supported".to_string()),
       TypedExpr::For { .. } => Err("LLVM backend: for loops not yet supported".to_string()),
