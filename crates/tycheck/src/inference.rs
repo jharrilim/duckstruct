@@ -1,6 +1,6 @@
-/// Type inference for the Duckstruct language. It does more than just inference.
-/// It acts as a partial evaluator for code during type checking.
-/// It also has the ability to refine parameter types based on the context of the function call.
+//! Type inference for the Duckstruct language. It does more than just inference.
+//! It acts as a partial evaluator for code during type checking.
+//! It also has the ability to refine parameter types based on the context of the function call.
 
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -625,6 +625,7 @@ impl TyCheck {
   }
 
   /// Infer `where` and `body` once with loop-shaped bindings (for diagnostics and codegen).
+  #[allow(clippy::too_many_arguments)]
   fn infer_for_shaped_subexprs(
     &mut self,
     scope: &mut Scope,
@@ -671,6 +672,7 @@ impl TyCheck {
     (where_shaped, body_shaped)
   }
 
+  #[allow(clippy::too_many_arguments)]
   fn infer_for(
     &mut self,
     scope: &mut Scope,
@@ -729,7 +731,7 @@ impl TyCheck {
     {
       if elem_idxs.len() == elem_tys.len() {
         let mut determinate_ok = true;
-        let mut running_acc = acc_init_typed.clone();
+        let mut running_acc = acc_init_typed;
         let mut last_body: Option<TypedDatabaseIdx> = None;
 
         for (k, elem_idx) in elem_idxs.iter().enumerate() {
@@ -737,7 +739,7 @@ impl TyCheck {
           scope.define(bind_name.clone(), *elem_idx);
 
           if let Some((acc_n, idx_n)) = fold_params {
-            let acc_val = running_acc.clone().expect("fold requires initializer");
+            let acc_val = running_acc.expect("fold requires initializer");
             scope.define(acc_n.clone(), acc_val);
             let i_lit = self.ty_db.alloc(TypedExpr::Number {
               val: Some(k as f64),
@@ -776,7 +778,7 @@ impl TyCheck {
             break;
           }
 
-          last_body = Some(body_typed.clone());
+          last_body = Some(body_typed);
           if fold_params.is_some() {
             running_acc = Some(body_typed);
           }
@@ -933,7 +935,7 @@ impl TyCheck {
       .iter()
       .map(|arg| self.infer_expr(scope, arg, module_map))
       .collect::<Vec<_>>();
-    self.infer_function_call_impl(scope, &lhs, &args, &ast, module_map)
+    self.infer_function_call_impl(scope, &lhs, &args, ast, module_map)
   }
 
   fn infer_function_call_impl(

@@ -53,7 +53,7 @@ impl<'l, 'input> Source<'l, 'input> {
   }
 
   fn at_trivia(&self) -> bool {
-    self.peek_kind_raw().map_or(false, TokenKind::is_trivia)
+    self.peek_kind_raw().is_some_and(TokenKind::is_trivia)
   }
 
   pub(crate) fn peek_token(&mut self) -> Option<&Token<'_>> {

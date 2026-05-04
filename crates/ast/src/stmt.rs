@@ -215,7 +215,7 @@ impl FunctionDef {
   }
 
   pub fn body(&self) -> Option<Expr> {
-    self.0.children().find_map(|e| Expr::cast(e))
+    self.0.children().find_map(Expr::cast)
   }
 
   pub fn func(&self) -> Option<Expr> {

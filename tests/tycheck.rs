@@ -1,7 +1,6 @@
 use ast::Root;
 use data_structures::FxIndexMap;
 use diagnostics as diag_emit;
-use insta;
 
 use parser::parse;
 use tycheck::{typed_hir::Ty, TyCheck};

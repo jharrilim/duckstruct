@@ -1,7 +1,6 @@
 //! Standard library `file` module (use file::{ read, write }).
 
 use ast::Root;
-use hir;
 use parser::parse;
 use tycheck::TyCheck;
 

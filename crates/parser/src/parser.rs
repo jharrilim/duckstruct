@@ -122,7 +122,7 @@ impl<'l, 'input> Parser<'l, 'input> {
   }
 
   fn at_recovery_set(&mut self) -> bool {
-    self.peek().map_or(false, |k| RECOVERY_SET.contains(&k))
+    self.peek().is_some_and(|k| RECOVERY_SET.contains(&k))
   }
 }
 

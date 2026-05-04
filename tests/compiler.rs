@@ -2,7 +2,6 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use compile::{resolve_entry_and_project_root, target_from_manifest_dir, Compiler, TargetLang};
-use insta;
 use serde::Serialize;
 
 pub fn codestub(path: &str) -> PathBuf {

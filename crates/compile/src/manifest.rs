@@ -93,7 +93,7 @@ impl Manifest {
 
 impl From<&str> for Manifest {
   fn from(s: &str) -> Self {
-    toml::from_str(&s).unwrap()
+    toml::from_str(s).unwrap()
   }
 }
 

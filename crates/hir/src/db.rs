@@ -26,8 +26,7 @@ impl Database {
   }
 
   pub fn defs_iter(&self) -> Vec<(&String, &Stmt)> {
-    let defs: Vec<(&String, &Stmt)> = self.defs.iter().map(|(k, v)| (k, v)).collect();
-    defs
+    self.defs.iter().collect()
   }
 
   pub fn lower(&mut self, ast: ast::Root) {
@@ -115,15 +114,15 @@ impl Database {
       match ast {
         ast::Expr::NumberLit(ast) => self.exprs.alloc(Expr::Number {
           n: ast.parse(),
-          ast: ast,
+          ast,
         }),
         ast::Expr::StringLit(ast) => self.exprs.alloc(Expr::String {
           s: ast.parse(),
-          ast: ast,
+          ast,
         }),
         ast::Expr::BooleanLit(ast) => self.exprs.alloc(Expr::Boolean {
           b: ast.parse(),
-          ast: ast,
+          ast,
         }),
         ast::Expr::VariableRef(ast) => self.exprs.alloc(Expr::VariableRef {
           var: ast.name(),

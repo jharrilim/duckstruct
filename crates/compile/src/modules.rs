@@ -7,8 +7,6 @@ use std::path::{Path, PathBuf};
 
 use ast::Root;
 use diagnostics::{bundle_from_parse_errors, emit_human_string, HumanEmitConfig};
-use duckstruct_std;
-use hir;
 use parser::parse;
 use tycheck::TyCheck;
 

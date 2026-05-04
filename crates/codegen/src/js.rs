@@ -110,7 +110,7 @@ impl<'tycheck> JsGenerator<'tycheck> {
       if self
         .external_functions
         .as_ref()
-        .map_or(false, |ext| ext.contains(name))
+        .is_some_and(|ext| ext.contains(name))
       {
         continue;
       }

@@ -251,6 +251,8 @@ impl<'tycheck> LlvmGenerator<'tycheck> {
     Ok(module)
   }
 
+  #[allow(clippy::too_many_arguments)]
+  #[allow(clippy::only_used_in_recursion)]
   fn compile_expr_with_locals<'ctx>(
     &self,
     expr: &TypedDatabaseIdx,
@@ -279,7 +281,7 @@ impl<'tycheck> LlvmGenerator<'tycheck> {
           let loaded = builder
             .build_load(context.f64_type(), *ptr, var)
             .map_err(|e| e.to_string())?;
-          return Ok(loaded.into());
+          return Ok(loaded);
         }
         Err(format!("unknown variable: {}", var))
       }
@@ -499,7 +501,7 @@ impl<'tycheck> LlvmGenerator<'tycheck> {
         let result = builder
           .build_select(cond_bool, then_f, else_f, "select")
           .map_err(|e| e.to_string())?;
-        Ok(result.into())
+        Ok(result)
       }
       TypedExpr::FunctionCall { def, args, ty, .. } => {
         if ty.has_value() {

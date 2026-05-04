@@ -10,7 +10,6 @@ use std::process::Command;
 
 use ast::Root;
 use codegen::{js::JsGenerator, CodeGenerator};
-use duckstruct_std;
 use hir::lower;
 use parser::parse;
 use tycheck::TyCheck;
@@ -111,7 +110,7 @@ impl Default for Compiler {
 
 impl Compiler {
   pub fn new() -> Self {
-    Compiler::default()
+    Self
   }
 
   pub fn compile_js(&self, source: &str) -> Result<String, String> {
