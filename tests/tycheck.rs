@@ -781,6 +781,8 @@ mod structs {
 }
 
 mod typecheck_diagnostics {
+  use std::collections::HashMap;
+
   use super::*;
 
   #[test]
@@ -892,10 +894,47 @@ mod typecheck_diagnostics {
 
     assert!(tycheck.diagnostics.has_errors(), "expected type error for invalid code");
     let first = tycheck.diagnostics.errors().next().unwrap();
+    let msg = first.message();
     assert!(
-      first.message().contains("Undefined variable") || first.message().contains("Cannot call"),
-      "expected error message, got: {}",
-      first.message()
+      msg.contains("Cannot call `x`") && msg.contains("it doesn't exist"),
+      "expected cannot-call message, got: {}",
+      msg
+    );
+  }
+
+  #[test]
+  fn cannot_call_suggests_module_when_pub_fn_exists_in_dependency() {
+    let dep_code = "pub f hello() = 1";
+    let root_dep = Root::cast(parse(dep_code).syntax()).unwrap();
+    let hir_dep = hir::lower(root_dep);
+    let mut dep_tc = TyCheck::new(hir_dep);
+    dep_tc.infer();
+
+    let entry_code = "hello()";
+    let root_entry = Root::cast(parse(entry_code).syntax()).unwrap();
+    let hir_entry = hir::lower(root_entry);
+    let mut map = HashMap::new();
+    map.insert("helper".to_string(), &dep_tc);
+
+    let mut entry_tc = TyCheck::new(hir_entry);
+    entry_tc.infer_with_modules(Some(&map), None, None, None);
+
+    let msg = entry_tc.diagnostics.errors().next().unwrap().message();
+    assert!(
+      msg.contains("Did you mean `helper::hello`"),
+      "expected import hint, got: {}",
+      msg
+    );
+  }
+
+  #[test]
+  fn cannot_call_non_function_value_shows_not_a_function() {
+    let tycheck = tycheck("let x = 1\nx()");
+    let msg = tycheck.diagnostics.errors().next().unwrap().message();
+    assert!(
+      msg.contains("Cannot call `x`") && msg.contains("it is not a function"),
+      "got: {}",
+      msg
     );
   }
 

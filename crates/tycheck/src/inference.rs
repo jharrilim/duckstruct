@@ -1029,6 +1029,67 @@ impl TyCheck {
     self.infer_function_call_impl(scope, &lhs, &args, ast, module_map)
   }
 
+  /// Callee text for user-facing call errors, e.g. `foo` or `a::b`.
+  fn function_call_callee_display_name(ast: &ast::expr::FunctionCall) -> Option<String> {
+    let f = ast.func()?;
+    match f {
+      AstExpr::VariableRef(v) => Some(v.name()),
+      AstExpr::PathExpr(p) => {
+        let segs = p.segments();
+        if segs.is_empty() {
+          None
+        } else {
+          Some(segs.join("::"))
+        }
+      }
+      _ => None,
+    }
+  }
+
+  /// Last path segment, for matching a `pub f name` export in a dependency.
+  fn basename_for_module_lookup(callee_display: &str) -> &str {
+    callee_display
+      .rsplit("::")
+      .next()
+      .unwrap_or(callee_display)
+  }
+
+  /// If a dependency module exports a public function with this basename, return `mod::name`.
+  fn suggest_module_path_for_function(
+    module_map: Option<&ModuleMap<'_>>,
+    function_basename: &str,
+  ) -> Option<String> {
+    let map = module_map?;
+    let mut keys: Vec<String> = map.keys().cloned().collect();
+    keys.sort();
+    for mod_name in keys {
+      let dep = map.get(&mod_name)?;
+      if matches!(
+        dep.ty_db.definition(function_basename),
+        Some(TypedStmt::FunctionDef { pub_vis: true, .. })
+      ) {
+        return Some(format!("{mod_name}::{function_basename}"));
+      }
+    }
+    None
+  }
+
+  fn message_cannot_call_undefined(
+    module_map: Option<&ModuleMap<'_>>,
+    callee_display: &str,
+  ) -> String {
+    let base = Self::basename_for_module_lookup(callee_display);
+    if let Some(suggested) = Self::suggest_module_path_for_function(module_map, base) {
+      format!("Cannot call `{callee_display}`; Did you mean `{suggested}`?")
+    } else {
+      format!("Cannot call `{callee_display}`; it doesn't exist.")
+    }
+  }
+
+  fn message_cannot_call_non_function(callee_display: &str) -> String {
+    format!("Cannot call `{callee_display}`; it is not a function.")
+  }
+
   fn infer_function_call_impl(
     &mut self,
     scope: &mut Scope,
@@ -1323,19 +1384,21 @@ impl TyCheck {
           }
         }
       }
-      // An error here means the user probably typo'd
+      // Callee inferred to Error (e.g. undefined identifier): message names the callee from AST.
       TypedExpr::Error => {
-        self.diagnostics.push_error("type::error",
-          format!("Cannot call `{:?}`", self.ty_db.expr(lhs)),
-          ast.span(),
-        );
+        let msg = match Self::function_call_callee_display_name(ast) {
+          Some(name) => Self::message_cannot_call_undefined(module_map, &name),
+          None => "Cannot call this expression; it doesn't exist.".to_string(),
+        };
+        self.diagnostics.push_error("type::error", msg, ast.span());
         self.ty_db.alloc(TypedExpr::Error)
       }
       _ => {
-        self.diagnostics.push_error("type::error",
-          format!("Cannot call `{:?}`", self.ty_db.expr(lhs)),
-          ast.span(),
-        );
+        let msg = match Self::function_call_callee_display_name(ast) {
+          Some(name) => Self::message_cannot_call_non_function(&name),
+          None => "Cannot call this expression; it is not a function.".to_string(),
+        };
+        self.diagnostics.push_error("type::error", msg, ast.span());
         self.ty_db.alloc(TypedExpr::Error)
       }
     }
