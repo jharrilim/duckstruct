@@ -1,24 +1,22 @@
 {
-	"name": "lsp-sample",
-	"description": "A language server example",
-	"author": "Microsoft Corporation",
+	"name": "duckstruct-vscode",
+	"description": "VS Code extension for Duckstruct",
+	"author": "jharrilim",
 	"license": "MIT",
-	"version": "1.0.0",
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/Microsoft/vscode-extension-samples"
-	},
-	"publisher": "vscode-samples",
-	"categories": [],
+	"version": "0.1.0",
+	"publisher": "jharrilim",
+	"categories": [
+		"Programming Languages",
+		"Other"
+	],
 	"keywords": [
-		"multi-root ready"
+		"duckstruct",
+		"language",
+		"server"
 	],
 	"engines": {
 		"vscode": "^1.75.0"
 	},
-	"activationEvents": [
-		"onLanguage:duckstruct"
-	],
 	"main": "./client/out/extension",
 	"contributes": {
 		"languages": [
@@ -62,7 +60,7 @@
 					"scope": "resource",
 					"type": "string",
 					"default": "ds",
-					"description": "Path to the Duckstruct CLI binary used for diagnostics (`check --json`). Default `ds` matches the workspace binary name; use an absolute path (e.g. target/debug/ds) if it is not on PATH."
+					"description": "Path to the Duckstruct CLI binary used for diagnostics (`check --json`). Default `ds` uses PATH; use an absolute path to the `ds` you build (e.g. from `cargo metadata` target_directory/debug/ds when CARGO_TARGET_DIR redirects workspace target/debug)."
 				}
 			}
 		}
@@ -72,6 +70,8 @@
 		"compile": "tsc -b",
 		"watch": "tsc -b -w",
 		"lint": "eslint ./client/src ./server/src --ext .ts,.tsx",
+		"package": "vsce package",
+		"publish": "vsce publish",
 		"postinstall": "cd client && npm install && cd ../server && npm install && cd ..",
 		"test": "sh ./scripts/e2e.sh"
 	},
@@ -80,6 +80,7 @@
 		"@types/node": "^16.11.7",
 		"@typescript-eslint/eslint-plugin": "^5.54.0",
 		"@typescript-eslint/parser": "^5.54.0",
+		"@vscode/vsce": "^3.9.1",
 		"eslint": "^8.35.0",
 		"mocha": "^9.2.1",
 		"typescript": "^4.9.5"

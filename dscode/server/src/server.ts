@@ -208,6 +208,8 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
 	const duckstructPath = settings.duckstructPath || defaultSettings.duckstructPath;
 	const source = textDocument.getText();
 
+	// Ranges come from `ds check --json`; point duckstructPath at a current `ds` (stale builds mis-map lines).
+
 	// Run check on the in-memory buffer so diagnostics match unsaved edits. The CLI reads stdin
 	// and honors env `DUCKSTRUCT_LSP_DOCUMENT_URI` for JSON / relatedInformation URIs.
 	const diagnostics: Diagnostic[] = await new Promise((resolve) => {

@@ -48,4 +48,18 @@ suite('Should get diagnostics', () => {
 			assert.strictEqual(actualDiagnostics[0].source, 'duckstruct');
 		}
 	});
+
+	test('Parse diagnostic range is on the bad statement line, not the comment (E2E)', async () => {
+		if (!process.env.DUCKSTRUCT_E2E_DS_PATH) {
+			return;
+		}
+		const uri = getDocUri('parse-span.ds');
+		await activate(uri);
+		const d = await waitForDiagnostics(uri, { min: 1, timeoutMs: 20_000 });
+		assert.ok(d.length >= 1, 'expected a parse diagnostic');
+		assert.ok(
+			d[0].range.start.line >= 2,
+			`expected first error on or after line 3 (0-based line >= 2), got line ${d[0].range.start.line} col ${d[0].range.start.character}: ${d[0].message}`
+		);
+	});
 });

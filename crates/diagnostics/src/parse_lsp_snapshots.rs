@@ -83,6 +83,21 @@ mod tests {
     insta::assert_snapshot!(snapshot_lsp_json(src, &bundle));
   }
 
+  /// Regression: leading `//` line + blank line + `let` + bad `x + 1)()` — primary spans must not map to line 0.
+  #[test]
+  fn parse_error_after_comment_snippet_lsp_line() {
+    let src = include_str!("../../../dscode/client/testFixture/parse-span.ds");
+    let bundle = bundle_from_parse_errors(&parse(src).errors);
+    let lsp = bundle_to_lsp_diagnostics(src, "file:///test.ds", &bundle);
+    assert!(
+      lsp[0].range.start.line >= 2,
+      "expected first parse error on `x + 1)()` line (LSP line >= 2), got line {} col {} msg={}",
+      lsp[0].range.start.line,
+      lsp[0].range.start.character,
+      lsp[0].message
+    );
+  }
+
   /// Parser test idiom: incomplete first `let`, recovery at second `let`.
   #[test]
   fn parse_let_x_newline_let_y_lsp_snapshot() {

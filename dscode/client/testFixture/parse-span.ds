@@ -1,0 +1,5 @@
+// Don't highlight here, highlight on the x + 1)() line!
+
+let x = 1 + 2
+x + 1)()
+print(x)
