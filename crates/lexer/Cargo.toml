@@ -7,6 +7,6 @@ edition = "2021"
 
 [dependencies]
 logos = "0.12.1"
-num-derive = "0.3.3"
+num-derive = "0.4.2"
 num-traits = "0.2.14"
 text-size = "1.0.0"

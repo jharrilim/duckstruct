@@ -16,8 +16,7 @@ pub fn add_print_implementation<'ctx>(
   print_fn: FunctionValue<'ctx>,
   f64_type: inkwell::types::FloatType<'ctx>,
 ) -> Result<(), String> {
-  let i8_type = context.i8_type();
-  let i8_ptr = i8_type.ptr_type(inkwell::AddressSpace::default());
+  let i8_ptr = context.ptr_type(inkwell::AddressSpace::default());
   let i32_type = context.i32_type();
   let printf_ty = i32_type.fn_type(&[i8_ptr.into()], true);
   let printf_fn = module.add_function("printf", printf_ty, None);
