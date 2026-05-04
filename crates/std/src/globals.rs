@@ -2,7 +2,7 @@
 //! functions, filtered by backend. The actual entries live in the registry built
 //! by `register_stdlib!` in `lib.rs`; this module just walks them.
 
-use tycheck::typed_hir::TypedExpr;
+use tycheck::typed_hir::{Ty, TypedExpr};
 
 use crate::registry::Backend;
 use crate::{MODULES, PRELUDE_EXTERNALS, PRELUDE_GLOBALS};
@@ -26,22 +26,37 @@ pub fn globals_for_backend(backend: Backend) -> Vec<(String, TypedExpr)> {
   out
 }
 
-/// Returns global external (builtin) function names and their parameter count for the
-/// given backend. LLVM: declared in the module and implemented/linked (e.g. print -> printf).
-/// JS: print is emitted as console.log by the codegen.
-pub fn external_functions_for_backend(backend: Backend) -> Vec<(String, usize)> {
+/// Full function types for global externals (e.g. `print`), for the typechecker and IDE.
+pub fn external_signatures_for_backend(backend: Backend) -> Vec<(String, Ty)> {
   let mut out = Vec::new();
   for e in PRELUDE_EXTERNALS.iter() {
     if e.backends.contains(backend) {
-      out.push((e.name.to_string(), e.params));
+      out.push((e.name.to_string(), (e.signature)()));
     }
   }
   for m in MODULES.iter() {
     for e in m.externals.iter() {
       if e.backends.contains(backend) {
-        out.push((e.name.to_string(), e.params));
+        out.push((e.name.to_string(), (e.signature)()));
       }
     }
   }
   out
+}
+
+/// Returns global external (builtin) function names and their parameter count for the
+/// given backend. LLVM: declared in the module and implemented/linked (e.g. print -> printf).
+/// JS: print is emitted as console.log by the codegen. Arity is derived from
+/// [`external_signatures_for_backend`].
+pub fn external_functions_for_backend(backend: Backend) -> Vec<(String, usize)> {
+  external_signatures_for_backend(backend)
+    .into_iter()
+    .filter_map(|(name, ty)| match ty {
+      Ty::Function { params, .. } => Some((name, params.len())),
+      _ => {
+        debug_assert!(false, "external signature for `{name}` must be Ty::Function");
+        None
+      }
+    })
+    .collect()
 }

@@ -62,13 +62,13 @@ impl TyCheck {
 
   /// Infers types with an optional module map for resolving imports and path refs,
   /// an optional prelude (e.g. stdlib globals) injected into the initial scope,
-  /// optional global external functions (name -> param count) that get function type in scope,
-  /// and optional built-in primitive methods (from `duckstruct-std`).
+  /// optional global external functions `(name, signature)` from `duckstruct-std` (each
+  /// [`Ty`] must be [`Ty::Function`]), and optional built-in primitive methods.
   pub fn infer_with_modules(
     &mut self,
     module_map: Option<&ModuleMap<'_>>,
     prelude: Option<&[(String, TypedExpr)]>,
-    external_functions: Option<&[(String, usize)]>,
+    external_functions: Option<&[(String, Ty)]>,
     primitive_methods: Option<&'static [PrimitiveMethodDescriptor]>,
   ) {
     self.primitive_methods = primitive_methods;
@@ -88,14 +88,17 @@ impl TyCheck {
       }
     }
     if let Some(ext_fns) = external_functions {
-      for (name, param_count) in ext_fns.iter() {
-        let ty = Ty::Function {
-          params: (0..*param_count).map(|_| Ty::Number(None)).collect(),
-          ret: Some(Box::new(Ty::Number(None))),
-        };
+      for (name, ty) in ext_fns.iter() {
+        if !matches!(ty, Ty::Function { .. }) {
+          debug_assert!(
+            false,
+            "duckstruct-std external `{name}` must use Ty::Function, got {ty}"
+          );
+          continue;
+        }
         let idx = self.ty_db.alloc(TypedExpr::VariableRef {
           var: name.clone(),
-          ty,
+          ty: ty.clone(),
         });
         self.ty_db.define(
           name.clone(),
@@ -224,8 +227,13 @@ impl TyCheck {
       },
       Expr::Block { stmts, .. } => return self.infer_block(scope, stmts, module_map),
       Expr::Boolean { b, .. } => TypedExpr::Boolean { val: Some(*b) },
-      Expr::Binary { op, lhs, rhs, .. } => {
-        return self.infer_binary(scope, op, lhs, rhs, module_map)
+      Expr::Binary {
+        op,
+        lhs,
+        rhs,
+        ast,
+      } => {
+        return self.infer_binary(scope, op, lhs, rhs, ast, module_map)
       }
       Expr::Unary { op, expr, ast } => {
         return self.infer_unary(scope, op, expr, ast, module_map)
@@ -1065,7 +1073,10 @@ impl TyCheck {
                 );
                 return self.ty_db.alloc(TypedExpr::Error);
               }
-              let ret_ty = ret.as_ref().map(|t| (**t).clone()).unwrap_or(Ty::Generic);
+              let ret_ty = ret
+                .as_ref()
+                .map(|t| (**t).clone())
+                .unwrap_or(Ty::Void);
               let ret_idx = self.ty_db.alloc(TypedExpr::VariableRef {
                 var: var.clone(),
                 ty: ret_ty.clone(),
@@ -1476,6 +1487,14 @@ impl TyCheck {
       hir::UnaryOp::Neg => match expr_ty {
         Ty::Number(Some(n)) => Ty::Number(Some(-n)),
         Ty::Number(None) => Ty::Number(None),
+        Ty::Void => {
+          self.diagnostics.push_error(
+            "type::error",
+            "cannot apply unary operator `-` to void".to_string(),
+            ast.span(),
+          );
+          Ty::Error
+        }
         _ => {
           self.diagnostics.push_error("type::error",
             format!("cannot apply unary operator `-` to type `{}`", expr_ty),
@@ -1495,6 +1514,14 @@ impl TyCheck {
         Ty::Object(_) => Ty::Boolean(Some(false)),
         Ty::Instance(_) => Ty::Boolean(None),
         Ty::Generic => Ty::Boolean(None),
+        Ty::Void => {
+          self.diagnostics.push_error(
+            "type::error",
+            "cannot apply unary operator `!` to void".to_string(),
+            ast.span(),
+          );
+          Ty::Error
+        }
         _ => {
           self.diagnostics.push_error("type::error",
             format!("cannot apply unary operator `!` to type `{}`", expr_ty),
@@ -1523,6 +1550,7 @@ impl TyCheck {
     op: &hir::BinaryOp,
     lhs_idx: &DatabaseIdx,
     rhs_idx: &DatabaseIdx,
+    ast: &ast::expr::BinaryExpr,
     module_map: Option<&ModuleMap<'_>>,
   ) -> TypedDatabaseIdx {
     let lhs_idx = self.infer_expr(scope, lhs_idx, module_map);
@@ -1532,6 +1560,19 @@ impl TyCheck {
 
     let lhs_ty = lhs.ty();
     let rhs_ty = rhs.ty();
+    if matches!(lhs_ty, Ty::Void) || matches!(rhs_ty, Ty::Void) {
+      self.diagnostics.push_error(
+        "type::error",
+        "cannot use void result (e.g. from `print(...)`) as a value".to_string(),
+        ast.span(),
+      );
+      return self.ty_db.alloc(TypedExpr::Binary {
+        op: op.into(),
+        lhs: lhs_idx,
+        rhs: rhs_idx,
+        ty: Ty::Error,
+      });
+    }
     let ty = match op {
       hir::BinaryOp::Add => match (lhs_ty, rhs_ty) {
         (Ty::Number(Some(lhs)), Ty::Number(Some(rhs))) => Ty::Number(Some(lhs + rhs)),

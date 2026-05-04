@@ -242,12 +242,13 @@ impl Compiler {
     } else {
       Some(prelude.as_slice())
     };
-    let global_external_fns = duckstruct_std::external_functions_for_backend(std_backend);
-    let global_external_fns_ref = if global_external_fns.is_empty() {
+    let global_external_sigs = duckstruct_std::external_signatures_for_backend(std_backend);
+    let global_external_sigs_ref = if global_external_sigs.is_empty() {
       None
     } else {
-      Some(global_external_fns.as_slice())
+      Some(global_external_sigs.as_slice())
     };
+    let global_external_fns = duckstruct_std::external_functions_for_backend(std_backend);
 
     let (code, llvm_object_path) = if modules::collect_use_deps(&ast).is_empty() {
       match target {
@@ -257,7 +258,7 @@ impl Compiler {
           tycheck.infer_with_modules(
             None,
             prelude_ref,
-            global_external_fns_ref,
+            global_external_sigs_ref,
             Some(duckstruct_std::PRIMITIVE_METHODS),
           );
           if tycheck.diagnostics.has_errors() {
@@ -287,7 +288,7 @@ impl Compiler {
             tycheck.infer_with_modules(
               None,
               prelude_ref,
-              global_external_fns_ref,
+              global_external_sigs_ref,
               Some(duckstruct_std::PRIMITIVE_METHODS),
             );
             if tycheck.diagnostics.has_errors() {
@@ -329,7 +330,7 @@ impl Compiler {
       entry_tycheck.infer_with_modules(
         Some(&module_map),
         prelude_ref,
-        global_external_fns_ref,
+        global_external_sigs_ref,
         Some(duckstruct_std::PRIMITIVE_METHODS),
       );
       if entry_tycheck.diagnostics.has_errors() {

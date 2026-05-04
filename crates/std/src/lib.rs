@@ -6,6 +6,7 @@
 //!   2. Add a single line to the `register_stdlib!` invocation below.
 //!
 //! Adding a prelude global or external is a single-line change to the same invocation.
+//! Externals register a `fn() -> Ty` signature (must be [`Ty::Function`]); see `prelude_print_ty`.
 //!
 //! Built-in methods on primitives (e.g. array `length`, `push`) are listed in
 //! `primitive_methods::PRIMITIVE_METHODS` and passed through `TyCheck::infer_with_modules`
@@ -16,7 +17,9 @@ mod globals;
 mod primitive_methods;
 mod registry;
 
-pub use globals::{external_functions_for_backend, globals_for_backend};
+pub use globals::{
+  external_functions_for_backend, external_signatures_for_backend, globals_for_backend,
+};
 pub use primitive_methods::PRIMITIVE_METHODS;
 pub use registry::Backend;
 
@@ -39,7 +42,7 @@ pub fn js_runtime_for_ids(ids: &std::collections::HashSet<&'static str>) -> Stri
 }
 
 use registry::build_module_tycheck;
-use tycheck::typed_hir::TypedExpr;
+use tycheck::typed_hir::{Ty, TypedExpr};
 
 /// Result of loading a stdlib module: name and type-checked state.
 /// The compile crate converts this into its LoadedModule when needed.
@@ -51,14 +54,15 @@ pub struct StdlibModule {
 
 /// Declarative registry for the duckstruct stdlib. Expands to the per-module
 /// `mod` declarations plus the static slices consumed by `is_stdlib_module`,
-/// `load_stdlib_module`, `globals_for_backend`, and `external_functions_for_backend`.
+/// `load_stdlib_module`, `globals_for_backend`, `external_signatures_for_backend`, and
+/// `external_functions_for_backend`.
 ///
 /// Grammar:
 /// ```ignore
 /// register_stdlib! {
 ///   prelude {
 ///     globals { NAME = factory_fn, backends = (ALL|JS|LLVM|NONE); ... }
-///     externals { NAME(arity), backends = (ALL|JS|LLVM|NONE); ... }
+///     externals { NAME = fn() -> Ty, backends = (ALL|JS|LLVM|NONE); ... }
 ///   }
 ///   modules {
 ///     name => path::to::DESCRIPTOR;
@@ -73,7 +77,7 @@ macro_rules! register_stdlib {
         $( $g_name:ident = $g_factory:path , backends = $g_backends:ident ; )*
       }
       externals {
-        $( $e_name:ident ( $e_params:literal ) , backends = $e_backends:ident ; )*
+        $( $e_name:ident = $e_sig:path , backends = $e_backends:ident ; )*
       }
     }
     modules {
@@ -100,8 +104,8 @@ macro_rules! register_stdlib {
       $(
         $crate::registry::ExternalDescriptor {
           name: stringify!($e_name),
-          params: $e_params,
           backends: $crate::registry::BackendSet::$e_backends,
+          signature: $e_sig,
         },
       )*
     ];
@@ -114,13 +118,21 @@ fn pi_value() -> TypedExpr {
   }
 }
 
+/// Type of the prelude `print` builtin (`console.log` / LLVM stub).
+fn prelude_print_ty() -> Ty {
+  Ty::Function {
+    params: vec![Ty::Generic],
+    ret: None,
+  }
+}
+
 register_stdlib! {
   prelude {
     globals {
       PI = pi_value, backends = LLVM;
     }
     externals {
-      print(1), backends = ALL;
+      print = prelude_print_ty, backends = ALL;
     }
   }
   modules {
@@ -282,12 +294,20 @@ mod tests {
   #[test]
   fn prelude_externals_present_for_both_backends() {
     for b in [Backend::Js, Backend::Llvm] {
-      let exts = external_functions_for_backend(b);
+      let exts = external_signatures_for_backend(b);
       let print = exts
         .iter()
         .find(|(n, _)| n == "print")
         .unwrap_or_else(|| panic!("print should be present for {:?}", b));
-      assert_eq!(print.1, 1, "print arity for {:?}", b);
+      let ty_str = print.1.to_string();
+      assert!(
+        ty_str.contains("generic") && ty_str.contains("void"),
+        "print should be (generic) => void for {:?}, got {ty_str}",
+        b
+      );
+      let arities = external_functions_for_backend(b);
+      let arity = arities.iter().find(|(n, _)| n == "print").map(|(_, a)| *a);
+      assert_eq!(arity, Some(1), "print arity for {:?}", b);
     }
   }
 }

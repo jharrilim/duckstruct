@@ -10,6 +10,7 @@ use diagnostics::{
 };
 use hir::lower;
 use parser::parse;
+use syntax::{SyntaxKind, SyntaxNode, SyntaxToken, TextSize};
 use tycheck::typed_hir::Ty;
 use tycheck::TyCheck;
 
@@ -521,19 +522,195 @@ fn std_backend_from_manifest_dir(project_root: Option<&Path>) -> ManifestBackend
 
 fn prelude_and_externals(
   backend: ManifestBackend,
-) -> (Vec<(String, tycheck::typed_hir::TypedExpr)>, Vec<(String, usize)>) {
+) -> (
+  Vec<(String, tycheck::typed_hir::TypedExpr)>,
+  Vec<(String, tycheck::typed_hir::Ty)>,
+) {
   let std_backend = match backend {
     ManifestBackend::Js => duckstruct_std::Backend::Js,
     ManifestBackend::Llvm => duckstruct_std::Backend::Llvm,
   };
   let prelude = duckstruct_std::globals_for_backend(std_backend);
-  let ext = duckstruct_std::external_functions_for_backend(std_backend);
+  let ext = duckstruct_std::external_signatures_for_backend(std_backend);
   (prelude, ext)
 }
 
 /// Hover text: use full [`Ty`] formatting so structural types (e.g. objects with fields) stay visible.
 fn format_ty_for_hover(ty: &Ty) -> String {
   format!("{}", ty)
+}
+
+/// First line: module path; second: type in a `duckstruct` fence (editor highlighting when supported).
+/// If `documentation` is non-empty, a horizontal rule and the doc follow.
+fn format_hover_markdown(module: &str, ty: &str, documentation: Option<&str>) -> String {
+  let mut s = String::new();
+  s.push_str("**");
+  s.push_str(module);
+  s.push_str("**\n\n");
+  s.push_str("```duckstruct\n");
+  s.push_str(ty);
+  s.push_str("\n```");
+  if let Some(doc) = documentation {
+    let doc = doc.trim();
+    if !doc.is_empty() {
+      s.push_str("\n\n---\n\n");
+      s.push_str(doc);
+    }
+  }
+  s
+}
+
+/// Project-relative path as `a::b::file` (file stem), or the file stem when `project_root` is missing.
+fn duckstruct_module_display(file_path: &Path, project_root: Option<&Path>) -> String {
+  if let Some(root) = project_root {
+    if let Ok(rel) = file_path.strip_prefix(root) {
+      let path = rel.with_extension("");
+      let parts: Vec<String> = path
+        .components()
+        .filter_map(|c| match c {
+          std::path::Component::Normal(os) => os.to_str().map(str::to_string),
+          _ => None,
+        })
+        .filter(|s| !s.is_empty())
+        .collect();
+      if !parts.is_empty() {
+        return parts.join("::");
+      }
+    }
+  }
+  file_path
+    .file_stem()
+    .and_then(|s| s.to_str())
+    .unwrap_or("main")
+    .to_string()
+}
+
+fn hover_token_at_offset(root: &Root, byte_offset: usize) -> Option<SyntaxToken> {
+  let root_node = root.syntax();
+  let pos = TextSize::try_from(byte_offset).ok()?;
+  root_node.token_at_offset(pos).right_biased()
+}
+
+/// Statement (or import) node whose leading trivia is the doc comment for this binding/decl.
+fn doc_comment_anchor_ancestor(token: &SyntaxToken) -> Option<SyntaxNode> {
+  let mut n = token.parent()?;
+  loop {
+    match n.kind() {
+      SyntaxKind::LetStatement
+      | SyntaxKind::NamedFunction
+      | SyntaxKind::StructStatement
+      | SyntaxKind::UseStatement => return Some(n),
+      SyntaxKind::Root => return None,
+      _ => n = n.parent()?,
+    }
+  }
+}
+
+/// Leading `//` / `/* */` block attached to the syntax anchor containing `byte_offset` in `root`.
+fn leading_docs_for_token_in_root(root: &Root, byte_offset: usize) -> Option<String> {
+  let token = hover_token_at_offset(root, byte_offset)?;
+  let anchor = doc_comment_anchor_ancestor(&token)?;
+  let first = anchor.first_token()?;
+  preceding_trivia_docs_before_token(first)
+}
+
+fn path_from_file_uri(uri: &str) -> Option<PathBuf> {
+  let rest = uri.strip_prefix("file://")?;
+  // `file:///abs/path` on Unix; Windows may use `file:///C:/...`
+  let p = if cfg!(windows) {
+    PathBuf::from(rest.trim_start_matches('/'))
+  } else {
+    PathBuf::from(rest)
+  };
+  Some(p)
+}
+
+fn paths_point_to_same_file(a: &Path, b: &Path) -> bool {
+  let ca = a.canonicalize().unwrap_or_else(|_| a.to_path_buf());
+  let cb = b.canonicalize().unwrap_or_else(|_| b.to_path_buf());
+  ca == cb
+}
+
+fn lsp_start_to_byte_offset(source: &str, start: &LspPositionJson) -> Option<usize> {
+  line_character_utf16_to_byte_offset(source, start.line, start.character)
+}
+
+/// Docs from the comment block before the **definition** at `def` (same or other file on disk).
+fn leading_docs_for_definition_location(
+  def: &IdeLocationJson,
+  entry_source: &str,
+  entry_path: &Path,
+  entry_root: &Root,
+) -> Option<String> {
+  let def_path = path_from_file_uri(&def.uri)?;
+  if paths_point_to_same_file(&def_path, entry_path) {
+    let off = lsp_start_to_byte_offset(entry_source, &def.range.start)?;
+    return leading_docs_for_token_in_root(entry_root, off);
+  }
+  let dep_src = std::fs::read_to_string(&def_path).ok()?;
+  let dep_parse = parse(&dep_src);
+  if !dep_parse.errors.is_empty() {
+    return None;
+  }
+  let dep_root = Root::cast(dep_parse.syntax())?;
+  let off = lsp_start_to_byte_offset(&dep_src, &def.range.start)?;
+  leading_docs_for_token_in_root(&dep_root, off)
+}
+
+/// Trivia for hover: use leading comments at the **definition** when go-to-def resolves
+/// (so references show the same doc as the decl), else comments at the cursor.
+fn hover_documentation(
+  root: &Root,
+  source: &str,
+  file_path: &Path,
+  byte_offset: usize,
+  definition: Option<&IdeLocationJson>,
+) -> Option<String> {
+  if let Some(def) = definition {
+    if let Some(doc) = leading_docs_for_definition_location(def, source, file_path, root) {
+      if !doc.trim().is_empty() {
+        return Some(doc);
+      }
+    }
+  }
+  leading_docs_for_token_in_root(root, byte_offset)
+}
+
+fn preceding_trivia_docs_before_token(first: SyntaxToken) -> Option<String> {
+  let mut lines: Vec<String> = Vec::new();
+  let mut t = first.prev_token();
+  while let Some(tok) = t {
+    match tok.kind() {
+      SyntaxKind::Whitespace => {
+        if tok.text().contains("\n\n") {
+          break;
+        }
+        t = tok.prev_token();
+      }
+      SyntaxKind::Comment => {
+        let text = tok.text().trim();
+        if let Some(rest) = text.strip_prefix("//") {
+          lines.push(rest.trim().to_string());
+        } else if text.starts_with("/*") {
+          let inner = text
+            .trim_start_matches("/*")
+            .trim_end_matches("*/")
+            .trim();
+          if !inner.is_empty() {
+            lines.push(inner.to_string());
+          }
+        }
+        t = tok.prev_token();
+      }
+      _ => break,
+    }
+  }
+  lines.reverse();
+  if lines.is_empty() {
+    None
+  } else {
+    Some(lines.join("\n"))
+  }
 }
 
 /// Hover on a `let` binding identifier (top-level only: matches [`TypedDatabase::definition`]).
@@ -774,14 +951,7 @@ pub fn ide_query_at_position(
     }
   };
 
-  let hover = tycheck
-    .hir_db
-    .as_ref()
-    .ref_hir_idx_at_byte_offset(byte_offset)
-    .and_then(|idx| tycheck.ty_at_hir_expr(&idx))
-    .map(|ty| format_ty_for_hover(&ty))
-    .or_else(|| hover_top_level_let_binding_name(&root, byte_offset, &tycheck));
-
+  let module = duckstruct_module_display(file_path, project_root);
   let definition = ide_goto_definition(
     &root,
     source,
@@ -789,6 +959,21 @@ pub fn ide_query_at_position(
     project_root,
     byte_offset,
   );
+  let doc = hover_documentation(
+    &root,
+    source,
+    file_path,
+    byte_offset,
+    definition.as_ref(),
+  );
+  let hover = tycheck
+    .hir_db
+    .as_ref()
+    .ref_hir_idx_at_byte_offset(byte_offset)
+    .and_then(|idx| tycheck.ty_at_hir_expr(&idx))
+    .map(|ty| format_ty_for_hover(&ty))
+    .or_else(|| hover_top_level_let_binding_name(&root, byte_offset, &tycheck))
+    .map(|ty| format_hover_markdown(&module, &ty, doc.as_deref()));
 
   IdeQueryResult {
     hover,
@@ -951,7 +1136,10 @@ mod tests {
     fs::write(&main_ds, src).unwrap();
     let r = ide_query_at_position(src, &main_ds, None, 1, 0);
     assert!(r.error.is_none(), "{:?}", r.error);
-    assert_eq!(r.hover.as_deref(), Some("1"));
+    assert_eq!(
+      r.hover.as_deref(),
+      Some("**main**\n\n```duckstruct\n1\n```")
+    );
     let def = r.definition.expect("goto x");
     assert!(def.uri.contains("main.ds"));
     assert_eq!(def.range.start.line, 0);
@@ -973,9 +1161,43 @@ mod tests {
     // Second line: `ONE` path ref at column 0
     let r = ide_query_at_position(main_src, &main_ds, None, 1, 0);
     assert!(r.error.is_none(), "{:?}", r.error);
-    assert_eq!(r.hover.as_deref(), Some("1"));
+    assert_eq!(
+      r.hover.as_deref(),
+      Some("**main**\n\n```duckstruct\n1\n```")
+    );
     let def = r.definition.expect("goto ONE");
     assert!(def.uri.contains("helper.ds"));
+  }
+
+  #[test]
+  fn ide_hover_on_reference_shows_declaration_doc() {
+    let dir = tempdir().unwrap();
+    let main_ds = dir.path().join("main.ds");
+    let src = "// About x\nlet x = 1\nx\n";
+    fs::write(&main_ds, src).unwrap();
+    // Line 2: reference to `x`
+    let r = ide_query_at_position(src, &main_ds, None, 2, 0);
+    assert!(r.error.is_none(), "{:?}", r.error);
+    let h = r.hover.expect("hover on ref");
+    assert!(
+      h.contains("About x"),
+      "expected declaration doc on reference hover, got: {h}"
+    );
+  }
+
+  #[test]
+  fn ide_hover_includes_preceding_line_doc() {
+    let dir = tempdir().unwrap();
+    let main_ds = dir.path().join("main.ds");
+    let src = "// doc line\nlet x = 1\n";
+    fs::write(&main_ds, src).unwrap();
+    let pos = src.find("let x").expect("let x") + "let ".len();
+    let (line, col) = byte_offset_to_line_character_utf16(src, pos);
+    let r = ide_query_at_position(src, &main_ds, None, line, col);
+    assert!(r.error.is_none(), "{:?}", r.error);
+    let h = r.hover.expect("hover");
+    assert!(h.contains("---\n\n"), "expected ruler + doc, got: {h}");
+    assert!(h.contains("doc line"), "got: {h}");
   }
 
   #[test]

@@ -27,4 +27,9 @@ impl Root {
   pub fn stmts(&self) -> impl Iterator<Item = Stmt> {
     self.0.children().filter_map(Stmt::cast)
   }
+
+  /// Underlying syntax tree (e.g. for IDE trivia / position queries).
+  pub fn syntax(&self) -> SyntaxNode {
+    self.0.clone()
+  }
 }

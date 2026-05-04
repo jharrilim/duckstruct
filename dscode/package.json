@@ -5,6 +5,10 @@
 	"license": "MIT",
 	"version": "0.1.0",
 	"publisher": "jharrilim",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/jharrilim/duckstruct"
+	},
 	"categories": [
 		"Programming Languages",
 		"Other"

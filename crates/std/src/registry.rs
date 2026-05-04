@@ -6,7 +6,7 @@
 
 use ast::Root;
 use parser::parse;
-use tycheck::typed_hir::TypedExpr;
+use tycheck::typed_hir::{Ty, TypedExpr};
 use tycheck::TyCheck;
 
 /// Backend selector for which prelude items to surface.
@@ -76,12 +76,23 @@ pub struct GlobalDescriptor {
 }
 
 /// A top-level external (builtin) function, e.g. `print`. Bodies are provided by
-/// the codegen backend; only the name + arity is part of the registry.
-#[derive(Debug)]
+/// the codegen backend. The typechecker uses [`ExternalDescriptor::signature`];
+/// [`globals::external_functions_for_backend`] derives arity for LLVM declarations from it.
+#[derive(Copy, Clone)]
 pub struct ExternalDescriptor {
   pub name: &'static str,
-  pub params: usize,
   pub backends: BackendSet,
+  /// Must return [`Ty::Function`]. Invoked when assembling the prelude for a backend.
+  pub signature: fn() -> Ty,
+}
+
+impl std::fmt::Debug for ExternalDescriptor {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.debug_struct("ExternalDescriptor")
+      .field("name", &self.name)
+      .field("backends", &self.backends)
+      .finish_non_exhaustive()
+  }
 }
 
 /// Parse + lower + typecheck the source for a stdlib module. Shared by every

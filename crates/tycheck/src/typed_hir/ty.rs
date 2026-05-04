@@ -15,6 +15,8 @@ pub enum Ty {
   },
   /// Nominal instance of a struct (displayed as the struct name).
   Instance(String),
+  /// No meaningful value (e.g. result of `print(...)`).
+  Void,
   Generic,
   Error,
 }
@@ -39,6 +41,7 @@ impl Ty {
       (Ty::Array(_), Ty::Array(_)) => true,
       (Ty::Object(_), Ty::Object(_)) => true,
       (Ty::Instance(a), Ty::Instance(b)) => a == b,
+      (Ty::Void, Ty::Void) => true,
       (
         Ty::Function { params, ret },
         Ty::Function {
@@ -78,6 +81,7 @@ impl Ty {
         ret: ret.as_ref().map(|r| Box::new(r.deconst())),
       },
       Ty::Instance(name) => Ty::Instance(name.clone()),
+      Ty::Void => Ty::Void,
       Ty::Generic => Ty::Generic,
       Ty::Error => Ty::Error,
     }
@@ -92,6 +96,7 @@ impl Ty {
       Ty::Object(Some(val)) => Truthiness::Known(!val.is_empty()),
       Ty::Function { .. } => Truthiness::Known(true),
       Ty::Instance(_) => Truthiness::Unknown,
+      Ty::Void => Truthiness::Unknown,
       Ty::Generic => Truthiness::Unknown,
       Ty::Error => Truthiness::Unknown,
       _ => Truthiness::Unknown,
@@ -160,6 +165,7 @@ impl Ty {
         params_ok && ret_ok
       }
       (Ty::Instance(r), Ty::Instance(a)) => r == a,
+      (Ty::Void, Ty::Void) => true,
       _ => false,
     }
   }
@@ -273,7 +279,7 @@ impl Display for Ty {
         if let Some(ret) = ret {
           write!(f, "{}", ret)
         } else {
-          write!(f, "unknown")
+          write!(f, "void")
         }
       }
       Ty::Number(None) => write!(f, "number"),
@@ -282,6 +288,7 @@ impl Display for Ty {
       Ty::Array(None) => write!(f, "array"),
       Ty::Object(None) => write!(f, "object"),
       Ty::Instance(name) => write!(f, "{}", name),
+      Ty::Void => write!(f, "void"),
       Ty::Generic => write!(f, "generic"),
       Ty::Error => write!(f, "error"),
     }

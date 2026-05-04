@@ -450,7 +450,7 @@ connection.onHover(async (params): Promise<Hover | null> => {
 	return {
 		contents: {
 			kind: MarkupKind.Markdown,
-			value: '`' + h + '`'
+			value: h
 		}
 	};
 });
