@@ -575,4 +575,16 @@ mod tests {
     );
     assert!(out.is_ok(), "compile should succeed, got: {:?}", out.err());
   }
+
+  #[test]
+  fn js_compile_trait_method_call_dispatches() {
+    let out = Compiler::new().compile_js(
+      "trait Increment { f inc(value); } impl Increment for number { f inc(value) { value + 1 } } let x = 1.inc(); x",
+    );
+    assert!(
+      out.is_ok(),
+      "trait method dispatch compile should succeed, got: {:?}",
+      out.err()
+    );
+  }
 }

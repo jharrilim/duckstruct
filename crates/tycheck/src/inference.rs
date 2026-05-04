@@ -40,6 +40,7 @@ pub struct TyCheck {
   pub(crate) primitive_methods: Option<&'static [PrimitiveMethodDescriptor]>,
   trait_requirements: FxIndexMap<String, FxIndexMap<String, usize>>,
   impl_registry: HashSet<(String, String)>,
+  trait_impl_methods: HashMap<(String, String, String), TypedDatabaseIdx>,
   struct_names: HashSet<String>,
 }
 
@@ -61,6 +62,7 @@ impl TyCheck {
       primitive_methods: None,
       trait_requirements: FxIndexMap::default(),
       impl_registry: HashSet::default(),
+      trait_impl_methods: HashMap::default(),
       struct_names,
     }
   }
@@ -558,6 +560,20 @@ impl TyCheck {
         }
       }
       ty => {
+        if matches!(
+          ty,
+          Ty::Generic
+            | Ty::Instance(_)
+            | Ty::Number(_)
+            | Ty::String(_)
+            | Ty::Boolean(_)
+        ) {
+          return self.ty_db.alloc(TypedExpr::ObjectFieldAccess {
+            object: typed_object,
+            field: field.to_string(),
+            ty: Ty::Generic,
+          });
+        }
         match self.query_object_name(object) {
           Some(name) => {
             if let Some(similar_name) = scope.def_name_similar_to(name) {
@@ -1358,6 +1374,22 @@ impl TyCheck {
             }
           }
         }
+        // Resolution precedence (current phase):
+        // 1) direct object / primitive methods
+        // 2) trait methods
+        // Future: typed parameter trait bounds should be able to override this precedence.
+        if !matches!(object_ty, Ty::Object(_)) {
+          if let Some((impl_fn, include_receiver)) =
+            self.lookup_static_trait_method(&object_ty, field.as_str(), args.len())
+          {
+            let mut call_args = Vec::with_capacity(args.len() + usize::from(include_receiver));
+            if include_receiver {
+              call_args.push(object);
+            }
+            call_args.extend(args.iter().copied());
+            return self.infer_function_call_impl(scope, &impl_fn, &call_args, ast, module_map);
+          }
+        }
         match self.ty_db.expr(&object) {
           TypedExpr::FunctionParameter { .. } => {
           if let Err(message) =
@@ -1366,13 +1398,7 @@ impl TyCheck {
             self.diagnostics.push_error("type::error", message, ast.span());
             return self.ty_db.alloc(TypedExpr::Error);
           }
-          let ret = self.ty_db.alloc(TypedExpr::Unresolved);
-          self.ty_db.alloc(TypedExpr::FunctionCall {
-            args: args.clone(),
-            def: *lhs,
-            ret,
-            ty: Ty::Generic,
-          })
+          self.make_dynamic_method_call(object, &field, args)
         }
         TypedExpr::VariableRef { var, ty } => match scope.def(var) {
           Some(def) => match self.ty_db.expr(&def) {
@@ -1380,9 +1406,11 @@ impl TyCheck {
               let field = *fields.get(&field).unwrap();
               self.infer_function_call_impl(scope, &field, args, ast, module_map)
             }
-            TypedExpr::Unresolved => *lhs,
-            TypedExpr::VariableRef { .. } => *lhs,
-            TypedExpr::FunctionParameter { .. } => *lhs,
+            TypedExpr::Unresolved => self.make_dynamic_method_call(object, &field, args),
+            TypedExpr::VariableRef { .. } => self.make_dynamic_method_call(object, &field, args),
+            TypedExpr::FunctionParameter { .. } => {
+              self.make_dynamic_method_call(object, &field, args)
+            }
             _ => {
               self.diagnostics.push_error("type::error",
                 format!("Cannot call field `{}` on non-object type `{}`", field, ty),
@@ -1392,10 +1420,7 @@ impl TyCheck {
             }
           },
           None => {
-            self
-              .diagnostics
-              .push_error("type::error", format!("Undefined variable `{}`", var), ast.span());
-            self.ty_db.alloc(TypedExpr::Error)
+            self.make_dynamic_method_call(object, &field, args)
           }
         },
         TypedExpr::Object { fields, ty: _ } => match fields.get(&field) {
@@ -1411,16 +1436,7 @@ impl TyCheck {
             self.ty_db.alloc(TypedExpr::Error)
           }
         },
-        _ => {
-          self.diagnostics.push_error("type::error",
-            format!(
-              "Cannot call function on non-object. {} {:#?}",
-              field, object
-            ),
-            ast.span(),
-          );
-          self.ty_db.alloc(TypedExpr::Error)
-        }
+        _ => self.make_dynamic_method_call(object, &field, args),
       }
       },
       TypedExpr::Block { stmts, ty: _ } => {
@@ -1870,6 +1886,7 @@ impl TyCheck {
     };
 
     let mut impl_signatures = FxIndexMap::default();
+    let mut impl_method_idxs = FxIndexMap::default();
     for method in methods {
       let (params, body, ast) = match self.hir_db.get_expr(&method.value).clone() {
         Expr::Function {
@@ -1880,7 +1897,7 @@ impl TyCheck {
         } => (params, body, ast),
         _ => continue,
       };
-      self.infer_function(
+      let fn_idx = self.infer_function(
         scope,
         &Some(method.name.clone()),
         &params,
@@ -1889,11 +1906,15 @@ impl TyCheck {
         module_map,
       );
       impl_signatures.insert(method.name.clone(), params.len());
+      impl_method_idxs.insert(method.name.clone(), fn_idx);
     }
 
     for (required_name, required_arity) in required_methods {
+      let mut valid_for_dispatch = false;
       match impl_signatures.get(&required_name) {
-        Some(arity) if *arity == required_arity => {}
+        Some(arity) if *arity == required_arity => {
+          valid_for_dispatch = true;
+        }
         Some(arity) => {
           self.diagnostics.push_error(
             "type::trait_method_mismatch",
@@ -1914,7 +1935,82 @@ impl TyCheck {
           );
         }
       }
+      if valid_for_dispatch {
+        if let Some(fn_idx) = impl_method_idxs.get(&required_name) {
+        self.trait_impl_methods.insert(
+          (
+            trait_name.to_string(),
+            for_type.to_string(),
+            required_name.clone(),
+          ),
+          *fn_idx,
+        );
+      }
+      }
     }
+  }
+
+  fn receiver_type_key(ty: &Ty) -> Option<String> {
+    match ty {
+      Ty::Instance(name) => Some(name.clone()),
+      Ty::Number(_) => Some("number".to_string()),
+      Ty::String(_) => Some("string".to_string()),
+      Ty::Boolean(_) => Some("boolean".to_string()),
+      Ty::Array(_) => Some("array".to_string()),
+      Ty::Object(_) => Some("object".to_string()),
+      _ => None,
+    }
+  }
+
+  fn make_dynamic_method_call(
+    &mut self,
+    receiver: TypedDatabaseIdx,
+    method: &str,
+    args: &[TypedDatabaseIdx],
+  ) -> TypedDatabaseIdx {
+    self.ty_db.alloc(TypedExpr::DynamicMethodCall {
+      receiver,
+      method: method.to_string(),
+      args: args.to_vec(),
+      ty: Ty::Generic,
+    })
+  }
+
+  /// Returns impl function index and whether to inject the receiver as arg0.
+  fn lookup_static_trait_method(
+    &self,
+    receiver_ty: &Ty,
+    method: &str,
+    arg_count: usize,
+  ) -> Option<(TypedDatabaseIdx, bool)> {
+    let for_type = Self::receiver_type_key(receiver_ty)?;
+    let mut found: Option<(TypedDatabaseIdx, bool)> = None;
+    for (trait_name, reqs) in &self.trait_requirements {
+      let Some(required_arity) = reqs.get(method) else {
+        continue;
+      };
+      let Some(fn_idx) = self.trait_impl_methods.get(&(
+        trait_name.clone(),
+        for_type.clone(),
+        method.to_string(),
+      )) else {
+        continue;
+      };
+      let include_receiver = *required_arity > 0;
+      let expected_args = if include_receiver {
+        required_arity.saturating_sub(1)
+      } else {
+        0
+      };
+      if expected_args != arg_count {
+        continue;
+      }
+      if found.is_some() {
+        return None;
+      }
+      found = Some((*fn_idx, include_receiver));
+    }
+    found
   }
 
   fn query_object_name(&self, idx: &DatabaseIdx) -> Option<&str> {

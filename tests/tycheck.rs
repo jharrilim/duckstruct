@@ -860,6 +860,61 @@ mod traits {
       "expected type::trait_method_mismatch diagnostic"
     );
   }
+
+  #[test]
+  fn trait_method_call_dispatches_to_primitive_impl() {
+    let code = "
+      trait Increment {
+        f inc(value);
+      }
+
+      impl Increment for number {
+        f inc(value) { value + 1 }
+      }
+
+      let x = 1.inc()
+    ";
+    let tycheck = tycheck(code);
+    expect_type_for_definition(&tycheck, "x", Ty::Number(Some(2.0)));
+  }
+
+  #[test]
+  fn trait_method_call_dispatches_to_struct_impl() {
+    let code = "
+      trait Ping {
+        f ping(receiver);
+      }
+
+      struct Foo { }
+
+      impl Ping for Foo {
+        f ping(receiver) { 1 }
+      }
+
+      let obj = new Foo { };
+      let x = obj.ping()
+    ";
+    let tycheck = tycheck(code);
+    expect_type_for_definition(&tycheck, "x", Ty::Number(Some(1.0)));
+  }
+
+  #[test]
+  fn direct_object_method_wins_over_trait_dispatch() {
+    let code = "
+      trait Hello {
+        f hello(target);
+      }
+
+      impl Hello for object {
+        f hello(target) { \"trait\" }
+      }
+
+      let o = new { hello: f() = \"direct\" };
+      let x = o.hello()
+    ";
+    let tycheck = tycheck(code);
+    expect_type_for_definition(&tycheck, "x", Ty::String(Some("direct".to_string())));
+  }
 }
 
 mod typecheck_diagnostics {

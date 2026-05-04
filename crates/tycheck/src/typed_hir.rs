@@ -110,6 +110,13 @@ pub enum TypedExpr {
     field: String,
     ty: Ty,
   },
+  /// Method-call fallback when dispatch can't be resolved statically.
+  DynamicMethodCall {
+    receiver: TypedDatabaseIdx,
+    method: String,
+    args: Vec<TypedDatabaseIdx>,
+    ty: Ty,
+  },
   For {
     binding: String,
     iterable: TypedDatabaseIdx,
@@ -148,6 +155,7 @@ impl TypedExpr {
       Self::Conditional { ty, .. } => ty.clone(),
       Self::Object { ty, .. } => ty.clone(),
       Self::ObjectFieldAccess { ty, .. } => ty.clone(),
+      Self::DynamicMethodCall { ty, .. } => ty.clone(),
       Self::For { ty, .. } => ty.clone(),
       Self::StructConstructor { name } => Ty::Function {
         params: vec![],
@@ -175,6 +183,7 @@ impl TypedExpr {
       Self::Conditional { ty, .. } => ty,
       Self::Object { ty, .. } => ty,
       Self::ObjectFieldAccess { ty, .. } => ty,
+      Self::DynamicMethodCall { ty, .. } => ty,
       Self::For { ty, .. } => ty,
       Self::StructConstructor { .. } => unimplemented!(),
       Self::StructInstance { .. } => unimplemented!(),

@@ -248,19 +248,31 @@ impl<'tycheck> JsGenerator<'tycheck> {
           format!("console.log({})", args_str)
         } else {
           let lhs = match self.tycheck.ty_db.expr(def) {
-            TypedExpr::FunctionDef(FunctionDef { name, .. }) => match name {
-              Some(s) => s.clone(),
-              None => "".to_string(),
-            },
+            TypedExpr::FunctionDef(FunctionDef { name: Some(n), .. })
+              if self.tycheck.ty_db.definition(n).is_some() =>
+            {
+              n.clone()
+            }
             TypedExpr::VariableRef { var, .. } => var.clone(),
             TypedExpr::StructConstructor { name } => name.clone(),
-            _ => {
-              let expr = self.tycheck.ty_db.expr(def);
-              expr.ty().to_string()
-            }
+            _ => format!("({})", self.generate_expr(def)),
           };
           format!("{}({})", lhs, args_str)
         }
+      }
+      TypedExpr::DynamicMethodCall {
+        receiver,
+        method,
+        args,
+        ..
+      } => {
+        let recv = self.generate_expr(receiver);
+        let args_str = args
+          .iter()
+          .map(|a| self.generate_expr(a))
+          .collect::<Vec<_>>()
+          .join(", ");
+        format!("{}.{}({})", recv, method, args_str)
       }
       TypedExpr::Number { val: Some(val) } => val.to_string(),
       TypedExpr::Number { val } => todo!(),

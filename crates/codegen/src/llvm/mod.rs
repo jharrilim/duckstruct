@@ -613,6 +613,9 @@ impl<'tycheck> LlvmGenerator<'tycheck> {
       }
       TypedExpr::Object { .. } => Err("LLVM backend: objects not yet supported".to_string()),
       TypedExpr::ObjectFieldAccess { .. } => Err("LLVM backend: object field access not yet supported".to_string()),
+      TypedExpr::DynamicMethodCall { .. } => {
+        Err("LLVM backend: dynamic method dispatch not yet supported".to_string())
+      }
       TypedExpr::For { .. } => Err("LLVM backend: for loops not yet supported".to_string()),
       TypedExpr::Unresolved => Err("LLVM backend: unresolved expression".to_string()),
       TypedExpr::Error => Err("LLVM backend: typed expression error".to_string()),
